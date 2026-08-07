@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Declares the .art launcher file type so the desktop environment hands those
+  files to LavArtemis. The art:// scheme itself needs no entry here; it is
+  claimed by x-scheme-handler/art in the .desktop file.
+-->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-lavartemis-shortcut">
+    <comment>LavArtemis app shortcut</comment>
+    <glob pattern="*.art"/>
+    <!-- Files written by the Android client start with this banner. Keep the
+         magic weak enough that a hand-written file without it still matches on
+         the glob alone. -->
+    <magic priority="40">
+      <match type="string" value="# Artemis app entry" offset="0"/>
+    </magic>
+  </mime-type>
+</mime-info>

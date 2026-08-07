@@ -85,9 +85,18 @@ Target parseUrl(const QString& url)
     }
 
     target.kind = Target::Pair;
-    target.host = parsed.port() != -1
-                      ? QStringLiteral("%1:%2").arg(parsed.host()).arg(parsed.port())
-                      : parsed.host();
+
+    // QUrl::host() strips the brackets from an IPv6 literal, so they have to go
+    // back on before a port is appended. Without them "::1" plus port 47989
+    // becomes "::1:47989", which is not an address anything can parse. This is
+    // the same shape NvAddress::toString() produces.
+    QString host = parsed.host();
+    if (parsed.port() != -1) {
+        host = host.contains(QLatin1Char(':'))
+                   ? QStringLiteral("[%1]:%2").arg(host).arg(parsed.port())
+                   : QStringLiteral("%1:%2").arg(host).arg(parsed.port());
+    }
+    target.host = host;
     target.pin = pin;
     target.passphrase = query.queryItemValue(QLatin1String("passphrase"), QUrl::FullyDecoded);
     return target;

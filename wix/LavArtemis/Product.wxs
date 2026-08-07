@@ -101,6 +101,32 @@
       </Component>
     </DirectoryRef>
 
+    <!-- art:// links, so a browser or a desktop shortcut can pair with a host
+         or launch an app directly. Registered under HKCU because the rest of
+         this package's per-user state lives there too. -->
+    <Component Id="ArtUrlScheme" Directory="INSTALLFOLDER">
+      <RegistryValue Root="HKCU" Key="Software\Classes\art"
+                     Value="URL:LavArtemis Protocol" Type="string" KeyPath="yes" />
+      <RegistryValue Root="HKCU" Key="Software\Classes\art"
+                     Name="URL Protocol" Value="" Type="string" />
+      <RegistryValue Root="HKCU" Key="Software\Classes\art\DefaultIcon"
+                     Value="&quot;[#LavArtemisExe]&quot;,0" Type="string" />
+      <RegistryValue Root="HKCU" Key="Software\Classes\art\shell\open\command"
+                     Value="&quot;[#LavArtemisExe]&quot; &quot;%1&quot;" Type="string" />
+    </Component>
+
+    <!-- .art launcher files, the same format the Android client exports. -->
+    <Component Id="ArtFileAssociation" Directory="INSTALLFOLDER">
+      <RegistryValue Root="HKCU" Key="Software\Classes\.art"
+                     Value="LavArtemis.Shortcut" Type="string" KeyPath="yes" />
+      <RegistryValue Root="HKCU" Key="Software\Classes\LavArtemis.Shortcut"
+                     Value="LavArtemis app shortcut" Type="string" />
+      <RegistryValue Root="HKCU" Key="Software\Classes\LavArtemis.Shortcut\DefaultIcon"
+                     Value="&quot;[#LavArtemisExe]&quot;,0" Type="string" />
+      <RegistryValue Root="HKCU" Key="Software\Classes\LavArtemis.Shortcut\shell\open\command"
+                     Value="&quot;[#LavArtemisExe]&quot; &quot;%1&quot;" Type="string" />
+    </Component>
+
     <ComponentGroup Id="ArtemisDependencies" Directory="INSTALLFOLDER">
       <Files Include="$(var.DeployDir)\**" />
     </ComponentGroup>
@@ -109,6 +135,8 @@
       <ComponentRef Id="LavArtemis" />
       <ComponentRef Id="ArtemisShortcuts" />
       <ComponentRef Id="ArtemisDesktopShortcut" />
+      <ComponentRef Id="ArtUrlScheme" />
+      <ComponentRef Id="ArtFileAssociation" />
       <ComponentGroupRef Id="ArtemisDependencies" />
     </Feature>
 

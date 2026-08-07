@@ -562,7 +562,12 @@ unix:!macx: {
     appstream.files = deploy/linux/com.lavartemis.LavArtemis.appdata.xml
     appstream.path = $$PREFIX/$$DATADIR/metainfo/
 
-    INSTALLS += target desktop icons appstream
+    # Declares the .art launcher file type. The art:// scheme needs no entry
+    # here, it is claimed by x-scheme-handler/art in the .desktop file.
+    mime.files = deploy/linux/com.lavartemis.LavArtemis.xml
+    mime.path = $$PREFIX/$$DATADIR/mime/packages/
+
+    INSTALLS += target desktop icons appstream mime
 }
 win32 {
     RC_ICONS = lavartemis.ico

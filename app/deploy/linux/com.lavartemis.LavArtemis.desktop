@@ -1,9 +1,10 @@
 [Desktop Entry]
 Name=LavArtemis
 Comment=Stream games and other applications from another PC running Apollo, Sunshine or GeForce Experience
-Exec=lavartemis
+Exec=lavartemis %u
 Icon=lavartemis
 Terminal=false
 Type=Application
 Categories=Qt;Game;Network;RemoteAccess;
 Keywords=nvidia;gamestream;stream;apollo;sunshine;remote play;
+MimeType=x-scheme-handler/art;application/x-lavartemis-shortcut;
