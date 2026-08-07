@@ -197,9 +197,12 @@ void QuickMenuManager::quit()
     qDebug() << "QuickMenuManager: Quit requested";
     emit quitRequested();
     
-    // Set flag to exit after quit and send quit event
+    // Set flag to exit after quit and send quit event.
+    // Upstream folded Artemis's setShouldExitAfterQuit() into setShouldExit(),
+    // where passing true forces the host app to be quit regardless of the
+    // "quit app after" preference. Same path Ctrl+Alt+Shift+E already takes.
     if (Session::get()) {
-        Session::get()->setShouldExitAfterQuit();
+        Session::get()->setShouldExit(true);
     }
     
     SDL_Event quitEvent;
