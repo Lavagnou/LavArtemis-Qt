@@ -47,12 +47,12 @@ if defined CI_VERSION (
 )
 
 rem Ensure that all architectures have been built before the final bundle
-if not exist "%BUILD_ROOT%\build-x64-%BUILD_CONFIG%\Moonlight.msi" (
+if not exist "%BUILD_ROOT%\build-x64-%BUILD_CONFIG%\LavArtemis.msi" (
     echo Unable to build bundle - missing binaries for %BUILD_CONFIG% x64
     echo You must run 'build-arch.bat %BUILD_CONFIG% x64' first
     exit /b 1
 )
-if not exist "%BUILD_ROOT%\build-arm64-%BUILD_CONFIG%\Moonlight.msi" (
+if not exist "%BUILD_ROOT%\build-arm64-%BUILD_CONFIG%\LavArtemis.msi" (
     echo Unable to build bundle - missing binaries for %BUILD_CONFIG% arm64
     echo You must run 'build-arch.bat %BUILD_CONFIG% arm64' first
     exit /b 1
@@ -73,13 +73,13 @@ if !ERRORLEVEL! NEQ 0 goto Error
 
 echo Building bundle
 rem Bundles are always x86 binaries
-cmd /c "set VERSION= && msbuild -Restore %SOURCE_ROOT%\wix\MoonlightSetup\MoonlightSetup.wixproj /p:Configuration=%BUILD_CONFIG% /p:Platform=x86 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\"
+cmd /c "set VERSION= && msbuild -Restore %SOURCE_ROOT%\wix\LavArtemisSetup\LavArtemisSetup.wixproj /p:Configuration=%BUILD_CONFIG% /p:Platform=x86 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\"
 if !ERRORLEVEL! NEQ 0 goto Error
 
 rem Rename the installer to match the publishing convention
-ren %INSTALLER_FOLDER%\MoonlightSetup.exe MoonlightSetup-%VERSION%.exe
+ren %INSTALLER_FOLDER%\LavArtemisSetup.exe LavArtemisSetup-%VERSION%.exe
 
-echo Build successful for Moonlight v%VERSION% installer!
+echo Build successful for LavArtemis v%VERSION% installer!
 exit /b 0
 
 :Error

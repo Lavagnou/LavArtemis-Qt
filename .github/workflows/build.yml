@@ -1,45 +1,102 @@
 ---
+# Compile check for LavArtemis-Qt.
+#
+# This only proves the client builds. Release artifacts are produced by the
+# unified workflow in Lavagnou/LavArtemis, which consumes this repository as the
+# desktop/ submodule and publishes Android + desktop under a single tag.
 name: Build
+
 permissions:
   contents: read
 
 on:
   push:
+    branches: [main]
   pull_request:
-    branches:
-      - master
+    branches: [main]
+  workflow_dispatch:
 
 concurrency:
-  group: build-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    outputs:
-      ci_version: ${{ steps.set-ci-version.outputs.ci_version }}
+  windows:
+    name: Windows ${{ matrix.arch }}
+    runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+    env:
+      QT_VERSION: 6.11.1
+
     steps:
-      - name: Set CI version
-        id: set-ci-version
-        shell: bash
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+        with:
+          submodules: 'recursive'
+          fetch-depth: 1
+
+      - name: Download prebuilt dependencies
+        run: powershell ./setup-deps.ps1
+
+      - name: Install Qt (host x64)
+        uses: jurplel/install-qt-action@v4
+        with:
+          cache: true
+          set-env: false
+          add-tools-to-path: false
+          version: ${{ env.QT_VERSION }}
+          aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@073e34d7c2ab4ae6961ed7cca690b3abd5ba5a7e'
+
+      - name: Install Qt (arm64 cross)
+        if: matrix.arch == 'arm64'
+        uses: jurplel/install-qt-action@v4
+        with:
+          cache: true
+          set-env: false
+          add-tools-to-path: false
+          arch: win64_msvc2022_arm64_cross_compiled
+          version: ${{ env.QT_VERSION }}
+
+      - name: Build ${{ matrix.arch }}
+        shell: cmd
         run: |
-          CI_VERSION=`echo ${GITHUB_SHA} | cut -c1-6`
-          echo "ci_version=${CI_VERSION}" >> "${GITHUB_OUTPUT}"
+          set "PATH=%QT_PATH%;%PATH%"
+          scripts\build-arch.bat Release ${{ matrix.arch }}
+        env:
+          QT_PATH: ${{ runner.workspace }}\Qt\${{ env.QT_VERSION }}\msvc2022_${{ matrix.arch == 'x64' && '64' || 'arm64' }}\bin
 
-  build-appimage:
-    needs: setup
-    uses: ./.github/workflows/build-appimage.yml
-    with:
-      ci_version: ${{ needs.setup.outputs.ci_version }}
+      - name: Upload binaries
+        uses: actions/upload-artifact@v6
+        with:
+          name: LavArtemis-Windows-${{ matrix.arch }}
+          path: build/deploy-${{ matrix.arch }}-release/*
+          if-no-files-found: error
 
-  build-steamlink:
-    needs: setup
-    uses: ./.github/workflows/build-steamlink.yml
-    with:
-      ci_version: ${{ needs.setup.outputs.ci_version }}
+  linux:
+    name: Linux compile check
+    runs-on: ubuntu-22.04
 
-  build-windows-macos:
-    needs: setup
-    uses: ./.github/workflows/build-win-mac.yml
-    with:
-      ci_version: ${{ needs.setup.outputs.ci_version }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+        with:
+          submodules: 'recursive'
+          fetch-depth: 1
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            qt6-base-dev qt6-declarative-dev libqt6svg6-dev qt6-wayland \
+            libegl1-mesa-dev libgl1-mesa-dev libopus-dev libsdl2-dev \
+            libsdl2-ttf-dev libssl-dev libavcodec-dev libavformat-dev \
+            libswscale-dev libva-dev libvdpau-dev libxkbcommon-dev \
+            wayland-protocols libdrm-dev
+
+      - name: Build
+        run: |
+          qmake6 lavartemis.pro
+          make -j$(nproc) release
