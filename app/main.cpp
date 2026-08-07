@@ -57,6 +57,7 @@
 #include "backend/clipboardmanager.h"
 #include "backend/servercommandmanager.h"
 #include "backend/quickmenumanager.h"
+#include "settings/artemissettings.h"
 
 #if defined(Q_OS_WIN32)
 #define IS_UNSPECIFIED_HANDLE(x) ((x) == INVALID_HANDLE_VALUE || (x) == NULL)
@@ -978,6 +979,9 @@ int main(int argc, char *argv[])
                                                [](QQmlEngine*, QJSEngine*) -> QObject* {
                                                    return new QuickMenuManager();
                                                });
+    qmlRegisterSingletonType<ArtemisSettings>("ArtemisSettings", 1, 0,
+                                              "ArtemisSettings",
+                                              &ArtemisSettings::create);
 
     // Create the identity manager on the main thread
     IdentityManager::get();

@@ -9,6 +9,7 @@ import SdlGamepadKeyNavigation 1.0
 import SystemProperties 1.0
 import ClipboardManager 1.0
 import ServerCommandManager 1.0
+import ArtemisSettings 1.0
 
 Flickable {
     id: settingsPage
@@ -87,12 +88,14 @@ Flickable {
 
         // Save the prefs so the Session can observe the changes
         StreamingPreferences.save()
+        ArtemisSettings.save()
     }
 
     Component.onDestruction: {
         // Also save preferences on destruction, since we won't get a
         // deactivating callback if the user just closes Moonlight
         StreamingPreferences.save()
+        ArtemisSettings.save()
     }
 
     Column {
@@ -2033,6 +2036,82 @@ Flickable {
                 ClipboardSettings {
                     id: clipboardSettings
                     width: parent.width
+                }
+
+                GroupBox {
+                    width: parent.width
+                    padding: 12
+                    title: "<font color=\"skyblue\">" + qsTr("Streaming Performance") + "</font>"
+                    font.pointSize: 12
+
+                    Column {
+                        anchors.fill: parent
+                        spacing: 8
+
+                        CheckBox {
+                            id: perfCsvLoggingCheck
+                            text: qsTr("Log performance data to a CSV file")
+                            font.pointSize: 12
+                            checked: ArtemisSettings.perfCsvLoggingEnabled
+                            onCheckedChanged: {
+                                ArtemisSettings.perfCsvLoggingEnabled = checked
+                            }
+
+                            ToolTip.delay: 1000
+                            ToolTip.timeout: 5000
+                            ToolTip.visible: hovered
+                            ToolTip.text: qsTr("Writes one row per second with FPS, decode time, network latency and frame pacing percentiles.") + "\n\n" +
+                                          qsTr("The file uses the same columns as the Android client, so runs from both can be compared directly.") + "\n\n" +
+                                          qsTr("Only enable this while measuring. It has a small but non-zero cost.")
+                        }
+
+                        Label {
+                            width: parent.width
+                            text: qsTr("One file per stream, saved to the application data folder as stream-perf-[timestamp].csv")
+                            font.pointSize: 9
+                            wrapMode: Text.Wrap
+                            color: "#aaaaaa"
+                        }
+
+                        Row {
+                            spacing: 10
+                            width: parent.width
+
+                            Label {
+                                text: qsTr("Audio buffer limit:")
+                                font.pointSize: 10
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            Slider {
+                                id: maxPendingAudioSlider
+                                from: 10
+                                to: 100
+                                stepSize: 5
+                                snapMode: Slider.SnapAlways
+                                value: ArtemisSettings.maxPendingAudioMs
+
+                                onValueChanged: {
+                                    ArtemisSettings.maxPendingAudioMs = value
+                                }
+                            }
+
+                            Label {
+                                text: maxPendingAudioSlider.value + " ms"
+                                font.pointSize: 10
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 50
+                            }
+                        }
+
+                        Label {
+                            width: parent.width
+                            text: qsTr("Audio samples are dropped once this much audio is already queued for playback. Lower values cut audio latency; higher values tolerate a less stable connection without crackling.")
+                            font.pointSize: 9
+                            wrapMode: Text.Wrap
+                            color: "#aaaaaa"
+                        }
+                    }
                 }
 
                 // Note about Server Commands

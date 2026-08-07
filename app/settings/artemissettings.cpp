@@ -39,7 +39,13 @@ ArtemisSettings* ArtemisSettings::create(QQmlEngine *qmlEngine, QJSEngine *jsEng
 {
     Q_UNUSED(qmlEngine)
     Q_UNUSED(jsEngine)
-    return instance();
+
+    // We hand out the process-wide singleton, which C++ callers reach through
+    // instance() without going near the QML engine. Claim ownership explicitly
+    // so engine teardown doesn't delete it and leave s_instance dangling.
+    ArtemisSettings* settings = instance();
+    QQmlEngine::setObjectOwnership(settings, QQmlEngine::CppOwnership);
+    return settings;
 }
 
 void ArtemisSettings::save()
