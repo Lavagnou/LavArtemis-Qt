@@ -706,7 +706,7 @@ NvHTTP::sendClipboardContent(const QString& content)
 #endif
 
         // Send POST request with clipboard content
-        QNetworkReply* reply = m_Nam.post(request, content.toUtf8());
+        QNetworkReply* reply = m_Nam->post(request, content.toUtf8());
 
         // Wait for response with timeout
         QEventLoop loop;
