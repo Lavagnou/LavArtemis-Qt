@@ -1176,8 +1176,8 @@ bool D3D11VARenderer::createOverlayVertexBuffer(Overlay::OverlayType type, int w
     }
     else if (type == Overlay::OverlayServerCommands) {
         // Center
-        renderRect.x = (m_DisplayWidth - newSurface->w) / 2;
-        renderRect.y = (m_DisplayHeight - newSurface->h) / 2;
+        renderRect.x = (m_DisplayWidth - width) / 2;
+        renderRect.y = (m_DisplayHeight - height) / 2;
     } else {
         SDL_assert(false);
     }
