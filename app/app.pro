@@ -203,6 +203,7 @@ SOURCES += \
     settings/mappingmanager.cpp \
     gui/sdlgamepadkeynavigation.cpp \
     streaming/video/overlaymanager.cpp \
+    streaming/video/pacingstats.cpp \
     backend/systemproperties.cpp \
     backend/clipboardmanager.cpp \
     backend/servercommandmanager.cpp \
@@ -247,6 +248,7 @@ HEADERS += \
     settings/mappingmanager.h \
     gui/sdlgamepadkeynavigation.h \
     streaming/video/overlaymanager.h \
+    streaming/video/pacingstats.h \
     backend/systemproperties.h \
     backend/clipboardmanager.h \
     backend/servercommandmanager.h \

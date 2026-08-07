@@ -2,6 +2,7 @@
 
 #include "../../decoder.h"
 #include "../renderer.h"
+#include "streaming/video/pacingstats.h"
 
 #include <QQueue>
 #include <QMutex>
@@ -43,6 +44,13 @@ public:
 
     void renderOnMainThread();
 
+    // Present-to-present pacing percentiles, for the stats overlay and the
+    // perf CSV. Safe to call from any thread.
+    PacingStats::Snapshot getPacingSnapshot()
+    {
+        return m_PacingStats.snapshot();
+    }
+
 private:
     static int vsyncThread(void* context);
 
@@ -75,4 +83,5 @@ private:
     int m_DisplayFps;
     PVIDEO_STATS m_VideoStats;
     int m_RendererAttributes;
+    PacingStats m_PacingStats;
 };

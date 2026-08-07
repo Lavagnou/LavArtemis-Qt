@@ -362,6 +362,27 @@ int Session::drSetup(int videoFormat, int width, int height, int frameRate, void
 
 int Session::drSubmitDecodeUnit(PDECODE_UNIT du)
 {
+#ifndef STEAM_LINK
+    // Raise the video depacketizer thread's priority once, on first use.
+    // moonlight-common-c creates it at default priority, so under CPU contention
+    // its scheduling delay lands directly on end-to-end video latency. The audio
+    // callback already does the same thing for its own thread.
+    //
+    // Skipped on Steam Link for the same reason as audio: CPU time is scarce
+    // enough there that boosting starves other threads.
+    {
+        static thread_local bool priorityBoosted = false;
+        if (!priorityBoosted) {
+            priorityBoosted = true;
+            if (SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH) < 0) {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                            "Unable to set video depacketizer thread to high priority: %s",
+                            SDL_GetError());
+            }
+        }
+    }
+#endif
+
     // Use a lock since we'll be yanking this decoder out
     // from underneath the session when we initiate destruction.
     // We need to destroy the decoder on the main thread to satisfy
@@ -446,7 +467,13 @@ void Session::getDecoderInfo(SDL_Window* window,
 
         // Try AV1 Main8 as fallback to check for general AV1 hardware support
         // This allows AV1 to work even if 10-bit/HDR is not supported
+        //
+        // FIXME: This probe records nothing - it instantiates a decoder and
+        // throws it away. Left in place (with the renderer selection argument
+        // upstream added) rather than removed as part of a build fix, but it
+        // costs startup time for no benefit and should either set a flag or go.
         if (chooseDecoder(StreamingPreferences::VDS_FORCE_HARDWARE,
+                          StreamingPreferences::RS_PROBE_ONLY,
                           window, VIDEO_FORMAT_AV1_MAIN8, 1920, 1080, 60,
                           false, false, true, decoder)) {
             delete decoder;

@@ -342,6 +342,10 @@ void Pacer::renderFrame(AVFrame* frame)
     m_VideoStats->totalRenderTimeUs += (afterRender - beforeRender);
     m_VideoStats->renderedFrames++;
 
+    // Sample the present cadence here, which matches what LavArtemis for Android
+    // measures: the moment the frame is handed off, not actual scanout.
+    m_PacingStats.recordPresent(afterRender * 1000);
+
     // Wait until after next frame to free this one to ensure the GPU
     // doesn't stall or read garbage if the backing buffer gets returned
     // to the pool and the decoder tries to write a new frame into it
