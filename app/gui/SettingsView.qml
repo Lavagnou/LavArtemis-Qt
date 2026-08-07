@@ -10,6 +10,7 @@ import SystemProperties 1.0
 import ClipboardManager 1.0
 import ServerCommandManager 1.0
 import ArtemisSettings 1.0
+import ProfileManager 1.0
 
 Flickable {
     id: settingsPage
@@ -98,11 +99,169 @@ Flickable {
         ArtemisSettings.save()
     }
 
+    NavigableDialog {
+        id: profileNameDialog
+
+        // Empty means we're creating rather than renaming.
+        property string renamingId: ""
+
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        onOpened: {
+            profileNameField.text = renamingId !== "" ? ProfileManager.activeProfileName : ""
+            profileNameField.forceActiveFocus()
+        }
+
+        onClosed: profileNameField.clear()
+
+        onAccepted: {
+            if (!profileNameField.text) {
+                return
+            }
+
+            if (renamingId !== "") {
+                ProfileManager.renameProfile(renamingId, profileNameField.text)
+            }
+            else {
+                // Take a full snapshot: switch to the new profile first, then
+                // save, so it starts out matching what is in effect right now
+                // instead of inheriting piecemeal from the global settings.
+                var id = ProfileManager.createProfile(profileNameField.text)
+                ProfileManager.setActiveProfile(id)
+                StreamingPreferences.save()
+            }
+        }
+
+        ColumnLayout {
+            Label {
+                text: profileNameDialog.renamingId !== "" ? qsTr("Rename this profile:")
+                                                          : qsTr("Name for the new profile:")
+                font.bold: true
+            }
+
+            TextField {
+                id: profileNameField
+                Layout.fillWidth: true
+                focus: true
+
+                Keys.onReturnPressed: profileNameDialog.accept()
+                Keys.onEnterPressed: profileNameDialog.accept()
+            }
+        }
+    }
+
+    NavigableMessageDialog {
+        id: deleteProfileDialog
+        standardButtons: Dialog.Yes | Dialog.No
+        text: qsTr("Delete the profile '%1'? The settings saved in it will be lost.").arg(ProfileManager.activeProfileName)
+        onAccepted: ProfileManager.deleteProfile(ProfileManager.activeProfileId)
+    }
+
     Column {
         padding: 10
         id: settingsColumn1
         width: settingsPage.width / 2
         spacing: 15
+
+        GroupBox {
+            id: profileGroupBox
+            width: (parent.width - (parent.leftPadding + parent.rightPadding))
+            padding: 12
+            title: "<font color=\"skyblue\">" + qsTr("Settings Profile") + "</font>"
+            font.pointSize: 12
+
+            Column {
+                anchors.fill: parent
+                spacing: 8
+
+                Label {
+                    width: parent.width
+                    text: qsTr("Keep several named sets of settings and switch between them, for example a LAN profile and a remote one.") + "\n" +
+                          qsTr("The streaming settings below follow the selected profile. Clipboard sync and the LavArtemis performance options stay global.")
+                    font.pointSize: 9
+                    wrapMode: Text.Wrap
+                    color: "#cccccc"
+                }
+
+                AutoResizingComboBox {
+                    id: profileComboBox
+                    maximumWidth: 400
+                    textRole: "text"
+
+                    // Index 0 is always the profile-less global settings.
+                    model: {
+                        var entries = [{ text: qsTr("Global settings (no profile)"), id: "" }]
+                        var profiles = ProfileManager.profiles
+                        for (var i = 0; i < profiles.length; i++) {
+                            entries.push({ text: profiles[i].name, id: profiles[i].id })
+                        }
+                        return entries
+                    }
+
+                    // Not a currentIndex binding: selecting an item assigns
+                    // currentIndex imperatively, which would break the binding
+                    // for good. Recompute on every model rebuild instead.
+                    function syncSelection() {
+                        for (var i = 0; i < model.length; i++) {
+                            if (model[i].id === ProfileManager.activeProfileId) {
+                                currentIndex = i
+                                return
+                            }
+                        }
+                        currentIndex = 0
+                    }
+
+                    Component.onCompleted: {
+                        syncSelection()
+                        recalculateWidth()
+                    }
+
+                    onModelChanged: {
+                        syncSelection()
+                        recalculateWidth()
+                    }
+
+                    onActivated: function(index) {
+                        // Declaring onActivated here replaces the base component's
+                        // handler, so its width recalculation has to be repeated.
+                        recalculateWidth()
+
+                        // Persist what is on screen before the switch, otherwise
+                        // pending edits would be written into the wrong profile.
+                        StreamingPreferences.save()
+                        ArtemisSettings.save()
+                        ProfileManager.setActiveProfile(model[index].id)
+                    }
+                }
+
+                Row {
+                    spacing: 8
+
+                    Button {
+                        text: qsTr("New")
+                        onClicked: {
+                            profileNameDialog.renamingId = ""
+                            profileNameDialog.open()
+                        }
+                    }
+
+                    Button {
+                        text: qsTr("Rename")
+                        enabled: ProfileManager.activeProfileId !== ""
+                        onClicked: {
+                            profileNameDialog.renamingId = ProfileManager.activeProfileId
+                            profileNameDialog.open()
+                        }
+                    }
+
+                    Button {
+                        text: qsTr("Delete")
+                        enabled: ProfileManager.activeProfileId !== ""
+                        onClicked: deleteProfileDialog.open()
+                    }
+                }
+            }
+        }
 
         GroupBox {
             id: basicSettingsGroupBox

@@ -277,6 +277,10 @@ private:
 
     QString getSuffixFromLanguage(Language lang);
 
+    // Fires every property's NOTIFY signal, for when the whole set changes at
+    // once and there was no individual assignment to trigger them.
+    void notifyAllPropertiesChanged();
+
     QQmlEngine* m_QmlEngine;
 };
 

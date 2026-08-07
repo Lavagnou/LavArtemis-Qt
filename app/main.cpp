@@ -58,6 +58,7 @@
 #include "backend/servercommandmanager.h"
 #include "backend/quickmenumanager.h"
 #include "settings/artemissettings.h"
+#include "settings/profilemanager.h"
 
 #if defined(Q_OS_WIN32)
 #define IS_UNSPECIFIED_HANDLE(x) ((x) == INVALID_HANDLE_VALUE || (x) == NULL)
@@ -982,6 +983,9 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonType<ArtemisSettings>("ArtemisSettings", 1, 0,
                                               "ArtemisSettings",
                                               &ArtemisSettings::create);
+    qmlRegisterSingletonType<ProfileManager>("ProfileManager", 1, 0,
+                                             "ProfileManager",
+                                             &ProfileManager::create);
 
     // Create the identity manager on the main thread
     IdentityManager::get();

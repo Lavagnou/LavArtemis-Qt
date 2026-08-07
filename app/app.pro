@@ -211,6 +211,7 @@ SOURCES += \
     backend/quickmenumanager.cpp \
     backend/otppairingmanager.cpp \
     settings/artemissettings.cpp \
+    settings/profilemanager.cpp \
     wm.cpp
 
 HEADERS += \
@@ -255,7 +256,8 @@ HEADERS += \
     backend/serverpermissions.h \
     backend/quickmenumanager.h \
     backend/otppairingmanager.h \
-    settings/artemissettings.h
+    settings/artemissettings.h \
+    settings/profilemanager.h
 
 # Platform-specific renderers and decoders
 ffmpeg {

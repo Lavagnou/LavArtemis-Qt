@@ -1,6 +1,8 @@
 #include "streamingpreferences.h"
+#include "profilemanager.h"
 #include "utils.h"
 
+#include <QMetaProperty>
 #include <QSettings>
 #include <QTranslator>
 #include <QCoreApplication>
@@ -71,6 +73,14 @@ StreamingPreferences::StreamingPreferences(QQmlEngine *qmlEngine)
     : m_QmlEngine(qmlEngine)
 {
     reload();
+
+    // Selecting a different profile changes what every key resolves to, so pull
+    // the new values in and let anything bound in QML know.
+    connect(ProfileManager::instance(), &ProfileManager::activeProfileSwitched,
+            this, [this]() {
+                reload();
+                notifyAllPropertiesChanged();
+            });
 }
 
 StreamingPreferences* StreamingPreferences::get(QQmlEngine *qmlEngine)
@@ -112,9 +122,9 @@ StreamingPreferences* StreamingPreferences::get(QQmlEngine *qmlEngine)
 
 void StreamingPreferences::reload()
 {
-    QSettings settings;
+    ProfileManager* prefs = ProfileManager::instance();
 
-    int defaultVer = settings.value(SER_DEFAULTVER, 0).toInt();
+    int defaultVer = prefs->value(SER_DEFAULTVER, 0).toInt();
 
 #ifdef Q_OS_DARWIN
     recommendedFullScreenMode = WindowMode::WM_FULLSCREEN_DESKTOP;
@@ -130,64 +140,64 @@ void StreamingPreferences::reload()
     }
 #endif
 
-    width = settings.value(SER_WIDTH, 1280).toInt();
-    height = settings.value(SER_HEIGHT, 720).toInt();
-    fps = settings.value(SER_FPS, 60).toInt();
-    enableYUV444 = settings.value(SER_YUV444, false).toBool();
-    bitrateKbps = settings.value(SER_BITRATE, getDefaultBitrate(width, height, fps, enableYUV444)).toInt();
-    unlockBitrate = settings.value(SER_UNLOCK_BITRATE, false).toBool();
-    autoAdjustBitrate = settings.value(SER_AUTOADJUSTBITRATE, true).toBool();
-    enableVsync = settings.value(SER_VSYNC, true).toBool();
-    gameOptimizations = settings.value(SER_GAMEOPTS, true).toBool();
-    playAudioOnHost = settings.value(SER_HOSTAUDIO, false).toBool();
-    multiController = settings.value(SER_MULTICONT, true).toBool();
-    enableMdns = settings.value(SER_MDNS, true).toBool();
-    quitAppAfter = settings.value(SER_QUITAPPAFTER, false).toBool();
-    absoluteMouseMode = settings.value(SER_ABSMOUSEMODE, false).toBool();
-    absoluteTouchMode = settings.value(SER_ABSTOUCHMODE, true).toBool();
-    framePacing = settings.value(SER_FRAMEPACING, false).toBool();
-    connectionWarnings = settings.value(SER_CONNWARNINGS, true).toBool();
-    configurationWarnings = settings.value(SER_CONFWARNINGS, true).toBool();
-    richPresence = settings.value(SER_RICHPRESENCE, true).toBool();
-    gamepadMouse = settings.value(SER_GAMEPADMOUSE, true).toBool();
-    detectNetworkBlocking = settings.value(SER_DETECTNETBLOCKING, true).toBool();
-    showPerformanceOverlay = settings.value(SER_SHOWPERFOVERLAY, false).toBool();
-    packetSize = settings.value(SER_PACKETSIZE, 0).toInt();
-    swapMouseButtons = settings.value(SER_SWAPMOUSEBUTTONS, false).toBool();
-    muteOnFocusLoss = settings.value(SER_MUTEONFOCUSLOSS, false).toBool();
-    backgroundGamepad = settings.value(SER_BACKGROUNDGAMEPAD, false).toBool();
-    reverseScrollDirection = settings.value(SER_REVERSESCROLL, false).toBool();
-    swapFaceButtons = settings.value(SER_SWAPFACEBUTTONS, false).toBool();
-    keepAwake = settings.value(SER_KEEPAWAKE, true).toBool();
-    enableHdr = settings.value(SER_HDR, false).toBool();
-    captureSysKeysMode = static_cast<CaptureSysKeysMode>(settings.value(SER_CAPTURESYSKEYS,
+    width = prefs->value(SER_WIDTH, 1280).toInt();
+    height = prefs->value(SER_HEIGHT, 720).toInt();
+    fps = prefs->value(SER_FPS, 60).toInt();
+    enableYUV444 = prefs->value(SER_YUV444, false).toBool();
+    bitrateKbps = prefs->value(SER_BITRATE, getDefaultBitrate(width, height, fps, enableYUV444)).toInt();
+    unlockBitrate = prefs->value(SER_UNLOCK_BITRATE, false).toBool();
+    autoAdjustBitrate = prefs->value(SER_AUTOADJUSTBITRATE, true).toBool();
+    enableVsync = prefs->value(SER_VSYNC, true).toBool();
+    gameOptimizations = prefs->value(SER_GAMEOPTS, true).toBool();
+    playAudioOnHost = prefs->value(SER_HOSTAUDIO, false).toBool();
+    multiController = prefs->value(SER_MULTICONT, true).toBool();
+    enableMdns = prefs->value(SER_MDNS, true).toBool();
+    quitAppAfter = prefs->value(SER_QUITAPPAFTER, false).toBool();
+    absoluteMouseMode = prefs->value(SER_ABSMOUSEMODE, false).toBool();
+    absoluteTouchMode = prefs->value(SER_ABSTOUCHMODE, true).toBool();
+    framePacing = prefs->value(SER_FRAMEPACING, false).toBool();
+    connectionWarnings = prefs->value(SER_CONNWARNINGS, true).toBool();
+    configurationWarnings = prefs->value(SER_CONFWARNINGS, true).toBool();
+    richPresence = prefs->value(SER_RICHPRESENCE, true).toBool();
+    gamepadMouse = prefs->value(SER_GAMEPADMOUSE, true).toBool();
+    detectNetworkBlocking = prefs->value(SER_DETECTNETBLOCKING, true).toBool();
+    showPerformanceOverlay = prefs->value(SER_SHOWPERFOVERLAY, false).toBool();
+    packetSize = prefs->value(SER_PACKETSIZE, 0).toInt();
+    swapMouseButtons = prefs->value(SER_SWAPMOUSEBUTTONS, false).toBool();
+    muteOnFocusLoss = prefs->value(SER_MUTEONFOCUSLOSS, false).toBool();
+    backgroundGamepad = prefs->value(SER_BACKGROUNDGAMEPAD, false).toBool();
+    reverseScrollDirection = prefs->value(SER_REVERSESCROLL, false).toBool();
+    swapFaceButtons = prefs->value(SER_SWAPFACEBUTTONS, false).toBool();
+    keepAwake = prefs->value(SER_KEEPAWAKE, true).toBool();
+    enableHdr = prefs->value(SER_HDR, false).toBool();
+    captureSysKeysMode = static_cast<CaptureSysKeysMode>(prefs->value(SER_CAPTURESYSKEYS,
                                                          static_cast<int>(CaptureSysKeysMode::CSK_OFF)).toInt());
-    audioConfig = static_cast<AudioConfig>(settings.value(SER_AUDIOCFG,
+    audioConfig = static_cast<AudioConfig>(prefs->value(SER_AUDIOCFG,
                                                   static_cast<int>(AudioConfig::AC_STEREO)).toInt());
-    videoCodecConfig = static_cast<VideoCodecConfig>(settings.value(SER_VIDEOCFG,
+    videoCodecConfig = static_cast<VideoCodecConfig>(prefs->value(SER_VIDEOCFG,
                                                   static_cast<int>(VideoCodecConfig::VCC_AUTO)).toInt());
-    videoDecoderSelection = static_cast<VideoDecoderSelection>(settings.value(SER_VIDEODEC,
+    videoDecoderSelection = static_cast<VideoDecoderSelection>(prefs->value(SER_VIDEODEC,
                                                   static_cast<int>(VideoDecoderSelection::VDS_AUTO)).toInt());
-    rendererSelection = static_cast<RendererSelection>(settings.value(SER_RENDERER,
+    rendererSelection = static_cast<RendererSelection>(prefs->value(SER_RENDERER,
                                                   static_cast<int>(RendererSelection::RS_AUTO)).toInt());
-    windowMode = static_cast<WindowMode>(settings.value(SER_WINDOWMODE,
+    windowMode = static_cast<WindowMode>(prefs->value(SER_WINDOWMODE,
                                                         // Try to load from the old preference value too
-                                                        static_cast<int>(settings.value(SER_FULLSCREEN, true).toBool() ?
+                                                        static_cast<int>(prefs->value(SER_FULLSCREEN, true).toBool() ?
                                                                              recommendedFullScreenMode : WindowMode::WM_WINDOWED)).toInt());
-    uiDisplayMode = static_cast<UIDisplayMode>(settings.value(SER_UIDISPLAYMODE,
-                                               static_cast<int>(settings.value(SER_STARTWINDOWED, true).toBool() ? UIDisplayMode::UI_WINDOWED
+    uiDisplayMode = static_cast<UIDisplayMode>(prefs->value(SER_UIDISPLAYMODE,
+                                               static_cast<int>(prefs->value(SER_STARTWINDOWED, true).toBool() ? UIDisplayMode::UI_WINDOWED
                                                                                                                  : UIDisplayMode::UI_MAXIMIZED)).toInt());
-    language = static_cast<Language>(settings.value(SER_LANGUAGE,
+    language = static_cast<Language>(prefs->value(SER_LANGUAGE,
                                                     static_cast<int>(Language::LANG_AUTO)).toInt());
-    rendererBackend = static_cast<RendererBackend>(settings.value(SER_RENDERERBACKEND,
+    rendererBackend = static_cast<RendererBackend>(prefs->value(SER_RENDERERBACKEND,
                                                     static_cast<int>(RendererBackend::RB_AUTO)).toInt());
 
     // Artemis client-side streaming enhancements
-    useVirtualDisplay = settings.value(SER_VIRTUALDISPLAY, false).toBool();
-    enableFractionalRefreshRate = settings.value(SER_FRACTIONALREFRESHRATE, false).toBool();
-    customRefreshRate = settings.value(SER_CUSTOMREFRESHRATE, 59.94).toDouble();
-    enableResolutionScaling = settings.value(SER_RESOLUTIONSCALING, false).toBool();
-    resolutionScaleFactor = settings.value(SER_RESOLUTIONSCALEFACTOR, 100).toInt();
+    useVirtualDisplay = prefs->value(SER_VIRTUALDISPLAY, false).toBool();
+    enableFractionalRefreshRate = prefs->value(SER_FRACTIONALREFRESHRATE, false).toBool();
+    customRefreshRate = prefs->value(SER_CUSTOMREFRESHRATE, 59.94).toDouble();
+    enableResolutionScaling = prefs->value(SER_RESOLUTIONSCALING, false).toBool();
+    resolutionScaleFactor = prefs->value(SER_RESOLUTIONSCALEFACTOR, 100).toInt();
 
 
     // Perform default settings updates as required based on last default version
@@ -338,55 +348,74 @@ QString StreamingPreferences::getSuffixFromLanguage(StreamingPreferences::Langua
 
 void StreamingPreferences::save()
 {
-    QSettings settings;
+    ProfileManager* prefs = ProfileManager::instance();
 
-    settings.setValue(SER_WIDTH, width);
-    settings.setValue(SER_HEIGHT, height);
-    settings.setValue(SER_FPS, fps);
-    settings.setValue(SER_BITRATE, bitrateKbps);
-    settings.setValue(SER_UNLOCK_BITRATE, unlockBitrate);
-    settings.setValue(SER_AUTOADJUSTBITRATE, autoAdjustBitrate);
-    settings.setValue(SER_VSYNC, enableVsync);
-    settings.setValue(SER_GAMEOPTS, gameOptimizations);
-    settings.setValue(SER_HOSTAUDIO, playAudioOnHost);
-    settings.setValue(SER_MULTICONT, multiController);
-    settings.setValue(SER_MDNS, enableMdns);
-    settings.setValue(SER_QUITAPPAFTER, quitAppAfter);
-    settings.setValue(SER_ABSMOUSEMODE, absoluteMouseMode);
-    settings.setValue(SER_ABSTOUCHMODE, absoluteTouchMode);
-    settings.setValue(SER_FRAMEPACING, framePacing);
-    settings.setValue(SER_CONNWARNINGS, connectionWarnings);
-    settings.setValue(SER_CONFWARNINGS, configurationWarnings);
-    settings.setValue(SER_RICHPRESENCE, richPresence);
-    settings.setValue(SER_GAMEPADMOUSE, gamepadMouse);
-    settings.setValue(SER_PACKETSIZE, packetSize);
-    settings.setValue(SER_DETECTNETBLOCKING, detectNetworkBlocking);
-    settings.setValue(SER_SHOWPERFOVERLAY, showPerformanceOverlay);
-    settings.setValue(SER_AUDIOCFG, static_cast<int>(audioConfig));
-    settings.setValue(SER_HDR, enableHdr);
-    settings.setValue(SER_YUV444, enableYUV444);
-    settings.setValue(SER_VIDEOCFG, static_cast<int>(videoCodecConfig));
-    settings.setValue(SER_VIDEODEC, static_cast<int>(videoDecoderSelection));
-    settings.setValue(SER_RENDERER, static_cast<int>(rendererSelection));
-    settings.setValue(SER_WINDOWMODE, static_cast<int>(windowMode));
-    settings.setValue(SER_UIDISPLAYMODE, static_cast<int>(uiDisplayMode));
-    settings.setValue(SER_LANGUAGE, static_cast<int>(language));
-    settings.setValue(SER_RENDERERBACKEND, static_cast<int>(rendererBackend));
-    settings.setValue(SER_DEFAULTVER, CURRENT_DEFAULT_VER);
-    settings.setValue(SER_SWAPMOUSEBUTTONS, swapMouseButtons);
-    settings.setValue(SER_MUTEONFOCUSLOSS, muteOnFocusLoss);
-    settings.setValue(SER_BACKGROUNDGAMEPAD, backgroundGamepad);
-    settings.setValue(SER_REVERSESCROLL, reverseScrollDirection);
-    settings.setValue(SER_SWAPFACEBUTTONS, swapFaceButtons);
-    settings.setValue(SER_CAPTURESYSKEYS, captureSysKeysMode);
-    settings.setValue(SER_KEEPAWAKE, keepAwake);
+    prefs->setValue(SER_WIDTH, width);
+    prefs->setValue(SER_HEIGHT, height);
+    prefs->setValue(SER_FPS, fps);
+    prefs->setValue(SER_BITRATE, bitrateKbps);
+    prefs->setValue(SER_UNLOCK_BITRATE, unlockBitrate);
+    prefs->setValue(SER_AUTOADJUSTBITRATE, autoAdjustBitrate);
+    prefs->setValue(SER_VSYNC, enableVsync);
+    prefs->setValue(SER_GAMEOPTS, gameOptimizations);
+    prefs->setValue(SER_HOSTAUDIO, playAudioOnHost);
+    prefs->setValue(SER_MULTICONT, multiController);
+    prefs->setValue(SER_MDNS, enableMdns);
+    prefs->setValue(SER_QUITAPPAFTER, quitAppAfter);
+    prefs->setValue(SER_ABSMOUSEMODE, absoluteMouseMode);
+    prefs->setValue(SER_ABSTOUCHMODE, absoluteTouchMode);
+    prefs->setValue(SER_FRAMEPACING, framePacing);
+    prefs->setValue(SER_CONNWARNINGS, connectionWarnings);
+    prefs->setValue(SER_CONFWARNINGS, configurationWarnings);
+    prefs->setValue(SER_RICHPRESENCE, richPresence);
+    prefs->setValue(SER_GAMEPADMOUSE, gamepadMouse);
+    prefs->setValue(SER_PACKETSIZE, packetSize);
+    prefs->setValue(SER_DETECTNETBLOCKING, detectNetworkBlocking);
+    prefs->setValue(SER_SHOWPERFOVERLAY, showPerformanceOverlay);
+    prefs->setValue(SER_AUDIOCFG, static_cast<int>(audioConfig));
+    prefs->setValue(SER_HDR, enableHdr);
+    prefs->setValue(SER_YUV444, enableYUV444);
+    prefs->setValue(SER_VIDEOCFG, static_cast<int>(videoCodecConfig));
+    prefs->setValue(SER_VIDEODEC, static_cast<int>(videoDecoderSelection));
+    prefs->setValue(SER_RENDERER, static_cast<int>(rendererSelection));
+    prefs->setValue(SER_WINDOWMODE, static_cast<int>(windowMode));
+    prefs->setValue(SER_UIDISPLAYMODE, static_cast<int>(uiDisplayMode));
+    prefs->setValue(SER_LANGUAGE, static_cast<int>(language));
+    prefs->setValue(SER_RENDERERBACKEND, static_cast<int>(rendererBackend));
+    prefs->setValue(SER_DEFAULTVER, CURRENT_DEFAULT_VER);
+    prefs->setValue(SER_SWAPMOUSEBUTTONS, swapMouseButtons);
+    prefs->setValue(SER_MUTEONFOCUSLOSS, muteOnFocusLoss);
+    prefs->setValue(SER_BACKGROUNDGAMEPAD, backgroundGamepad);
+    prefs->setValue(SER_REVERSESCROLL, reverseScrollDirection);
+    prefs->setValue(SER_SWAPFACEBUTTONS, swapFaceButtons);
+    prefs->setValue(SER_CAPTURESYSKEYS, captureSysKeysMode);
+    prefs->setValue(SER_KEEPAWAKE, keepAwake);
     
     // Artemis client-side streaming enhancements
-    settings.setValue(SER_VIRTUALDISPLAY, useVirtualDisplay);
-    settings.setValue(SER_FRACTIONALREFRESHRATE, enableFractionalRefreshRate);
-    settings.setValue(SER_CUSTOMREFRESHRATE, customRefreshRate);
-    settings.setValue(SER_RESOLUTIONSCALING, enableResolutionScaling);
-    settings.setValue(SER_RESOLUTIONSCALEFACTOR, resolutionScaleFactor);
+    prefs->setValue(SER_VIRTUALDISPLAY, useVirtualDisplay);
+    prefs->setValue(SER_FRACTIONALREFRESHRATE, enableFractionalRefreshRate);
+    prefs->setValue(SER_CUSTOMREFRESHRATE, customRefreshRate);
+    prefs->setValue(SER_RESOLUTIONSCALING, enableResolutionScaling);
+    prefs->setValue(SER_RESOLUTIONSCALEFACTOR, resolutionScaleFactor);
+
+    // With a profile active every setValue() above landed in an in-memory map,
+    // so this is what actually persists them. It also syncs QSettings when no
+    // profile is active.
+    prefs->save();
+}
+
+void StreamingPreferences::notifyAllPropertiesChanged()
+{
+    // Switching profiles replaces every member at once, and MEMBER properties
+    // don't emit anything on their own. Walk the metaobject instead of hand
+    // listing 40-odd signals that would drift the next time one is added.
+    const QMetaObject* mo = metaObject();
+    for (int i = mo->propertyOffset(); i < mo->propertyCount(); i++) {
+        QMetaProperty property = mo->property(i);
+        if (property.hasNotifySignal()) {
+            property.notifySignal().invoke(this, Qt::DirectConnection);
+        }
+    }
 }
 
 int StreamingPreferences::getDefaultBitrate(int width, int height, int fps, bool yuv444)
