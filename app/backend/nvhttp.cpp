@@ -144,7 +144,7 @@ NvHTTP::getServerInfo(NvLogLevel logLevel, bool fastFail)
     // Add devicename parameter to match Android client behavior
     QString deviceName = QSysInfo::machineHostName();
     if (deviceName.isEmpty()) {
-        deviceName = "Artemis";
+        deviceName = "LavArtemis";
     }
     QString deviceNameParam = "devicename=" + deviceName;
 

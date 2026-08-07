@@ -479,7 +479,7 @@ ApplicationWindow {
     ErrorMessageDialog {
         id: unmappedGamepadDialog
         property string unmappedGamepads : ""
-        text: qsTr("Artemis detected gamepads without a mapping:") + "\n" + unmappedGamepads
+        text: qsTr("LavArtemis detected gamepads without a mapping:") + "\n" + unmappedGamepads
         helpTextSeparator: "\n\n"
         helpText: qsTr("Click the Help button for information on how to map your gamepads.")
         helpUrl: "https://github.com/wjbeckett/artemis/wiki/Gamepad-Mapping"

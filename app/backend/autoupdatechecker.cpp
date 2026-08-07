@@ -43,9 +43,9 @@ void AutoUpdateChecker::start()
     QT_WARNING_POP
 #endif
 
-    // Point to Artemis GitHub releases (all releases including prereleases)
+    // Point to LavArtemis GitHub releases (all releases including prereleases)
     // Using /releases instead of /releases/latest because we only have prereleases
-    QUrl url("https://api.github.com/repos/wjbeckett/artemis/releases");
+    QUrl url("https://api.github.com/repos/Lavagnou/LavArtemis/releases");
     QNetworkRequest request(url);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     request.setAttribute(QNetworkRequest::Http2AllowedAttribute, true);
@@ -153,7 +153,7 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
             return;
         }
 
-        qDebug() << "Latest version of Artemis from GitHub (including prereleases):" << version;
+        qDebug() << "Latest version of LavArtemis from GitHub (including prereleases):" << version;
 
         QVector<int> latestVersionQuad;
         parseStringToVersionQuad(version, latestVersionQuad);

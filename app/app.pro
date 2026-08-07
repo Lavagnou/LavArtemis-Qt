@@ -2,10 +2,10 @@ QT += core quick network quickcontrols2 svg
 CONFIG += c++17
 
 unix:!macx {
-    TARGET = artemis
+    TARGET = lavartemis
 } else {
     # On macOS, this is the name displayed in the global menu bar
-    TARGET = Artemis
+    TARGET = LavArtemis
 }
 
 include(../globaldefs.pri)
@@ -545,25 +545,25 @@ unix:!macx: {
 
     target.path = $$PREFIX/$$BINDIR/
 
-    desktop.files = deploy/linux/com.artemis_desktop.Artemis.desktop
+    desktop.files = deploy/linux/com.lavartemis.LavArtemis.desktop
     desktop.path = $$PREFIX/$$DATADIR/applications/
 
-    icons.files = res/artemis.svg
+    icons.files = res/lavartemis.svg
     icons.path = $$PREFIX/$$DATADIR/icons/hicolor/scalable/apps/
 
-    appstream.files = deploy/linux/com.artemis_desktop.Artemis.appdata.xml
+    appstream.files = deploy/linux/com.lavartemis.LavArtemis.appdata.xml
     appstream.path = $$PREFIX/$$DATADIR/metainfo/
 
     INSTALLS += target desktop icons appstream
 }
 win32 {
-    RC_ICONS = artemis.ico
-    QMAKE_TARGET_COMPANY = Artemis Desktop Project
-    QMAKE_TARGET_DESCRIPTION = Artemis Game Streaming Client
-    QMAKE_TARGET_PRODUCT = Artemis
+    RC_ICONS = lavartemis.ico
+    QMAKE_TARGET_COMPANY = LavArtemis
+    QMAKE_TARGET_DESCRIPTION = LavArtemis Game Streaming Client
+    QMAKE_TARGET_PRODUCT = LavArtemis
 
     CONFIG -= embed_manifest_exe
-    QMAKE_LFLAGS += /MANIFEST:embed /MANIFESTINPUT:$${PWD}/Artemis.exe.manifest
+    QMAKE_LFLAGS += /MANIFEST:embed /MANIFESTINPUT:$${PWD}/LavArtemis.exe.manifest
 }
 macx {
     # Create Info.plist in object dir with the correct version string
@@ -572,7 +572,7 @@ macx {
 
     QMAKE_INFO_PLIST = $$OUT_PWD/Info.plist
 
-    APP_BUNDLE_RESOURCES.files = artemis.icns
+    APP_BUNDLE_RESOURCES.files = lavartemis.icns
     APP_BUNDLE_RESOURCES.path = Contents/Resources
 
     APP_BUNDLE_PLIST.files = $$OUT_PWD/Info.plist

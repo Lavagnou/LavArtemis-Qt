@@ -943,7 +943,7 @@ Flickable {
             id: artemisStreamingGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("Artemis Streaming Enhancements") + "</font>"
+            title: "<font color=\"skyblue\">" + qsTr("LavArtemis Streaming Enhancements") + "</font>"
             font.pointSize: 12
 
             Column {
@@ -2023,7 +2023,7 @@ Flickable {
             id: artemisSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("Artemis Features") + "</font>"
+            title: "<font color=\"skyblue\">" + qsTr("LavArtemis Features") + "</font>"
             font.pointSize: 12
 
             Column {

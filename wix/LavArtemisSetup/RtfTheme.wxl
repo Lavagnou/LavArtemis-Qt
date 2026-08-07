@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <WixLocalization Culture="en-us" Language="1033" Codepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
-  <String Id="Caption" Value="Artemis Game Streaming Setup" />
-  <String Id="Title" Value="Artemis Game Streaming" />
-  <String Id="InstallMessage" Value="Thank you for downloading Artemis Game Streaming." />
+  <String Id="Caption" Value="LavArtemis Game Streaming Setup" />
+  <String Id="Title" Value="LavArtemis Game Streaming" />
+  <String Id="InstallMessage" Value="Thank you for downloading LavArtemis Game Streaming." />
   <String Id="InstallVersion" Value="Version [WixBundleVersion]" />
 
   <String Id="ConfirmCancelMessage" Value="Are you sure you want to cancel?" />
@@ -26,7 +26,7 @@
   <String Id="OptionsRepairButton" Value="&amp;Repair" />
   <String Id="OptionsCancelButton" Value="&amp;Cancel" />
 
-  <String Id="ProgressHeader" Value="Installing Artemis Game Streaming..." />
+  <String Id="ProgressHeader" Value="Installing LavArtemis Game Streaming..." />
   <String Id="ProgressLayoutHeader" Value="Extracting files..." />
   <String Id="ProgressCacheHeader" Value="Caching packages..." />
   <String Id="ProgressInstallHeader" Value="Installing..." />
@@ -34,7 +34,7 @@
   <String Id="ProgressRepairHeader" Value="Repairing..." />
   <String Id="ProgressUninstallHeader" Value="Uninstalling..." />
   <String Id="ProgressUnsafeUninstallHeader" Value="Force removing..." />
-  <String Id="ProgressMessage" Value="Please wait while Setup installs Artemis Game Streaming." />
+  <String Id="ProgressMessage" Value="Please wait while Setup installs LavArtemis Game Streaming." />
   <String Id="ProgressCancelButton" Value="&amp;Cancel" />
 
   <String Id="SuccessHeader" Value="Installation completed successfully" />

@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Artemis Qt Development Setup Script
-# This script helps set up the development environment for Artemis Qt
+# LavArtemis Qt Development Setup Script
+# This script helps set up the development environment for LavArtemis Qt
 
 set -e
 
-echo "🚀 Setting up Artemis Qt development environment..."
+echo "🚀 Setting up LavArtemis Qt development environment..."
 
 # Detect OS
 OS="unknown"
@@ -79,7 +79,7 @@ init_submodules() {
 
 # Function to build the project
 build_project() {
-    echo "🔨 Building Artemis Qt..."
+    echo "🔨 Building LavArtemis Qt..."
     
     # Clean any existing build files
     echo "🧹 Cleaning previous builds..."
@@ -122,7 +122,7 @@ create_dev_config() {
     # Create a development settings file
     mkdir -p ~/.config/artemis-dev
     cat > ~/.config/artemis-dev/dev-settings.conf << EOF
-# Artemis Qt Development Settings
+# LavArtemis Qt Development Settings
 # This file contains development-specific settings
 
 [Development]
@@ -130,8 +130,8 @@ EnableDebugLogging=true
 ShowDeveloperOptions=true
 EnableExperimentalFeatures=true
 
-[Artemis]
-# Artemis-specific settings will go here
+[LavArtemis]
+# LavArtemis-specific settings will go here
 ClipboardSyncEnabled=false
 ServerCommandsEnabled=false
 OTPPairingEnabled=false
@@ -146,7 +146,7 @@ show_next_steps() {
     echo "✅ Development environment setup complete!"
     echo ""
     echo "🎯 Next steps:"
-    echo "   1. Start implementing Artemis features (see DEVELOPMENT.md)"
+    echo "   1. Start implementing LavArtemis features (see DEVELOPMENT.md)"
     echo "   2. Run the application:"
     
     case $OS in
@@ -169,20 +169,20 @@ show_next_steps() {
     echo "📚 Documentation:"
     echo "   - Development guide: DEVELOPMENT.md"
     echo "   - Contributing: CONTRIBUTING.md"
-    echo "   - Artemis Android reference: https://github.com/ClassicOldSong/moonlight-android"
+    echo "   - LavArtemis Android reference: https://github.com/ClassicOldSong/moonlight-android"
     echo ""
 }
 
 # Main execution
 main() {
-    echo "🎮 Artemis Qt Development Setup"
+    echo "🎮 LavArtemis Qt Development Setup"
     echo "================================"
     echo ""
     
     # Check if we're in the right directory
     if [[ ! -f "moonlight-qt.pro" ]]; then
         echo "❌ Error: moonlight-qt.pro not found."
-        echo "   Please run this script from the root of the Artemis Qt repository."
+        echo "   Please run this script from the root of the LavArtemis Qt repository."
         exit 1
     fi
     
