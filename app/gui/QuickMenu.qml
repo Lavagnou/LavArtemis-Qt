@@ -2,6 +2,7 @@ import QtQuick 2.9
 import QtQuick.Controls 2.2
 import QtQuick.Layouts 1.2
 import ServerCommandManager 1.0
+import KeyMacroManager 1.0
 
 Rectangle {
     id: quickMenu
@@ -17,7 +18,7 @@ Rectangle {
     opacity: 1.0
     
     // Menu state management
-    property string currentMenu: "main"  // "main" or "server_commands"
+    property string currentMenu: "main"  // "main", "server_commands" or "send_keys"
     
     // Toast notification system
     property string toastMessage: ""
@@ -25,6 +26,9 @@ Rectangle {
 
     // Server command data model
     ListModel {        id: serverCommandsModel    }
+
+    // Keyboard shortcuts and macros, rebuilt from KeyMacroManager on open
+    ListModel {        id: sendKeysModel    }
     
     // Animation for smooth show/hide
     Behavior on opacity {
@@ -52,7 +56,11 @@ Rectangle {
 
         // Title
         Text {
-            text: currentMenu === "main" ? qsTr("Quick Menu") : qsTr("Server Commands")
+            text: {
+                if (currentMenu === "server_commands") return qsTr("Server Commands")
+                if (currentMenu === "send_keys") return qsTr("Send Keys")
+                return qsTr("Quick Menu")
+            }
             font.pointSize: 24
             font.bold: true
             color: "#00cccc"
@@ -66,7 +74,11 @@ Rectangle {
             Layout.fillHeight: true
             focus: true
             
-            model: currentMenu === "main" ? mainMenuModel : serverCommandsModel
+            model: {
+                if (currentMenu === "server_commands") return serverCommandsModel
+                if (currentMenu === "send_keys") return sendKeysModel
+                return mainMenuModel
+            }
             
             delegate: Button {
                 width: menuListView.width
@@ -233,6 +245,12 @@ Rectangle {
             description: qsTr("Access server control commands")
         }
         ListElement {
+            text: qsTr("Send Keys")
+            icon: "⌨"
+            action: "send_keys"
+            description: qsTr("Send a shortcut the local OS would otherwise intercept")
+        }
+        ListElement {
             text: qsTr("Clipboard Upload")
             icon: "📋"
             action: "clipboard_upload"
@@ -283,6 +301,23 @@ Rectangle {
         }
     }
     
+    function populateSendKeys() {
+        sendKeysModel.clear()
+
+        var macros = KeyMacroManager.macros
+        for (var i = 0; i < macros.length; i++) {
+            sendKeysModel.append({
+                icon: macros[i].builtIn ? "⌨" : "★",
+                text: macros[i].name,
+                // Prefixed so executeAction() can tell these apart from the
+                // server command ids it also matches against.
+                action: "macro:" + macros[i].id,
+                description: macros[i].builtIn ? qsTr("Built-in shortcut")
+                                               : qsTr("Custom macro")
+            })
+        }
+    }
+
     function executeCurrentItem() {
         var currentItem = menuListView.model.get(menuListView.currentIndex)
         if (currentItem) {
@@ -301,6 +336,14 @@ Rectangle {
                 showActionFeedback("Server commands not available or no permission");
                 closeMenuDelayed();
             }
+            return;
+        } else if (action === "send_keys") {
+            populateSendKeys();
+            currentMenu = "send_keys";
+            return;
+        } else if (action.indexOf("macro:") === 0) {
+            KeyMacroManager.sendMacro(action.substring(6));
+            closeMenuDelayed();
             return;
         } else { // It might be a server command
             for (var i = 0; i < serverCommandsModel.count; i++) {

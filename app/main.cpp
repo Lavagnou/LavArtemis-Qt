@@ -57,6 +57,7 @@
 #include "backend/clipboardmanager.h"
 #include "backend/servercommandmanager.h"
 #include "backend/quickmenumanager.h"
+#include "backend/keymacromanager.h"
 #include "settings/artemissettings.h"
 #include "settings/profilemanager.h"
 
@@ -986,6 +987,9 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonType<ProfileManager>("ProfileManager", 1, 0,
                                              "ProfileManager",
                                              &ProfileManager::create);
+    qmlRegisterSingletonType<KeyMacroManager>("KeyMacroManager", 1, 0,
+                                              "KeyMacroManager",
+                                              &KeyMacroManager::create);
 
     // Create the identity manager on the main thread
     IdentityManager::get();

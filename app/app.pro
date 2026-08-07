@@ -209,6 +209,7 @@ SOURCES += \
     backend/servercommandmanager.cpp \
     backend/serverpermissions.cpp \
     backend/quickmenumanager.cpp \
+    backend/keymacromanager.cpp \
     backend/otppairingmanager.cpp \
     settings/artemissettings.cpp \
     settings/profilemanager.cpp \
@@ -255,6 +256,7 @@ HEADERS += \
     backend/servercommandmanager.h \
     backend/serverpermissions.h \
     backend/quickmenumanager.h \
+    backend/keymacromanager.h \
     backend/otppairingmanager.h \
     settings/artemissettings.h \
     settings/profilemanager.h
