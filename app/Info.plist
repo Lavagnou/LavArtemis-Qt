@@ -2,14 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>GCSupportsGameMode</key>
+	<true/>
 	<key>CFBundleExecutable</key>
-	<string>Artemis</string>
+	<string>Moonlight</string>
+	<key>LSSupportsGameMode</key>
+	<true/>
 	<key>CFBundleGetInfoString</key>
 	<string>Stream games and other applications from another PC</string>
 	<key>CFBundleIconFile</key>
-	<string>artemis</string>
+	<string>moonlight</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.artemis_desktop.Artemis</string>
+	<string>com.moonlight-stream.Moonlight</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>CFBundlePackageType</key>
@@ -17,7 +21,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>11.0.0</string>
+	<string>13.0.0</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSSupportsAutomaticGraphicsSwitching</key>
@@ -37,12 +41,18 @@
 		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Artemis uses the local network to connect to your gaming PC for streaming.</string>
+	<string>Moonlight uses the local network to connect to your gaming PC for streaming.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_nvstream._tcp</string>
+	</array>
 	<key>CFBundleVersion</key>
-	<string>0.5.6</string>
+	<string>VERSION</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.5.6</string>
+	<string>VERSION</string>
 	<key>CFBundleDisplayName</key>
-	<string>Artemis</string>
+	<string>Moonlight</string>
+    <key>LSApplicationCategoryType</key>
+	<string>public.app-category.games</string>
 </dict>
 </plist>

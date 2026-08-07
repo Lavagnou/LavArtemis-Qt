@@ -59,7 +59,7 @@ void AutoUpdateChecker::start()
 void AutoUpdateChecker::parseStringToVersionQuad(QString& string, QVector<int>& version)
 {
     QStringList list = string.split('.');
-    for (const QString& component : list) {
+    for (const QString& component : std::as_const(list)) {
         version.append(component.toInt());
     }
 }

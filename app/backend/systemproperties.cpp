@@ -14,6 +14,38 @@
 #include <Windows.h>
 #endif
 
+class SystemPropertyQueryThread : public QThread
+{
+public:
+    SystemPropertyQueryThread(SystemProperties* properties)
+        : QThread(properties), m_Properties(properties)
+    {
+        setObjectName("System Properties Async Query Thread");
+    }
+
+private:
+    void run() override
+    {
+        bool hasHardwareAcceleration;
+        bool rendererAlwaysFullScreen;
+        bool supportsHdr;
+        QSize maximumResolution;
+
+        Session::getDecoderInfo(m_Properties->testWindow, hasHardwareAcceleration, rendererAlwaysFullScreen, supportsHdr, maximumResolution);
+
+        // Propagate the decoder properties to the SystemProperties singleton and emit any change signals on the main thread
+        QMetaObject::invokeMethod(m_Properties, "updateDecoderProperties",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(bool, hasHardwareAcceleration),
+                                  Q_ARG(bool, rendererAlwaysFullScreen),
+                                  Q_ARG(QSize, maximumResolution),
+                                  Q_ARG(bool, supportsHdr));
+    }
+
+private:
+    SystemProperties* m_Properties;
+};
+
 SystemProperties::SystemProperties()
 {
     versionString = QString(VERSION_STR);
@@ -21,15 +53,21 @@ SystemProperties::SystemProperties()
     isRunningWayland = WMUtils::isRunningWayland();
     isRunningXWayland = isRunningWayland && QGuiApplication::platformName() == "xcb";
     usesMaterial3Theme = QLibraryInfo::version() >= QVersionNumber(6, 5, 0);
+
+#ifdef Q_OS_DARWIN
+    isDarwin = true;
+#else
+    isDarwin = false;
+#endif
+
     QString nativeArch = QSysInfo::currentCpuArchitecture();
 
 #ifdef Q_OS_WIN32
     {
         USHORT processArch, machineArch;
 
-        // Use IsWow64Process2 on TH2 and later, because it supports ARM64
-        auto fnIsWow64Process2 = (decltype(IsWow64Process2)*)GetProcAddress(GetModuleHandleA("kernel32.dll"), "IsWow64Process2");
-        if (fnIsWow64Process2 != nullptr && fnIsWow64Process2(GetCurrentProcess(), &processArch, &machineArch)) {
+        // Use IsWow64Process2() because it doesn't lie on ARM64
+        if (IsWow64Process2(GetCurrentProcess(), &processArch, &machineArch)) {
             switch (machineArch) {
             case IMAGE_FILE_MACHINE_I386:
                 nativeArch = "i386";
@@ -68,16 +106,71 @@ SystemProperties::SystemProperties()
     hasDiscordIntegration = false;
 #endif
 
-    unmappedGamepads = SdlInputHandler::getUnmappedGamepads();
+    // These will be queried asynchronously to avoid blocking the UI
+    hasHardwareAcceleration = true;
+    rendererAlwaysFullScreen = false;
+    supportsHdr = true;
+    maximumResolution = QSize(0, 0);
+}
 
+SystemProperties::~SystemProperties()
+{
+    waitForAsyncLoad();
+}
 
-    // Populate data that requires talking to SDL. We do it all in one shot
-    // and cache the results to speed up future queries on this data.
-    querySdlVideoInfo();
+void SystemProperties::updateDecoderProperties(bool hasHardwareAcceleration, bool rendererAlwaysFullScreen, QSize maximumResolution, bool supportsHdr)
+{
+    SDL_assert(testWindow);
 
-    Q_ASSERT(!monitorRefreshRates.isEmpty());
-    Q_ASSERT(!monitorNativeResolutions.isEmpty());
-    Q_ASSERT(!monitorSafeAreaResolutions.isEmpty());
+    // Escape hatches for sandboxed builds (Flatpak) and for debugging, where the
+    // probe can under-report what the runtime actually supports. These used to live
+    // in startAsyncLoad() before the probe became asynchronous upstream; they have to
+    // be applied here now, on the probed values, or they would be overwritten.
+    if (qgetenv("LAVARTEMIS_FORCE_HW_ACCEL") == "1" || qgetenv("ARTEMIS_FORCE_HW_ACCEL") == "1") {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                    "Forcing hardware acceleration on via environment variable (probed: %s)",
+                    hasHardwareAcceleration ? "ENABLED" : "DISABLED");
+        hasHardwareAcceleration = true;
+    }
+
+    if (qgetenv("FORCE_HDR_SUPPORT") == "1") {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                    "Forcing HDR support on via environment variable (probed: %s)",
+                    supportsHdr ? "ENABLED" : "DISABLED");
+        supportsHdr = true;
+    }
+
+    if (qgetenv("HDR_DEBUG") == "1") {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                    "HDR debug: hardware acceleration=%s, renderer fullscreen=%s, HDR support=%s",
+                    hasHardwareAcceleration ? "YES" : "NO",
+                    rendererAlwaysFullScreen ? "YES" : "NO",
+                    supportsHdr ? "YES" : "NO");
+    }
+
+    if (hasHardwareAcceleration != this->hasHardwareAcceleration) {
+        this->hasHardwareAcceleration = hasHardwareAcceleration;
+        emit hasHardwareAccelerationChanged();
+    }
+
+    if (rendererAlwaysFullScreen != this->rendererAlwaysFullScreen) {
+        this->rendererAlwaysFullScreen = rendererAlwaysFullScreen;
+        emit rendererAlwaysFullScreenChanged();
+    }
+
+    if (maximumResolution != this->maximumResolution) {
+        this->maximumResolution = maximumResolution;
+        emit maximumResolutionChanged();
+    }
+
+    if (supportsHdr != this->supportsHdr) {
+        this->supportsHdr = supportsHdr;
+        emit supportsHdrChanged();
+    }
+
+    SDL_DestroyWindow(testWindow);
+    testWindow = nullptr;
+    SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
 QRect SystemProperties::getNativeResolution(int displayIndex)
@@ -98,39 +191,24 @@ int SystemProperties::getRefreshRate(int displayIndex)
     return monitorRefreshRates.value(displayIndex);
 }
 
-class QuerySdlVideoThread : public QThread
+void SystemProperties::startAsyncLoad()
 {
-public:
-    QuerySdlVideoThread(SystemProperties* me) :
-        QThread(nullptr),
-        m_Me(me) {}
-
-    void run() override
-    {
-        m_Me->querySdlVideoInfoInternal();
+    if (systemPropertyQueryThread) {
+        // Already started/completed
+        return;
     }
 
-    SystemProperties* m_Me;
-};
-
-void SystemProperties::querySdlVideoInfo()
-{
-    if (WMUtils::isRunningX11() || WMUtils::isRunningWayland()) {
-        // Use a separate thread to temporarily initialize SDL
-        // video to avoid stomping on Qt's X11 and OGL state.
-        QuerySdlVideoThread thread(this);
-        thread.start();
-        thread.wait();
+    // This isn't actually asynchronous (due to the need to synchronize with
+    // SdlGamepadKeyNavigation), but we don't query it in the constructor
+    // because it's expensive.
+    unmappedGamepads = SdlInputHandler::getUnmappedGamepads();
+    if (!unmappedGamepads.isEmpty()) {
+        emit unmappedGamepadsChanged();
     }
-    else {
-        querySdlVideoInfoInternal();
-    }
-}
 
-void SystemProperties::querySdlVideoInfoInternal()
-{
-    hasHardwareAcceleration = false;
-
+    // We initialize the video subsystem and test window on the main thread
+    // because some platforms (macOS) do not support window creation on
+    // non-main threads.
     if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                      "SDL_InitSubSystem(SDL_INIT_VIDEO) failed: %s",
@@ -138,93 +216,34 @@ void SystemProperties::querySdlVideoInfoInternal()
         return;
     }
 
-    // Update display related attributes (max FPS, native resolution, etc).
-    // We call the internal variant because we're already in a safe thread context.
-    refreshDisplaysInternal();
-
-    SDL_Window* testWindow = SDL_CreateWindow("", 0, 0, 1280, 720,
-                                              SDL_WINDOW_HIDDEN | StreamUtils::getPlatformWindowFlags());
+    testWindow = StreamUtils::createTestWindow();
     if (!testWindow) {
-        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                    "Failed to create test window with platform flags: %s",
-                    SDL_GetError());
-
-        testWindow = SDL_CreateWindow("", 0, 0, 1280, 720, SDL_WINDOW_HIDDEN);
-        if (!testWindow) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                         "Failed to create window for hardware decode test: %s",
-                         SDL_GetError());
-            SDL_QuitSubSystem(SDL_INIT_VIDEO);
-            return;
-        }
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                     "Failed to create window for hardware decode test: %s",
+                     SDL_GetError());
+        SDL_QuitSubSystem(SDL_INIT_VIDEO);
+        return;
     }
 
-    Session::getDecoderInfo(testWindow, hasHardwareAcceleration, rendererAlwaysFullScreen, supportsHdr, maximumResolution);
+    // Update display related attributes (max FPS, native resolution, etc).
+    //
+    // NB: SDL3 will forcefully refresh displays when a window is created,
+    // so we place this after the window creation to ensure we don't pay
+    // the penalty for mode enumeration twice.
+    refreshDisplays();
 
-    // Allow environment variable override for HDR support (for testing and debugging)
-    if (qgetenv("FORCE_HDR_SUPPORT") == "1") {
-        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                    "SystemProperties: Forcing HDR support via FORCE_HDR_SUPPORT environment variable (was: %s)",
-                    supportsHdr ? "ENABLED" : "DISABLED");
-        supportsHdr = true;
-    }
-    
-    // Allow environment variable override for hardware acceleration (for Flatpak and testing)
-    if (qgetenv("ARTEMIS_FORCE_HW_ACCEL") == "1") {
-        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                    "SystemProperties: Forcing hardware acceleration via ARTEMIS_FORCE_HW_ACCEL environment variable (was: %s)",
-                    hasHardwareAcceleration ? "ENABLED" : "DISABLED");
-        hasHardwareAcceleration = true;
-    }
-    
-    // Additional debug logging for HDR capability investigation
-    if (qgetenv("HDR_DEBUG") == "1") {
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                    "SystemProperties HDR Debug: Hardware acceleration=%s, Renderer fullscreen=%s, HDR support=%s",
-                    hasHardwareAcceleration ? "YES" : "NO",
-                    rendererAlwaysFullScreen ? "YES" : "NO", 
-                    supportsHdr ? "YES" : "NO");
-    }
-
-    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                "SystemProperties: Final HDR support status: %s", 
-                supportsHdr ? "ENABLED" : "DISABLED");
-
-    SDL_DestroyWindow(testWindow);
-
-    SDL_QuitSubSystem(SDL_INIT_VIDEO);
+    systemPropertyQueryThread = new SystemPropertyQueryThread(this);
+    systemPropertyQueryThread->start();
 }
 
-class RefreshDisplaysThread : public QThread
+void SystemProperties::waitForAsyncLoad()
 {
-public:
-    RefreshDisplaysThread(SystemProperties* me) :
-        QThread(nullptr),
-        m_Me(me) {}
-
-    void run() override
-    {
-        m_Me->refreshDisplaysInternal();
+    if (systemPropertyQueryThread) {
+        systemPropertyQueryThread->wait();
     }
-
-    SystemProperties* m_Me;
-};
+}
 
 void SystemProperties::refreshDisplays()
-{
-    if (WMUtils::isRunningX11() || WMUtils::isRunningWayland()) {
-        // Use a separate thread to temporarily initialize SDL
-        // video to avoid stomping on Qt's X11 and OGL state.
-        RefreshDisplaysThread thread(this);
-        thread.start();
-        thread.wait();
-    }
-    else {
-        refreshDisplaysInternal();
-    }
-}
-
-void SystemProperties::refreshDisplaysInternal()
 {
     if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
@@ -234,6 +253,8 @@ void SystemProperties::refreshDisplaysInternal()
     }
 
     monitorNativeResolutions.clear();
+    monitorSafeAreaResolutions.clear();
+    monitorRefreshRates.clear();
 
     SDL_DisplayMode bestMode;
     for (int displayIndex = 0; displayIndex < SDL_GetNumVideoDisplays(); displayIndex++) {
@@ -242,8 +263,11 @@ void SystemProperties::refreshDisplaysInternal()
 
         if (StreamUtils::getNativeDesktopMode(displayIndex, &desktopMode, &safeArea)) {
             if (desktopMode.w <= 8192 && desktopMode.h <= 8192) {
-                monitorNativeResolutions.insert(displayIndex, QRect(0, 0, desktopMode.w, desktopMode.h));
-                monitorSafeAreaResolutions.insert(displayIndex, QRect(0, 0, safeArea.w, safeArea.h));
+                // Keep these lists compact because their QML consumers iterate until
+                // the first empty entry. Inserting by SDL display index is invalid if
+                // an earlier display was skipped (for example, a >8K virtual display).
+                monitorNativeResolutions.append(QRect(0, 0, desktopMode.w, desktopMode.h));
+                monitorSafeAreaResolutions.append(QRect(0, 0, safeArea.w, safeArea.h));
             }
             else {
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
@@ -253,7 +277,8 @@ void SystemProperties::refreshDisplaysInternal()
 
             // Start at desktop mode and work our way up
             bestMode = desktopMode;
-            for (int i = 0; i < SDL_GetNumDisplayModes(displayIndex); i++) {
+            int numDisplayModes = SDL_GetNumDisplayModes(displayIndex);
+            for (int i = 0; i < numDisplayModes; i++) {
                 SDL_DisplayMode mode;
                 if (SDL_GetDisplayMode(displayIndex, i, &mode) == 0) {
                     if (mode.w == desktopMode.w && mode.h == desktopMode.h) {

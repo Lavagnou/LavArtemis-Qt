@@ -138,6 +138,8 @@ public:
 
     void notifyFocusLost();
 
+    void notifyFocusGained();
+
     bool isCaptureActive();
 
     bool isSystemKeyCaptureActive();
@@ -166,6 +168,7 @@ private:
         KeyComboTogglePointerRegionLock,
         KeyComboQuitAndExit,
         KeyComboToggleQuickMenu,
+        KeyComboToggleKeyboardGrab,
         KeyComboMax
     };
 
@@ -208,6 +211,7 @@ private:
     bool m_ReverseScrollDirection;
     bool m_SwapFaceButtons;
 
+    bool m_NeedsManualCaptureOnLeave;
     bool m_MouseWasInVideoRegion;
     bool m_PendingMouseButtonsAllUpOnVideoRegionLeave;
     bool m_PointerRegionLockActive;
@@ -216,7 +220,8 @@ private:
     int m_GamepadMask;
     GamepadState m_GamepadState[MAX_GAMEPADS];
     QSet<short> m_KeysDown;
-    bool m_FakeCaptureActive;
+    bool m_FakeMouseCaptureActive;
+    bool m_KeyboardCaptureActive;
     QString m_OldIgnoreDevices;
     QString m_OldIgnoreDevicesExcept;
     QStringList m_IgnoreDeviceGuids;

@@ -51,6 +51,7 @@
 #define SER_CAPTURESYSKEYS "capturesyskeys"
 #define SER_KEEPAWAKE "keepawake"
 #define SER_LANGUAGE "language"
+#define SER_RENDERER "renderer"
 #define SER_RENDERERBACKEND "rendererbackend"
 
 // Artemis client-side streaming enhancements
@@ -63,7 +64,8 @@
 #define CURRENT_DEFAULT_VER 2
 
 static StreamingPreferences* s_GlobalPrefs;
-static QReadWriteLock s_GlobalPrefsLock;
+
+Q_GLOBAL_STATIC(QReadWriteLock, s_GlobalPrefsLock)
 
 StreamingPreferences::StreamingPreferences(QQmlEngine *qmlEngine)
     : m_QmlEngine(qmlEngine)
@@ -74,7 +76,7 @@ StreamingPreferences::StreamingPreferences(QQmlEngine *qmlEngine)
 StreamingPreferences* StreamingPreferences::get(QQmlEngine *qmlEngine)
 {
     {
-        QReadLocker readGuard(&s_GlobalPrefsLock);
+        QReadLocker readGuard(s_GlobalPrefsLock);
 
         // If we have a preference object and it's associated with a QML engine or
         // if the caller didn't specify a QML engine, return the existing object.
@@ -86,7 +88,7 @@ StreamingPreferences* StreamingPreferences::get(QQmlEngine *qmlEngine)
     }
 
     {
-        QWriteLocker writeGuard(&s_GlobalPrefsLock);
+        QWriteLocker writeGuard(s_GlobalPrefsLock);
 
         // If we already have an preference object but the QML engine is now available,
         // associate the QML engine with the preferences.
@@ -117,8 +119,10 @@ void StreamingPreferences::reload()
 #ifdef Q_OS_DARWIN
     recommendedFullScreenMode = WindowMode::WM_FULLSCREEN_DESKTOP;
 #else
-    // Wayland doesn't support modesetting, so use fullscreen desktop mode.
-    if (WMUtils::isRunningWayland()) {
+    // Wayland doesn't support modesetting, so use fullscreen desktop mode
+    // unless we have a slow GPU (which can take advantage of wp_viewporter
+    // to reduce GPU load with lower resolution video streams).
+    if (WMUtils::isRunningWayland() && !WMUtils::isGpuSlow()) {
         recommendedFullScreenMode = WindowMode::WM_FULLSCREEN_DESKTOP;
     }
     else {
@@ -164,6 +168,8 @@ void StreamingPreferences::reload()
                                                   static_cast<int>(VideoCodecConfig::VCC_AUTO)).toInt());
     videoDecoderSelection = static_cast<VideoDecoderSelection>(settings.value(SER_VIDEODEC,
                                                   static_cast<int>(VideoDecoderSelection::VDS_AUTO)).toInt());
+    rendererSelection = static_cast<RendererSelection>(settings.value(SER_RENDERER,
+                                                  static_cast<int>(RendererSelection::RS_AUTO)).toInt());
     windowMode = static_cast<WindowMode>(settings.value(SER_WINDOWMODE,
                                                         // Try to load from the old preference value too
                                                         static_cast<int>(settings.value(SER_FULLSCREEN, true).toBool() ?
@@ -361,6 +367,7 @@ void StreamingPreferences::save()
     settings.setValue(SER_YUV444, enableYUV444);
     settings.setValue(SER_VIDEOCFG, static_cast<int>(videoCodecConfig));
     settings.setValue(SER_VIDEODEC, static_cast<int>(videoDecoderSelection));
+    settings.setValue(SER_RENDERER, static_cast<int>(rendererSelection));
     settings.setValue(SER_WINDOWMODE, static_cast<int>(windowMode));
     settings.setValue(SER_UIDISPLAYMODE, static_cast<int>(uiDisplayMode));
     settings.setValue(SER_LANGUAGE, static_cast<int>(language));
