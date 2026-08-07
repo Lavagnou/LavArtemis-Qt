@@ -160,7 +160,9 @@ jobs:
       - name: Upload Binaries
         uses: actions/upload-artifact@v6
         with:
-          name: Moonlight-LinuxAppImage-${{ env.CI_VERSION }}
-          path: build/installer-release/Moonlight-${{ env.CI_VERSION }}-x86_64.AppImage
+          # linuxdeploy names the output after the .desktop entry's Name= field,
+          # which the rebrand changed from Moonlight to LavArtemis.
+          name: LavArtemis-LinuxAppImage-${{ env.CI_VERSION }}
+          path: build/installer-release/LavArtemis-${{ env.CI_VERSION }}-x86_64.AppImage
           compression-level: 0
           if-no-files-found: error
