@@ -15,6 +15,26 @@ CONFIG += staticlib
 # Include global qmake defs
 include(../globaldefs.pri)
 
+# Optimize the streaming hot paths in release builds. The expensive ones here
+# are Reed-Solomon FEC recovery (nanors/rs.c) and video depacketization, both of
+# which run per packet. This mirrors the -O3 -flto that the Android client
+# applies to the same library.
+#
+# Only the compile flags are set: this is a staticlib, so there is no link step
+# of our own to pass -flto/-LTCG to. The whole-program codegen happens when the
+# app links this archive -- link.exe restarts itself with /LTCG when it sees
+# -GL objects, and the GCC/Clang linker plugin handles the LTO bitcode.
+CONFIG(release, debug|release) {
+    # *-msvc (not win32-msvc*) so this also catches the win32-arm64-msvc spec.
+    *-msvc {
+        QMAKE_CFLAGS_RELEASE += -GL
+    }
+
+    *-g++|*-clang* {
+        QMAKE_CFLAGS_RELEASE += -O3 -flto
+    }
+}
+
 win32 {
     contains(QT_ARCH, i386) {
         INCLUDEPATH += $$PWD/../libs/windows/include/x86
