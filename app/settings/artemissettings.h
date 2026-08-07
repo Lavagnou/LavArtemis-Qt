@@ -46,6 +46,10 @@ class ArtemisSettings : public QObject
     // Input-only mode settings
     Q_PROPERTY(bool inputOnlyModeEnabled READ inputOnlyModeEnabled WRITE setInputOnlyModeEnabled NOTIFY inputOnlyModeEnabledChanged)
 
+    // LavArtemis streaming hot path
+    Q_PROPERTY(bool perfCsvLoggingEnabled READ perfCsvLoggingEnabled WRITE setPerfCsvLoggingEnabled NOTIFY perfCsvLoggingEnabledChanged)
+    Q_PROPERTY(int maxPendingAudioMs READ maxPendingAudioMs WRITE setMaxPendingAudioMs NOTIFY maxPendingAudioMsChanged)
+
 public:
     static ArtemisSettings* instance();
     static ArtemisSettings* create(QQmlEngine *qmlEngine, QJSEngine *jsEngine);
@@ -109,6 +113,12 @@ public:
     bool inputOnlyModeEnabled() const { return m_inputOnlyModeEnabled; }
     void setInputOnlyModeEnabled(bool enabled);
 
+    // LavArtemis hot path getters/setters
+    bool perfCsvLoggingEnabled() const { return m_perfCsvLoggingEnabled; }
+    void setPerfCsvLoggingEnabled(bool enabled);
+    int maxPendingAudioMs() const { return m_maxPendingAudioMs; }
+    void setMaxPendingAudioMs(int ms);
+
 signals:
     // Clipboard sync signals
     void clipboardSyncEnabledChanged();
@@ -139,6 +149,10 @@ signals:
 
     // Input-only mode signals
     void inputOnlyModeEnabledChanged();
+
+    // LavArtemis hot path signals
+    void perfCsvLoggingEnabledChanged();
+    void maxPendingAudioMsChanged();
 
 private:
     explicit ArtemisSettings(QObject *parent = nullptr);
@@ -178,4 +192,8 @@ private:
 
     // Input-only mode settings
     bool m_inputOnlyModeEnabled;
+
+    // LavArtemis streaming hot path
+    bool m_perfCsvLoggingEnabled;
+    int m_maxPendingAudioMs;
 };

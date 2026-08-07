@@ -1,10 +1,14 @@
 #include "sdl.h"
+#include "settings/artemissettings.h"
 
 #include <Limelight.h>
 
 SdlAudioRenderer::SdlAudioRenderer()
     : m_AudioDevice(0),
-      m_AudioBuffer(nullptr)
+      m_AudioBuffer(nullptr),
+      // Read once here rather than per sample: submitAudio() runs on the audio
+      // callback thread for every packet.
+      m_MaxPendingAudioMs(ArtemisSettings::instance()->maxPendingAudioMs())
 {
     SDL_assert(!SDL_WasInit(SDL_INIT_AUDIO));
 
@@ -100,9 +104,10 @@ bool SdlAudioRenderer::submitAudio(int bytesWritten)
         return true;
     }
 
-    // Don't queue if there's already more than 30 ms of audio data waiting
-    // in Moonlight's audio queue.
-    if (LiGetPendingAudioDuration() > 30) {
+    // Don't queue if there's already more than the configured amount of audio
+    // data waiting in Moonlight's audio queue. Dropping the sample beats letting
+    // a backlog build up, which is what the Android client does too.
+    if (LiGetPendingAudioDuration() > m_MaxPendingAudioMs) {
         return true;
     }
 

@@ -94,6 +94,12 @@ void ArtemisSettings::save()
     m_settings->setValue("enabled", m_inputOnlyModeEnabled);
     m_settings->endGroup();
 
+    // LavArtemis streaming hot path
+    m_settings->beginGroup("LavArtemis");
+    m_settings->setValue("perfCsvLogging", m_perfCsvLoggingEnabled);
+    m_settings->setValue("maxPendingAudioMs", m_maxPendingAudioMs);
+    m_settings->endGroup();
+
     m_settings->sync();
 }
 
@@ -147,6 +153,13 @@ void ArtemisSettings::load()
     // Input-only mode settings
     m_settings->beginGroup("InputOnly");
     m_inputOnlyModeEnabled = m_settings->value("enabled", false).toBool();
+    m_settings->endGroup();
+
+    // LavArtemis streaming hot path
+    m_settings->beginGroup("LavArtemis");
+    m_perfCsvLoggingEnabled = m_settings->value("perfCsvLogging", false).toBool();
+    // Clamped to the same 10-100 ms range the Android client exposes.
+    m_maxPendingAudioMs = qBound(10, m_settings->value("maxPendingAudioMs", 30).toInt(), 100);
     m_settings->endGroup();
 }
 
@@ -207,6 +220,12 @@ void ArtemisSettings::loadDefaults()
 
     // Input-only mode defaults
     m_inputOnlyModeEnabled = false;
+
+    // LavArtemis hot path defaults. 30 ms keeps the previous hardcoded audio
+    // behaviour; the Android client defaults to 40 ms but uses a blocking
+    // AudioTrack write rather than SDL's queue.
+    m_perfCsvLoggingEnabled = false;
+    m_maxPendingAudioMs = 30;
 }
 
 // Clipboard sync setters
@@ -341,5 +360,23 @@ void ArtemisSettings::setInputOnlyModeEnabled(bool enabled)
     if (m_inputOnlyModeEnabled != enabled) {
         m_inputOnlyModeEnabled = enabled;
         emit inputOnlyModeEnabledChanged();
+    }
+}
+
+// LavArtemis hot path setters
+void ArtemisSettings::setPerfCsvLoggingEnabled(bool enabled)
+{
+    if (m_perfCsvLoggingEnabled != enabled) {
+        m_perfCsvLoggingEnabled = enabled;
+        emit perfCsvLoggingEnabledChanged();
+    }
+}
+
+void ArtemisSettings::setMaxPendingAudioMs(int ms)
+{
+    ms = qBound(10, ms, 100);
+    if (m_maxPendingAudioMs != ms) {
+        m_maxPendingAudioMs = ms;
+        emit maxPendingAudioMsChanged();
     }
 }

@@ -2,6 +2,8 @@
 
 #include <functional>
 #include <QQueue>
+#include <QFile>
+#include <QTextStream>
 #include <set>
 
 #include "../bandwidth.h"
@@ -53,6 +55,9 @@ private:
     void stringifyVideoStats(VIDEO_STATS& stats, char* output, int length);
 
     void logVideoStats(VIDEO_STATS& stats, const char* title);
+
+    // Appends one row per stats window to the perf CSV, when enabled.
+    void writePerfCsvRow(VIDEO_STATS& stats);
 
     void addVideoStats(VIDEO_STATS& src, VIDEO_STATS& dst);
 
@@ -118,6 +123,12 @@ private:
     VIDEO_STATS m_LastWndVideoStats;
     VIDEO_STATS m_GlobalVideoStats;
     std::set<IFFmpegRenderer::RendererType> m_FailedRenderers;
+
+    // Perf CSV logging (LavArtemis)
+    QFile* m_PerfCsvFile;
+    QTextStream m_PerfCsvStream;
+    uint64_t m_PerfCsvStartUs;
+    bool m_PerfCsvFailed;
 
     int m_FramesIn;
     int m_FramesOut;

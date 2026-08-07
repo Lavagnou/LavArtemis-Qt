@@ -4,6 +4,11 @@
 #include "streaming/session.h"
 #include "backend/systemproperties.h"
 #include "settings/streamingpreferences.h"
+#include "settings/artemissettings.h"
+
+#include <QDateTime>
+#include <QDir>
+#include <QStandardPaths>
 
 #include <h264_stream.h>
 
@@ -245,7 +250,11 @@ FFmpegVideoDecoder::FFmpegVideoDecoder(bool testOnly)
       m_NeedsSpsFixup(false),
       m_TestOnly(testOnly),
       m_CurrentTestMode(TestMode::TestFrameOnly),
-      m_DecoderThread(nullptr)
+      m_DecoderThread(nullptr),
+      m_PerfCsvFile(nullptr),
+      m_PerfCsvStartUs(0),
+      // Probe decoders never stream, so never open a CSV for them
+      m_PerfCsvFailed(testOnly)
 {
     SDL_zero(m_ActiveWndVideoStats);
     SDL_zero(m_LastWndVideoStats);
@@ -257,6 +266,14 @@ FFmpegVideoDecoder::FFmpegVideoDecoder(bool testOnly)
 FFmpegVideoDecoder::~FFmpegVideoDecoder()
 {
     reset();
+
+    if (m_PerfCsvFile != nullptr) {
+        m_PerfCsvStream.flush();
+        m_PerfCsvStream.setDevice(nullptr);
+        m_PerfCsvFile->close();
+        delete m_PerfCsvFile;
+        m_PerfCsvFile = nullptr;
+    }
 
     // Set log level back to default.
     // NB: We don't do this in reset() because we want
@@ -1042,6 +1059,77 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
 
         offset += ret;
     }
+}
+
+void FFmpegVideoDecoder::writePerfCsvRow(VIDEO_STATS& stats)
+{
+    if (!ArtemisSettings::instance()->perfCsvLoggingEnabled() || m_PerfCsvFailed) {
+        return;
+    }
+
+    // Nothing worth recording before the first frame is rendered
+    if (stats.renderedFrames == 0) {
+        return;
+    }
+
+    if (m_PerfCsvFile == nullptr) {
+        QDir dir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
+        if (!dir.mkpath(".")) {
+            m_PerfCsvFailed = true;
+            return;
+        }
+
+        QString path = dir.filePath(QString("stream-perf-%1.csv")
+                                        .arg(QDateTime::currentSecsSinceEpoch()));
+        m_PerfCsvFile = new QFile(path);
+        if (!m_PerfCsvFile->open(QIODevice::WriteOnly | QIODevice::Text)) {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                        "Unable to open perf CSV for writing: %s",
+                        qPrintable(path));
+            delete m_PerfCsvFile;
+            m_PerfCsvFile = nullptr;
+            m_PerfCsvFailed = true;
+            return;
+        }
+
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                    "Writing performance CSV to %s", qPrintable(path));
+
+        m_PerfCsvStream.setDevice(m_PerfCsvFile);
+        // Same 11 columns as LavArtemis for Android, so the two can be diffed.
+        m_PerfCsvStream << "uptimeMs,receivedFps,renderedFps,totalFps,decodeTimeMs,"
+                           "rttMs,rttVarianceMs,lossPct,pacingP50Ms,pacingP95Ms,pacingP99Ms\n";
+        m_PerfCsvStartUs = LiGetMicroseconds();
+    }
+
+    float decodeTimeMs = stats.decodedFrames > 0
+                             ? (stats.totalDecodeTimeUs / (float)stats.decodedFrames) / 1000.0f
+                             : 0.0f;
+    float lossPct = stats.totalFrames > 0
+                        ? (stats.networkDroppedFrames / (float)stats.totalFrames) * 100.0f
+                        : 0.0f;
+
+    uint32_t rtt = 0, rttVariance = 0;
+    LiGetEstimatedRttInfo(&rtt, &rttVariance);
+
+    PacingStats::Snapshot pacing;
+    if (m_Pacer != nullptr) {
+        pacing = m_Pacer->getPacingSnapshot();
+    }
+
+    m_PerfCsvStream
+        << (LiGetMicroseconds() - m_PerfCsvStartUs) / 1000 << ','
+        << Qt::fixed << qSetRealNumberPrecision(1)
+        << stats.receivedFps << ',' << stats.renderedFps << ',' << stats.totalFps << ','
+        << qSetRealNumberPrecision(2) << decodeTimeMs << ','
+        << rtt << ',' << rttVariance << ','
+        << qSetRealNumberPrecision(2)
+        << lossPct << ',' << pacing.p50Ms << ',' << pacing.p95Ms << ',' << pacing.p99Ms
+        << '\n';
+
+    // Flush every row: these runs usually end by killing the stream, and a
+    // truncated CSV is worthless for A/B comparison.
+    m_PerfCsvStream.flush();
 }
 
 void FFmpegVideoDecoder::logVideoStats(VIDEO_STATS& stats, const char* title)
@@ -2199,6 +2287,9 @@ int FFmpegVideoDecoder::submitDecodeUnit(PDECODE_UNIT du)
                                 Session::get()->getOverlayManager().getOverlayMaxTextLength());
             Session::get()->getOverlayManager().setOverlayTextUpdated(Overlay::OverlayDebug);
         }
+
+        // Emit one CSV row per stats window, same cadence as the Android client
+        writePerfCsvRow(m_ActiveWndVideoStats);
 
         // Accumulate these values into the global stats
         addVideoStats(m_ActiveWndVideoStats, m_GlobalVideoStats);
