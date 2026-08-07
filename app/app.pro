@@ -169,6 +169,7 @@ SOURCES += \
     backend/nvaddress.cpp \
     backend/nvapp.cpp \
     cli/pair.cpp \
+    cli/artlink.cpp \
     main.cpp \
     backend/computerseeker.cpp \
     backend/identitymanager.cpp \
@@ -220,6 +221,7 @@ HEADERS += \
     backend/nvaddress.h \
     backend/nvapp.h \
     cli/pair.h \
+    cli/artlink.h \
     settings/compatfetcher.h \
     settings/mappingfetcher.h \
     utils.h \

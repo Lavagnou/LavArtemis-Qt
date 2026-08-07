@@ -43,6 +43,7 @@
 #include "cli/quitstream.h"
 #include "cli/startstream.h"
 #include "cli/pair.h"
+#include "cli/artlink.h"
 #include "cli/commandlineparser.h"
 #include "path.h"
 #include "utils.h"
@@ -812,8 +813,20 @@ int main(int argc, char *argv[])
     }
 #endif
 
+    // An art:// link or a .art file is translated into the equivalent command
+    // line here, so the rest of the startup path sees an ordinary invocation
+    // and inherits host seeking, wake-on-LAN and the segue UI unchanged.
+    QString artLinkError;
+    QStringList arguments = ArtLink::rewriteArguments(app.arguments(), &artLinkError);
+    if (!artLinkError.isEmpty()) {
+        // Fall through to a normal start rather than exiting: the user
+        // double-clicked something, and a window they can act on beats a
+        // process that vanishes.
+        qWarning() << "Ignoring malformed art link:" << artLinkError;
+    }
+
     GlobalCommandLineParser parser;
-    GlobalCommandLineParser::ParseResult commandLineParserResult = parser.parse(app.arguments());
+    GlobalCommandLineParser::ParseResult commandLineParserResult = parser.parse(arguments);
     switch (commandLineParserResult) {
     case GlobalCommandLineParser::ListRequested:
         // Don't log to the console since it will jumble the command output
@@ -1027,7 +1040,7 @@ int main(int argc, char *argv[])
             initialView = "qrc:/gui/CliStartStreamSegue.qml";
             StreamingPreferences* preferences = StreamingPreferences::get();
             StreamCommandLineParser streamParser;
-            streamParser.parse(app.arguments(), preferences);
+            streamParser.parse(arguments, preferences);
             QString host    = streamParser.getHost();
             QString appName = streamParser.getAppName();
             auto launcher   = new CliStartStream::Launcher(host, appName, preferences, &app);
@@ -1038,7 +1051,7 @@ int main(int argc, char *argv[])
         {
             initialView = "qrc:/gui/CliQuitStreamSegue.qml";
             QuitCommandLineParser quitParser;
-            quitParser.parse(app.arguments());
+            quitParser.parse(arguments);
             auto launcher = new CliQuitStream::Launcher(quitParser.getHost(), &app);
             engine.rootContext()->setContextProperty("launcher", launcher);
             break;
@@ -1047,15 +1060,16 @@ int main(int argc, char *argv[])
         {
             initialView = "qrc:/gui/CliPair.qml";
             PairCommandLineParser pairParser;
-            pairParser.parse(app.arguments());
-            auto launcher = new CliPair::Launcher(pairParser.getHost(), pairParser.getPredefinedPin(), &app);
+            pairParser.parse(arguments);
+            auto launcher = new CliPair::Launcher(pairParser.getHost(), pairParser.getPredefinedPin(),
+                                                  pairParser.getPassphrase(), &app);
             engine.rootContext()->setContextProperty("launcher", launcher);
             break;
         }
     case GlobalCommandLineParser::ListRequested:
         {
             ListCommandLineParser listParser;
-            listParser.parse(app.arguments());
+            listParser.parse(arguments);
             auto launcher = new CliListApps::Launcher(listParser.getHost(), listParser, &app);
             launcher->execute(new ComputerManager(StreamingPreferences::get()));
             hasGUI = false;

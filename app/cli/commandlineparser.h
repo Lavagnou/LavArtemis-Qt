@@ -47,10 +47,12 @@ public:
 
     QString getHost() const;
     QString getPredefinedPin() const;
+    QString getPassphrase() const;
 
 private:
     QString m_Host;
     QString m_PredefinedPin;
+    QString m_Passphrase;
 };
 
 class StreamCommandLineParser

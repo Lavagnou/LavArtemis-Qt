@@ -84,7 +84,16 @@ public:
                     Q_ASSERT(!m_PredefinedPin.isEmpty());
 
                     m_State = StatePairing;
-                    m_ComputerManager->pairHost(event.computer, m_PredefinedPin);
+
+                    // A passphrase means Apollo's OTP pairing, where the PIN is
+                    // combined with it rather than typed on the host.
+                    if (m_Passphrase.isEmpty()) {
+                        m_ComputerManager->pairHost(event.computer, m_PredefinedPin);
+                    }
+                    else {
+                        m_ComputerManager->pairHostWithOTP(event.computer, m_PredefinedPin, m_Passphrase);
+                    }
+
                     emit q->pairing(event.computer->name, m_PredefinedPin);
                 }
             }
@@ -115,6 +124,7 @@ public:
     Launcher *q_ptr;
     QString m_ComputerName;
     QString m_PredefinedPin;
+    QString m_Passphrase;
     ComputerManager *m_ComputerManager;
     ComputerSeeker *m_ComputerSeeker;
     NvComputer *m_Computer;
@@ -122,13 +132,14 @@ public:
     QTimer *m_TimeoutTimer;
 };
 
-Launcher::Launcher(QString computer, QString predefinedPin, QObject *parent)
+Launcher::Launcher(QString computer, QString predefinedPin, QString passphrase, QObject *parent)
     : QObject(parent),
       m_DPtr(new LauncherPrivate(this))
 {
     Q_D(Launcher);
     d->m_ComputerName = computer;
     d->m_PredefinedPin = predefinedPin;
+    d->m_Passphrase = passphrase;
     d->m_State = StateInit;
     d->m_TimeoutTimer = new QTimer(this);
     d->m_TimeoutTimer->setSingleShot(true);

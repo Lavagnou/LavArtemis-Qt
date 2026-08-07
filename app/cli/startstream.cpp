@@ -142,8 +142,19 @@ public:
 
     int getAppIndex() const
     {
+        // Also accept a UUID or a numeric id, not just a name. art:// links and
+        // .art files identify an app by UUID because it survives a rename, and
+        // ComputerSeeker already resolves the host the same lenient way.
         for (int i = 0; i < m_Computer->appList.length(); i++) {
-            if (m_Computer->appList[i].name.toLower() == m_AppName.toLower()) {
+            const NvApp& app = m_Computer->appList[i];
+
+            if (app.name.toLower() == m_AppName.toLower()) {
+                return i;
+            }
+            if (!app.uuid.isEmpty() && app.uuid.toLower() == m_AppName.toLower()) {
+                return i;
+            }
+            if (app.id != 0 && QString::number(app.id) == m_AppName) {
                 return i;
             }
         }
