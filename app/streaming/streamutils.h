@@ -14,6 +14,17 @@ public:
     static
     void scaleSourceToDestinationSurface(SDL_Rect* src, SDL_Rect* dst);
 
+    // scaleSourceToDestinationSurface() followed by the client-side zoom and
+    // pan. Use this wherever the result is the video the user looks at or
+    // clicks on -- the renderers and the input coordinate mapping -- so that a
+    // zoomed picture and the pointer inside it cannot disagree.
+    //
+    // Not for laying out the window itself: Session::getWindowDimensions()
+    // reuses the aspect fit to size the window, and a zoom applied there would
+    // resize the window instead of magnifying the video.
+    static
+    void scaleSourceToDestinationSurfaceWithPanZoom(SDL_Rect* src, SDL_Rect* dst);
+
     static
     void screenSpaceToNormalizedDeviceCoords(SDL_FRect* rect, int viewportWidth, int viewportHeight);
 

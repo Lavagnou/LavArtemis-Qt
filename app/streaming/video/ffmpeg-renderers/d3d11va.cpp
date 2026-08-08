@@ -878,7 +878,7 @@ void D3D11VARenderer::bindVideoVertexBuffer(bool frameChanged, AVFrame* frame)
         dst.x = dst.y = 0;
         dst.w = m_DisplayWidth;
         dst.h = m_DisplayHeight;
-        StreamUtils::scaleSourceToDestinationSurface(&src, &dst);
+        StreamUtils::scaleSourceToDestinationSurfaceWithPanZoom(&src, &dst);
 
         // Convert screen space to normalized device coordinates
         SDL_FRect renderRect;

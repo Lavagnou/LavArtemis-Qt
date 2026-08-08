@@ -1,4 +1,5 @@
 #include "streamutils.h"
+#include "panzoom.h"
 
 #include <Qt>
 #include <QDir>
@@ -138,6 +139,16 @@ void StreamUtils::scaleSourceToDestinationSurface(SDL_Rect* src, SDL_Rect* dst)
         dst->y += (dst->h - dstH) / 2;
         dst->h = dstH;
     }
+}
+
+void StreamUtils::scaleSourceToDestinationSurfaceWithPanZoom(SDL_Rect* src, SDL_Rect* dst)
+{
+    // Remember the area being fitted into before the fit shrinks it: that area
+    // is what bounds the zoomed video.
+    SDL_Rect viewport = *dst;
+
+    scaleSourceToDestinationSurface(src, dst);
+    PanZoom::apply(dst, viewport);
 }
 
 void StreamUtils::screenSpaceToNormalizedDeviceCoords(SDL_FRect* rect, int viewportWidth, int viewportHeight)

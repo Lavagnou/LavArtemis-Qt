@@ -169,6 +169,13 @@ private:
         KeyComboQuitAndExit,
         KeyComboToggleQuickMenu,
         KeyComboToggleKeyboardGrab,
+        KeyComboZoomIn,
+        KeyComboZoomOut,
+        KeyComboZoomReset,
+        KeyComboPanLeft,
+        KeyComboPanRight,
+        KeyComboPanUp,
+        KeyComboPanDown,
         KeyComboMax
     };
 

@@ -115,7 +115,7 @@ void MmalRenderer::updateDisplayRegion()
         dst.x = dst.y = 0;
         SDL_GetWindowSize(m_Window, &dst.w, &dst.h);
 
-        StreamUtils::scaleSourceToDestinationSurface(&src, &dst);
+        StreamUtils::scaleSourceToDestinationSurfaceWithPanZoom(&src, &dst);
 
         dr.dest_rect.x = currentPosX + dst.x;
         dr.dest_rect.y = currentPosY + dst.y;

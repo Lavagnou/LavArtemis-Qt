@@ -918,7 +918,7 @@ void DXVA2Renderer::renderFrame(AVFrame *frame)
     dst.w = m_DisplayWidth;
     dst.h = m_DisplayHeight;
 
-    StreamUtils::scaleSourceToDestinationSurface(&src, &dst);
+    StreamUtils::scaleSourceToDestinationSurfaceWithPanZoom(&src, &dst);
 
     sample.DstRect.left = dst.x;
     sample.DstRect.right = dst.x + dst.w;

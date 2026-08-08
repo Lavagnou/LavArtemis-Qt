@@ -1831,7 +1831,7 @@ bool DrmRenderer::addFbForFrame(AVFrame *frame, uint32_t* newFbId, bool testMode
             dst.h = frame->height;
         }
 
-        StreamUtils::scaleSourceToDestinationSurface(&src, &dst);
+        StreamUtils::scaleSourceToDestinationSurfaceWithPanZoom(&src, &dst);
 
         // Temporarily take DRM master if we dropped it after initialization
         if (!m_DrmStateModified) {
@@ -1915,7 +1915,7 @@ void DrmRenderer::renderFrame(AVFrame* frame)
         src.h = frame->height;
         dst = m_OutputRect;
 
-        StreamUtils::scaleSourceToDestinationSurface(&src, &dst);
+        StreamUtils::scaleSourceToDestinationSurfaceWithPanZoom(&src, &dst);
 
         // Set the video plane size and location
         m_PropSetter.configurePlane(m_VideoPlane, m_Crtc.objectId(),

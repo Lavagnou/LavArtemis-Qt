@@ -827,7 +827,7 @@ VAAPIRenderer::renderFrame(AVFrame* frame)
     dst.w = windowWidth;
     dst.h = windowHeight;
 
-    StreamUtils::scaleSourceToDestinationSurface(&src, &dst);
+    StreamUtils::scaleSourceToDestinationSurfaceWithPanZoom(&src, &dst);
 
     if (m_WindowSystem == SDL_SYSWM_X11) {
 #ifdef HAVE_LIBVA_X11

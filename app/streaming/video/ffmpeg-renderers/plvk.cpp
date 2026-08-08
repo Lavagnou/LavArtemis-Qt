@@ -1062,7 +1062,7 @@ void PlVkRenderer::renderFrame(AVFrame *frame)
     dst.h = targetFrame.crop.y1 - targetFrame.crop.y0;
 
     // Scale the video to the surface size while preserving the aspect ratio
-    StreamUtils::scaleSourceToDestinationSurface(&src, &dst);
+    StreamUtils::scaleSourceToDestinationSurfaceWithPanZoom(&src, &dst);
 
     targetFrame.crop.x0 = dst.x;
     targetFrame.crop.y0 = dst.y;

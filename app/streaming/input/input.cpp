@@ -142,6 +142,45 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
     m_SpecialKeyCombos[KeyComboToggleKeyboardGrab].scanCode = SDL_SCANCODE_K;
     m_SpecialKeyCombos[KeyComboToggleKeyboardGrab].enabled = WMUtils::isRunningDesktopEnvironment();
 
+    // Client-side zoom and pan. Every letter key is already spoken for by the
+    // combos above, and +/-/0 and the arrows are what these actions mean
+    // everywhere else. Unconditionally enabled: they only change how this
+    // client draws the picture, so there is no platform for them to fail on.
+    m_SpecialKeyCombos[KeyComboZoomIn].keyCombo = KeyComboZoomIn;
+    m_SpecialKeyCombos[KeyComboZoomIn].keyCode = SDLK_EQUALS;
+    m_SpecialKeyCombos[KeyComboZoomIn].scanCode = SDL_SCANCODE_EQUALS;
+    m_SpecialKeyCombos[KeyComboZoomIn].enabled = true;
+
+    m_SpecialKeyCombos[KeyComboZoomOut].keyCombo = KeyComboZoomOut;
+    m_SpecialKeyCombos[KeyComboZoomOut].keyCode = SDLK_MINUS;
+    m_SpecialKeyCombos[KeyComboZoomOut].scanCode = SDL_SCANCODE_MINUS;
+    m_SpecialKeyCombos[KeyComboZoomOut].enabled = true;
+
+    m_SpecialKeyCombos[KeyComboZoomReset].keyCombo = KeyComboZoomReset;
+    m_SpecialKeyCombos[KeyComboZoomReset].keyCode = SDLK_0;
+    m_SpecialKeyCombos[KeyComboZoomReset].scanCode = SDL_SCANCODE_0;
+    m_SpecialKeyCombos[KeyComboZoomReset].enabled = true;
+
+    m_SpecialKeyCombos[KeyComboPanLeft].keyCombo = KeyComboPanLeft;
+    m_SpecialKeyCombos[KeyComboPanLeft].keyCode = SDLK_LEFT;
+    m_SpecialKeyCombos[KeyComboPanLeft].scanCode = SDL_SCANCODE_LEFT;
+    m_SpecialKeyCombos[KeyComboPanLeft].enabled = true;
+
+    m_SpecialKeyCombos[KeyComboPanRight].keyCombo = KeyComboPanRight;
+    m_SpecialKeyCombos[KeyComboPanRight].keyCode = SDLK_RIGHT;
+    m_SpecialKeyCombos[KeyComboPanRight].scanCode = SDL_SCANCODE_RIGHT;
+    m_SpecialKeyCombos[KeyComboPanRight].enabled = true;
+
+    m_SpecialKeyCombos[KeyComboPanUp].keyCombo = KeyComboPanUp;
+    m_SpecialKeyCombos[KeyComboPanUp].keyCode = SDLK_UP;
+    m_SpecialKeyCombos[KeyComboPanUp].scanCode = SDL_SCANCODE_UP;
+    m_SpecialKeyCombos[KeyComboPanUp].enabled = true;
+
+    m_SpecialKeyCombos[KeyComboPanDown].keyCombo = KeyComboPanDown;
+    m_SpecialKeyCombos[KeyComboPanDown].keyCode = SDLK_DOWN;
+    m_SpecialKeyCombos[KeyComboPanDown].scanCode = SDL_SCANCODE_DOWN;
+    m_SpecialKeyCombos[KeyComboPanDown].enabled = true;
+
     m_OldIgnoreDevices = SDL_GetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES);
     m_OldIgnoreDevicesExcept = SDL_GetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT);
 

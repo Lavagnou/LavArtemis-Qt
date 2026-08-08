@@ -600,7 +600,7 @@ void VDPAURenderer::renderFrame(AVFrame* frame)
     dst.w = m_DisplayWidth;
     dst.h = m_DisplayHeight;
 
-    StreamUtils::scaleSourceToDestinationSurface(&src, &dst);
+    StreamUtils::scaleSourceToDestinationSurfaceWithPanZoom(&src, &dst);
 
     outputRect.x0 = dst.x;
     outputRect.x1 = dst.x + dst.w;

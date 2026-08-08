@@ -816,7 +816,7 @@ void EGLRenderer::renderFrame(AVFrame* frame)
     src.h = frame->height;
     dst.w = drawableWidth;
     dst.h = drawableHeight;
-    StreamUtils::scaleSourceToDestinationSurface(&src, &dst);
+    StreamUtils::scaleSourceToDestinationSurfaceWithPanZoom(&src, &dst);
     glViewport(dst.x, dst.y, dst.w, dst.h);
 
     glUseProgram(m_ShaderProgram);

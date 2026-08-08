@@ -1,4 +1,5 @@
 #include "streaming/session.h"
+#include "streaming/panzoom.h"
 
 #include <Limelight.h>
 #include "SDL_compat.h"
@@ -177,6 +178,40 @@ void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
         }
 
         updateKeyboardGrabState();
+        break;
+
+    // Client-side zoom and pan. Nothing is sent to the host and no redraw is
+    // requested: the next streamed frame picks the new geometry up on its own,
+    // which at any playable frame rate is indistinguishable from immediate.
+    case KeyComboZoomIn:
+        PanZoom::zoomBy(1.25f);
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Zoom: %.2fx", PanZoom::scale());
+        break;
+
+    case KeyComboZoomOut:
+        PanZoom::zoomBy(1.0f / 1.25f);
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Zoom: %.2fx", PanZoom::scale());
+        break;
+
+    case KeyComboZoomReset:
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Zoom reset");
+        PanZoom::reset();
+        break;
+
+    case KeyComboPanLeft:
+        PanZoom::panBy(0.05f, 0.0f);
+        break;
+
+    case KeyComboPanRight:
+        PanZoom::panBy(-0.05f, 0.0f);
+        break;
+
+    case KeyComboPanUp:
+        PanZoom::panBy(0.0f, 0.05f);
+        break;
+
+    case KeyComboPanDown:
+        PanZoom::panBy(0.0f, -0.05f);
         break;
 
     default:
