@@ -122,9 +122,21 @@ Portée depuis le client Android, sauf mention contraire :
 3. **`UpgradeCode` WiX propre à LavArtemis** — ne jamais reprendre celui de Moonlight ou d'Artemis,
    sous peine d'écraser leur installation.
 
-4. **`app/version.txt` est écrit par la CI depuis le tag**, jamais committé à la main.
+4. **Le thème du bootstrapper référence ses assets *par nom de fichier*.**
+   `wix/LavArtemisSetup/RtfTheme.xml` (`IconFile=`, `ImageFile=`) doit correspondre exactement aux
+   `Payload Name=` de `Bundle.wxs`. Burn résout ces noms **à l'exécution**, dans le dossier
+   d'extraction : un nom qui ne correspond pas fait échouer le parsing du thème avec `FILE_NOT_FOUND`
+   **avant qu'aucune fenêtre n'existe** — l'installeur semble ne rien faire du tout, sans erreur ni
+   SmartScreen. WiX embarque sans broncher un thème dont les références ne résolvent pas : build vert,
+   zéro warning. C'est ce qui a cassé la v20.3.0 (renommage `artemis.ico` → `lavartemis.ico`
+   non répercuté). Le job `build-windows` de LavArtemis ouvre désormais le bundle et vérifie chaque
+   asset — mais si tu bouges ces fichiers, vérifie les deux côtés.
+   Diagnostic : le log Burn est dans `%TEMP%\LavArtemis_Game_Streaming_Client_*.log`, et
+   `wix burn extract <exe> -oba <dir> -acceptEula wix7` montre le contenu réel.
 
-5. **`ArtemisApplication`, `artemis.png`, `artemissettings`** — le rebrand est partiel, ces noms sont
+5. **`app/version.txt` est écrit par la CI depuis le tag**, jamais committé à la main.
+
+6. **`ArtemisApplication`, `artemis.png`, `artemissettings`** — le rebrand est partiel, ces noms sont
    hérités. Renommer touche le QML, le `.pro` et le WiX ensemble.
 
 ## 🤖 CI
