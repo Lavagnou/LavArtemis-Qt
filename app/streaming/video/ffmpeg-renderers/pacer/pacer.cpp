@@ -342,9 +342,17 @@ void Pacer::renderFrame(AVFrame* frame)
     m_VideoStats->totalRenderTimeUs += (afterRender - beforeRender);
     m_VideoStats->renderedFrames++;
 
-    // Sample the present cadence here, which matches what LavArtemis for Android
-    // measures: the moment the frame is handed off, not actual scanout.
-    m_PacingStats.recordPresent(afterRender * 1000);
+    // Sample the present cadence. Prefer whatever the backend knows about real
+    // scanout -- on D3D11 that is the vertical blank the frame actually went
+    // out on -- and fall back to the hand-off time, which is all the Android
+    // client can measure.
+    //
+    // The two clocks share a rate but not an epoch, so switching between them
+    // yields one nonsense interval. PacingStats discards it in either
+    // direction: a backwards step fails its ordering check, a forwards one
+    // exceeds the plausibility ceiling. That costs one sample out of 512.
+    uint64_t presentTimeUs = m_VsyncRenderer->getLastPresentTimeUs();
+    m_PacingStats.recordPresent((presentTimeUs != 0 ? presentTimeUs : afterRender) * 1000);
 
     // Wait until after next frame to free this one to ensure the GPU
     // doesn't stall or read garbage if the backing buffer gets returned

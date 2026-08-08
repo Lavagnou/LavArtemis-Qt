@@ -161,6 +161,22 @@ public:
     virtual bool prepareDecoderContext(AVCodecContext* context, AVDictionary** options) = 0;
     virtual void renderFrame(AVFrame* frame) = 0;
 
+    // When the last presented frame actually reached the display, in
+    // microseconds, or 0 when the backend cannot say.
+    //
+    // Only differences between consecutive calls are meaningful: the epoch is
+    // whatever the backend's clock uses and is NOT comparable with
+    // LiGetMicroseconds(), which counts from when the streaming core started.
+    // Callers must not mix the two within one measurement.
+    //
+    // The pacing statistics otherwise time the moment a frame is handed off,
+    // which is what the Android client measures because SurfaceFlinger offers
+    // it nothing better. That blends the client's own submission jitter into a
+    // number meant to describe what the display did. Backends that can report
+    // real scanout override this so the percentiles describe the picture
+    // rather than the code that queued it.
+    virtual uint64_t getLastPresentTimeUs() { return 0; }
+
     enum class InitFailureReason
     {
         Unknown,

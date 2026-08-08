@@ -826,6 +826,45 @@ void D3D11VARenderer::renderFrame(AVFrame* frame)
     }
 }
 
+uint64_t D3D11VARenderer::getLastPresentTimeUs()
+{
+    // SyncQPCTime is the QPC value at the vertical blank the frame went out on
+    // -- real scanout, not the moment we handed it to DXGI. Feeding that to the
+    // pacing statistics is what makes the percentiles describe the display
+    // instead of this client's own submission jitter.
+    //
+    // Available because the swap chain is flip model. It legitimately fails
+    // before the first frame reaches the screen and across mode changes, so
+    // every failure path falls back to the caller's own timing rather than
+    // logging: this runs once per frame and a warning here would flood.
+    DXGI_FRAME_STATISTICS stats;
+    if (FAILED(m_SwapChain->GetFrameStatistics(&stats))) {
+        return 0;
+    }
+
+    if (stats.SyncQPCTime.QuadPart == 0) {
+        return 0;
+    }
+
+    // Cached because the QPC frequency is fixed for the lifetime of the system.
+    static LARGE_INTEGER frequency = [] {
+        LARGE_INTEGER f;
+        if (!QueryPerformanceFrequency(&f)) {
+            f.QuadPart = 0;
+        }
+        return f;
+    }();
+
+    if (frequency.QuadPart == 0) {
+        return 0;
+    }
+
+    // Split the conversion rather than multiplying by a million first, which
+    // overflows a 64-bit integer a couple of hours into a session.
+    return (uint64_t)(stats.SyncQPCTime.QuadPart / frequency.QuadPart) * 1000000 +
+           (uint64_t)((stats.SyncQPCTime.QuadPart % frequency.QuadPart) * 1000000 / frequency.QuadPart);
+}
+
 void D3D11VARenderer::renderOverlay(Overlay::OverlayType type)
 {
     if (!Session::get()->getOverlayManager().isOverlayEnabled(type)) {

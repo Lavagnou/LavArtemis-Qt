@@ -21,6 +21,7 @@ public:
     virtual bool prepareDecoderContext(AVCodecContext* context, AVDictionary**) override;
     virtual bool prepareDecoderContextInGetFormat(AVCodecContext* context, AVPixelFormat pixelFormat) override;
     virtual void renderFrame(AVFrame* frame) override;
+    virtual uint64_t getLastPresentTimeUs() override;
     virtual void notifyOverlayUpdated(Overlay::OverlayType) override;
     virtual bool notifyWindowChanged(PWINDOW_STATE_CHANGE_INFO stateInfo) override;
     virtual int getRendererAttributes() override;
