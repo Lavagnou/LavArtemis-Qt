@@ -1,6 +1,7 @@
 import QtQuick 2.9
 import QtQuick.Controls 2.2
 import QtQuick.Controls.Material 2.2
+import QtQuick.Dialogs
 
 import AppModel 1.0
 import ComputerManager 1.0
@@ -328,6 +329,19 @@ CenteredGridView {
                     ToolTip.timeout: 5000
                     ToolTip.visible: hovered
                 }
+                NavigableMenuItem {
+                    text: qsTr("Export Shortcut File...")
+                    onTriggered: {
+                        exportArtDialog.appIndex = model.index
+                        exportArtDialog.currentFile = "file:///" + appModel.suggestedArtFileName(model.index)
+                        exportArtDialog.open()
+                    }
+
+                    ToolTip.text: qsTr("Save a .art file that launches this app directly. It also opens in the Android client.")
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 5000
+                    ToolTip.visible: hovered
+                }
             }
         }
     }
@@ -372,6 +386,28 @@ CenteredGridView {
         }
 
         onAccepted: quitApp()
+    }
+
+    FileDialog {
+        id: exportArtDialog
+        property int appIndex: -1
+
+        title: qsTr("Export Shortcut File")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "art"
+        nameFilters: [qsTr("LavArtemis shortcut (*.art)")]
+
+        onAccepted: {
+            var error = appModel.exportArtFile(appIndex, selectedFile)
+            if (error) {
+                exportArtErrorDialog.text = error
+                exportArtErrorDialog.open()
+            }
+        }
+    }
+
+    ErrorMessageDialog {
+        id: exportArtErrorDialog
     }
 
     ScrollBar.vertical: ScrollBar {}

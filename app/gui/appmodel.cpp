@@ -1,5 +1,10 @@
 #include "appmodel.h"
 
+#include <QDir>
+#include <QFile>
+#include <QRegularExpression>
+#include <QTextStream>
+
 AppModel::AppModel(QObject *parent)
     : QAbstractListModel(parent)
 {
@@ -248,6 +253,68 @@ void AppModel::setAppDirectLaunch(int appIndex, bool directLaunch)
     }
 
     m_ComputerManager->clientSideAttributeUpdated(m_Computer);
+}
+
+QString AppModel::suggestedArtFileName(int appIndex)
+{
+    if (appIndex < 0 || appIndex >= m_VisibleApps.count()) {
+        return QStringLiteral("shortcut.art");
+    }
+
+    QString name = m_VisibleApps.at(appIndex).name;
+
+    // Strip what Windows forbids outright, plus control characters. This is
+    // only a suggestion -- the save dialog still lets the user rename it.
+    static const QRegularExpression illegal(QStringLiteral("[<>:\"/\\\\|?*\\x00-\\x1F]"));
+    name.replace(illegal, QStringLiteral("_"));
+    name = name.trimmed();
+
+    if (name.isEmpty()) {
+        name = QStringLiteral("shortcut");
+    }
+
+    return name + QStringLiteral(".art");
+}
+
+QString AppModel::exportArtFile(int appIndex, const QUrl& destination)
+{
+    if (appIndex < 0 || appIndex >= m_VisibleApps.count()) {
+        return tr("That app is no longer in the list.");
+    }
+
+    NvApp app = m_VisibleApps.at(appIndex);
+    QString path = destination.isLocalFile() ? destination.toLocalFile() : destination.toString();
+
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+        return tr("Unable to write %1: %2").arg(QDir::toNativeSeparators(path), file.errorString());
+    }
+
+    // "[key] value" lines, matching ShortcutHelper.java:243, so a file written
+    // here opens on Android and one written there opens here. Both the UUID
+    // and the name are recorded for host and app: the UUID survives a rename,
+    // while the name keeps the file readable and is what older hosts that
+    // report no app UUID fall back to.
+    QTextStream out(&file);
+    out << "# LavArtemis shortcut\n";
+    out << "[host_uuid] " << m_Computer->uuid << "\n";
+    out << "[host_name] " << m_Computer->name << "\n";
+    if (!app.uuid.isEmpty()) {
+        out << "[app_uuid] " << app.uuid << "\n";
+    }
+    out << "[app_name] " << app.name << "\n";
+    out << "[app_id] " << app.id << "\n";
+    out.flush();
+
+    // Catches a full disk, which open() cannot see coming.
+    if (file.error() != QFileDevice::NoError) {
+        QString message = file.errorString();
+        file.close();
+        return tr("Unable to write %1: %2").arg(QDir::toNativeSeparators(path), message);
+    }
+
+    file.close();
+    return QString();
 }
 
 void AppModel::handleComputerStateChanged(NvComputer* computer)

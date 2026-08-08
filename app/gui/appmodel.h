@@ -41,6 +41,15 @@ public:
 
     Q_INVOKABLE void setAppDirectLaunch(int appIndex, bool directLaunch);
 
+    // Filename to offer when saving a .art shortcut for this app, with
+    // anything a filesystem would reject stripped out.
+    Q_INVOKABLE QString suggestedArtFileName(int appIndex);
+
+    // Writes a .art launcher file: the format the Android client exports and
+    // this one already opens. Returns an empty string on success, or a message
+    // fit to show the user.
+    Q_INVOKABLE QString exportArtFile(int appIndex, const QUrl& destination);
+
     QVariant data(const QModelIndex &index, int role) const override;
 
     int rowCount(const QModelIndex &parent) const override;
