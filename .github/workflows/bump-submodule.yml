@@ -1,0 +1,162 @@
+---
+# Moves the desktop/ pointer in Lavagnou/LavArtemis to whatever commit of this
+# repository just built green on main.
+#
+# The two clients live in separate repositories so that upstream moonlight-qt
+# can still be merged with a plain `git merge`. The cost of that split is a
+# second, purely mechanical commit on the Android side every time the desktop
+# client changes -- which is what this workflow removes. You commit once, here,
+# and the pointer follows on its own.
+#
+# It deliberately pins `workflow_run.head_sha` (the commit that was actually
+# compiled) rather than the current tip of main. Those differ whenever another
+# push lands while the build runs, and pinning the tip would record a commit
+# nothing has ever built.
+name: Bump submodule pointer
+
+# The bump is a write to a *different* repository, so the automatic
+# GITHUB_TOKEN cannot do it -- it is scoped to this repository alone.
+# See the failure message in "Check credentials" for how to provision the PAT.
+permissions:
+  contents: read
+
+on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+    branches: [main]
+
+# Queue bumps instead of cancelling them: every green desktop commit should
+# reach the Android repository, and a cancelled run would silently skip one.
+concurrency:
+  group: bump-submodule
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: Bump desktop/ in LavArtemis
+    runs-on: ubuntu-latest
+    # A red build must not move the pointer.
+    #
+    # The `event == push` half is a security guard, not a formality: the
+    # `branches` filter above matches `head_branch`, which for a pull request
+    # is the *source* branch name. A fork whose default branch is also called
+    # `main` would otherwise satisfy it, and the bump would pin a commit that
+    # only ever existed in someone else's repository.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+
+    env:
+      ANDROID_REPO: Lavagnou/LavArtemis
+      DESKTOP_SHA: ${{ github.event.workflow_run.head_sha }}
+
+    steps:
+      - name: Check credentials
+        env:
+          BUMP_TOKEN: ${{ secrets.SUBMODULE_BUMP_TOKEN }}
+        run: |
+          if [ -z "$BUMP_TOKEN" ]; then
+            echo "::error::SUBMODULE_BUMP_TOKEN is not set, so the desktop/ pointer in $ANDROID_REPO cannot be updated."
+            echo ""
+            echo "This workflow writes to a different repository than the one it runs in," >&2
+            echo "which the built-in GITHUB_TOKEN is not allowed to do. To enable it:" >&2
+            echo "" >&2
+            echo "  1. Create a fine-grained PAT at https://github.com/settings/personal-access-tokens/new" >&2
+            echo "     - Repository access: only $ANDROID_REPO" >&2
+            echo "     - Permissions: Contents -> Read and write" >&2
+            echo "  2. Add it here as a secret named SUBMODULE_BUMP_TOKEN:" >&2
+            echo "     https://github.com/${{ github.repository }}/settings/secrets/actions/new" >&2
+            echo "" >&2
+            echo "Until then, bump the pointer by hand from the LavArtemis checkout:" >&2
+            echo "  git -C desktop checkout $DESKTOP_SHA && git add desktop && git commit" >&2
+            exit 1
+          fi
+
+      # Only needed for the commit subject, so skip submodules entirely.
+      - name: Read the desktop commit being pinned
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ env.DESKTOP_SHA }}
+          fetch-depth: 1
+          submodules: false
+          path: desktop-src
+
+      - name: Check out the Android repository
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.ANDROID_REPO }}
+          token: ${{ secrets.SUBMODULE_BUMP_TOKEN }}
+          ref: main
+          fetch-depth: 0
+          submodules: false
+          path: android
+
+      - name: Move the pointer
+        id: bump
+        working-directory: android
+        run: |
+          set -euo pipefail
+
+          OLD_SHA=$(git rev-parse HEAD:desktop)
+          if [ "$OLD_SHA" = "$DESKTOP_SHA" ]; then
+            echo "Pointer is already at $DESKTOP_SHA; nothing to do."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Rewrite the gitlink directly. Fetching the submodule contents just
+          # to check out a commit we already know would cost a 250 MB clone.
+          git update-index --cacheinfo "160000,$DESKTOP_SHA,desktop"
+
+          if git diff --cached --quiet; then
+            echo "::error::update-index recorded no change; the desktop entry may not be a submodule anymore."
+            exit 1
+          fi
+
+          SUBJECT=$(git -C ../desktop-src log -1 --format=%s)
+          SHORT=$(git -C ../desktop-src rev-parse --short "$DESKTOP_SHA")
+
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "Bump desktop to ${SHORT}: ${SUBJECT}" \
+                     -m "Automated pointer update. ${SHORT} is the commit that passed the desktop build, not the tip of main, so the recorded commit is always one that compiled on Windows x64/arm64 and Linux." \
+                     -m "Build: ${{ github.event.workflow_run.html_url }}"
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "short=$SHORT" >> "$GITHUB_OUTPUT"
+          echo "subject=$SUBJECT" >> "$GITHUB_OUTPUT"
+
+      - name: Push
+        if: steps.bump.outputs.changed == 'true'
+        working-directory: android
+        run: |
+          set -euo pipefail
+          # main can move while this runs; rebase the bump on top and retry.
+          for attempt in 1 2 3; do
+            if git push origin main; then
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt), rebasing onto the new main..."
+            git fetch origin main
+            git rebase origin/main
+          done
+          echo "::error::Could not push the pointer bump after 3 attempts."
+          exit 1
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            if [ "${{ steps.bump.outputs.changed }}" = "true" ]; then
+              echo "### Pointer bumped"
+              echo ""
+              echo "\`${ANDROID_REPO}\` now pins \`desktop\` at \`${{ steps.bump.outputs.short }}\`."
+              echo ""
+              echo "> ${{ steps.bump.outputs.subject }}"
+            else
+              echo "### No change"
+              echo ""
+              echo "\`${ANDROID_REPO}\` already pins this commit."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
