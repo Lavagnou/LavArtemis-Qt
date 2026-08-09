@@ -104,6 +104,7 @@ void ArtemisSettings::save()
     m_settings->beginGroup("LavArtemis");
     m_settings->setValue("perfCsvLogging", m_perfCsvLoggingEnabled);
     m_settings->setValue("maxPendingAudioMs", m_maxPendingAudioMs);
+    m_settings->setValue("genericGamepadFallback", m_genericGamepadFallbackEnabled);
     m_settings->endGroup();
 
     m_settings->sync();
@@ -166,6 +167,7 @@ void ArtemisSettings::load()
     m_perfCsvLoggingEnabled = m_settings->value("perfCsvLogging", false).toBool();
     // Clamped to the same 10-100 ms range the Android client exposes.
     m_maxPendingAudioMs = qBound(10, m_settings->value("maxPendingAudioMs", 30).toInt(), 100);
+    m_genericGamepadFallbackEnabled = m_settings->value("genericGamepadFallback", true).toBool();
     m_settings->endGroup();
 }
 
@@ -232,6 +234,10 @@ void ArtemisSettings::loadDefaults()
     // AudioTrack write rather than SDL's queue.
     m_perfCsvLoggingEnabled = false;
     m_maxPendingAudioMs = 30;
+
+    // On by default: without it, a gamepad SDL doesn't recognise is silently
+    // dropped and the user has no way to tell why.
+    m_genericGamepadFallbackEnabled = true;
 }
 
 // Clipboard sync setters
@@ -384,5 +390,14 @@ void ArtemisSettings::setMaxPendingAudioMs(int ms)
     if (m_maxPendingAudioMs != ms) {
         m_maxPendingAudioMs = ms;
         emit maxPendingAudioMsChanged();
+    }
+}
+
+// Input setters
+void ArtemisSettings::setGenericGamepadFallbackEnabled(bool enabled)
+{
+    if (m_genericGamepadFallbackEnabled != enabled) {
+        m_genericGamepadFallbackEnabled = enabled;
+        emit genericGamepadFallbackEnabledChanged();
     }
 }

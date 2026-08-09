@@ -1,5 +1,6 @@
 #include "mappingmanager.h"
 #include "path.h"
+#include "artemissettings.h"
 
 #include <QDir>
 
@@ -11,6 +12,7 @@
 #define SER_MAPPING "mapping"
 
 MappingFetcher* MappingManager::s_MappingFetcher;
+QStringList MappingManager::s_GuessedDeviceNames;
 
 MappingManager::MappingManager()
 {
@@ -112,6 +114,131 @@ void MappingManager::applyMappings()
                         "Loaded saved user mapping: %s",
                         qPrintable(sdlMappingString));
         }
+    }
+
+    // Last, so that a real entry from the database or from the user always
+    // wins over a guess. Doing it here rather than at each call site means
+    // every path that applies mappings gets the fallback for free.
+    if (ArtemisSettings::instance()->genericGamepadFallbackEnabled()) {
+        applyFallbackMappings();
+    }
+}
+
+QStringList MappingManager::getGuessedDeviceNames()
+{
+    return s_GuessedDeviceNames;
+}
+
+QString MappingManager::synthesizeMapping(int deviceIndex, int numAxes, int numButtons, int numHats)
+{
+    // Same shape test SdlInputHandler::getUnmappedGamepads() uses to decide a
+    // bare joystick is probably a gamepad. Reusing it keeps the thing we warn
+    // about and the thing we try to fix in agreement.
+    if (numAxes < 4 || numAxes > 8 || numButtons < 8 || numHats > 1) {
+        return QString();
+    }
+
+    char guidStr[33];
+    SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(deviceIndex),
+                              guidStr, sizeof(guidStr));
+
+    const char* rawName = SDL_JoystickNameForIndex(deviceIndex);
+    QString name = rawName ? QString::fromUtf8(rawName) : QStringLiteral("Unknown Gamepad");
+
+    // Fields are comma separated, so a comma in the device name would split
+    // the mapping and corrupt every field after it.
+    name.replace(',', ' ');
+
+    QStringList parts;
+    parts << QString::fromLatin1(guidStr) << name;
+
+    // Axis roles follow the same reasoning the Android client applies to the
+    // ranges a device reports (see ControllerHandler): the first pair is
+    // always the left stick, and whether the next pair is the right stick or
+    // the triggers depends on how many axes exist.
+    parts << QStringLiteral("leftx:a0") << QStringLiteral("lefty:a1");
+    if (numAxes >= 6) {
+        // X, Y, Z, Rx, Ry, Rz -- right stick on Rx/Ry, triggers on Z/Rz.
+        parts << QStringLiteral("rightx:a3") << QStringLiteral("righty:a4");
+        parts << QStringLiteral("lefttrigger:a2") << QStringLiteral("righttrigger:a5");
+    }
+    else {
+        // X, Y, Z, Rz -- right stick on Z/Rz and no analog triggers. This is
+        // the RadioMaster TX15 case.
+        parts << QStringLiteral("rightx:a2") << QStringLiteral("righty:a3");
+    }
+
+    // Conventional HID gamepad button order. Devices with fewer buttons than
+    // this simply get fewer bindings rather than wrong ones.
+    static const char* const buttonTargets[] = {
+        "a", "b", "x", "y",
+        "leftshoulder", "rightshoulder",
+        "back", "start",
+        "leftstick", "rightstick",
+        "guide"
+    };
+    for (int i = 0; i < numButtons && i < (int)SDL_arraysize(buttonTargets); i++) {
+        parts << QStringLiteral("%1:b%2").arg(QLatin1String(buttonTargets[i])).arg(i);
+    }
+
+    if (numHats >= 1) {
+        parts << QStringLiteral("dpup:h0.1") << QStringLiteral("dpright:h0.2")
+              << QStringLiteral("dpdown:h0.4") << QStringLiteral("dpleft:h0.8");
+    }
+
+    // GUIDs differ between platforms for the same physical device, so a
+    // mapping is only ever valid for the one that produced it.
+    parts << QStringLiteral("platform:%1").arg(QLatin1String(SDL_GetPlatform()));
+
+    return parts.join(QLatin1Char(','));
+}
+
+void MappingManager::applyFallbackMappings()
+{
+    s_GuessedDeviceNames.clear();
+
+    int numJoysticks = SDL_NumJoysticks();
+    for (int i = 0; i < numJoysticks; i++) {
+        // Anything SDL already recognises is left strictly alone.
+        if (SDL_IsGameController(i)) {
+            continue;
+        }
+
+        // The axis and button counts are only reachable through an open
+        // handle. SDL refcounts opens, so this doesn't disturb a later
+        // SDL_GameControllerOpen() by the caller.
+        SDL_Joystick* joy = SDL_JoystickOpen(i);
+        if (joy == nullptr) {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                        "Unable to open joystick %d to guess a mapping: %s",
+                        i, SDL_GetError());
+            continue;
+        }
+
+        QString mapping = synthesizeMapping(i,
+                                            SDL_JoystickNumAxes(joy),
+                                            SDL_JoystickNumButtons(joy),
+                                            SDL_JoystickNumHats(joy));
+        SDL_JoystickClose(joy);
+
+        if (mapping.isEmpty()) {
+            continue;
+        }
+
+        if (SDL_GameControllerAddMapping(qPrintable(mapping)) < 0) {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                        "Unable to add guessed mapping: %s",
+                        SDL_GetError());
+            continue;
+        }
+
+        const char* name = SDL_JoystickNameForIndex(i);
+        s_GuessedDeviceNames.append(name ? QString::fromUtf8(name)
+                                         : QStringLiteral("Unknown Gamepad"));
+
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                    "Guessed a mapping for unrecognized gamepad: %s",
+                    qPrintable(mapping));
     }
 }
 

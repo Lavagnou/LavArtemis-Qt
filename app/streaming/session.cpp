@@ -1,5 +1,6 @@
 #include "session.h"
 #include "settings/streamingpreferences.h"
+#include "settings/mappingmanager.h"
 #include "streaming/streamutils.h"
 #include "backend/richpresencemanager.h"
 #include "backend/quickmenumanager.h"
@@ -1354,9 +1355,19 @@ bool Session::validateLaunch(SDL_Window* testWindow)
         emitLaunchWarning(tr("Failed to open audio device. Audio will be unavailable during this session."));
     }
 
-    // Check for unmapped gamepads
+    // Check for unmapped gamepads. This runs after getUnmappedGamepads() has
+    // applied mappings, so anything the fallback could rescue is already a
+    // game controller by now and won't be reported here.
     if (!SdlInputHandler::getUnmappedGamepads().isEmpty()) {
         emitLaunchWarning(tr("An attached gamepad has no mapping and won't be usable. Visit the Moonlight help to resolve this."));
+    }
+
+    // A guessed layout is usable but not necessarily right, and the user has
+    // no other way to find out that we guessed.
+    QStringList guessedGamepads = MappingManager::getGuessedDeviceNames();
+    if (!guessedGamepads.isEmpty()) {
+        emitLaunchWarning(tr("Guessed a button layout for %1. If the controls are wrong, remap it in the gamepad mapper.")
+                          .arg(guessedGamepads.join(QLatin1String(", "))));
     }
 
     // If we removed all codecs with the checks above, use H.264 as the codec of last resort.

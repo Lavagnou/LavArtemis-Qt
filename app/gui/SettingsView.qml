@@ -2273,6 +2273,43 @@ Flickable {
                     }
                 }
 
+                GroupBox {
+                    width: parent.width
+                    padding: 12
+                    title: "<font color=\"skyblue\">" + qsTr("Input") + "</font>"
+                    font.pointSize: 12
+
+                    Column {
+                        anchors.fill: parent
+                        spacing: 8
+
+                        CheckBox {
+                            id: genericGamepadFallbackCheck
+                            text: qsTr("Guess a layout for unrecognized gamepads")
+                            font.pointSize: 12
+                            checked: ArtemisSettings.genericGamepadFallbackEnabled
+                            onCheckedChanged: {
+                                ArtemisSettings.genericGamepadFallbackEnabled = checked
+                            }
+
+                            ToolTip.delay: 1000
+                            ToolTip.timeout: 5000
+                            ToolTip.visible: hovered
+                            ToolTip.text: qsTr("SDL only forwards controllers it has an entry for, so an unlisted gamepad is normally ignored entirely.") + "\n\n" +
+                                          qsTr("With this on, a device that looks like a gamepad gets a layout guessed from its axis and button counts instead of being dropped.") + "\n\n" +
+                                          qsTr("Recognized controllers are never affected.")
+                        }
+
+                        Label {
+                            width: parent.width
+                            text: qsTr("A guessed layout may put buttons in the wrong place. Use the gamepad mapper to correct it.")
+                            font.pointSize: 9
+                            wrapMode: Text.Wrap
+                            color: "#aaaaaa"
+                        }
+                    }
+                }
+
                 // Note about Server Commands
                 Label {
                     width: parent.width

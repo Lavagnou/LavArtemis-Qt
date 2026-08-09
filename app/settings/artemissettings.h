@@ -50,6 +50,9 @@ class ArtemisSettings : public QObject
     Q_PROPERTY(bool perfCsvLoggingEnabled READ perfCsvLoggingEnabled WRITE setPerfCsvLoggingEnabled NOTIFY perfCsvLoggingEnabledChanged)
     Q_PROPERTY(int maxPendingAudioMs READ maxPendingAudioMs WRITE setMaxPendingAudioMs NOTIFY maxPendingAudioMsChanged)
 
+    // Input
+    Q_PROPERTY(bool genericGamepadFallbackEnabled READ genericGamepadFallbackEnabled WRITE setGenericGamepadFallbackEnabled NOTIFY genericGamepadFallbackEnabledChanged)
+
 public:
     static ArtemisSettings* instance();
     static ArtemisSettings* create(QQmlEngine *qmlEngine, QJSEngine *jsEngine);
@@ -119,6 +122,10 @@ public:
     int maxPendingAudioMs() const { return m_maxPendingAudioMs; }
     void setMaxPendingAudioMs(int ms);
 
+    // Input getters/setters
+    bool genericGamepadFallbackEnabled() const { return m_genericGamepadFallbackEnabled; }
+    void setGenericGamepadFallbackEnabled(bool enabled);
+
 signals:
     // Clipboard sync signals
     void clipboardSyncEnabledChanged();
@@ -153,6 +160,9 @@ signals:
     // LavArtemis hot path signals
     void perfCsvLoggingEnabledChanged();
     void maxPendingAudioMsChanged();
+
+    // Input signals
+    void genericGamepadFallbackEnabledChanged();
 
 private:
     explicit ArtemisSettings(QObject *parent = nullptr);
@@ -196,4 +206,7 @@ private:
     // LavArtemis streaming hot path
     bool m_perfCsvLoggingEnabled;
     int m_maxPendingAudioMs;
+
+    // Input
+    bool m_genericGamepadFallbackEnabled;
 };

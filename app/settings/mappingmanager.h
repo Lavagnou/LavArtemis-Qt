@@ -3,6 +3,7 @@
 #include "mappingfetcher.h"
 
 #include <QSettings>
+#include <QStringList>
 
 class SdlGamepadMapping
 {
@@ -70,9 +71,22 @@ public:
 
     void save();
 
+    // Names of the devices applyMappings() had to guess a layout for, in the
+    // order they were found. A guessed device is usable, but not necessarily
+    // correct -- callers use this to offer the user a chance to fix it.
+    static QStringList getGuessedDeviceNames();
+
 private:
+    // Builds an SDL mapping string for a joystick SDL has no entry for, using
+    // only its axis/button/hat counts. Returns an empty string for devices
+    // that don't look like gamepads.
+    static QString synthesizeMapping(int deviceIndex, int numAxes, int numButtons, int numHats);
+
+    void applyFallbackMappings();
+
     QMap<QString, SdlGamepadMapping> m_Mappings;
 
     static MappingFetcher* s_MappingFetcher;
+    static QStringList s_GuessedDeviceNames;
 };
 
