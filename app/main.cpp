@@ -55,6 +55,7 @@
 #include "streaming/session.h"
 #include "settings/streamingpreferences.h"
 #include "gui/sdlgamepadkeynavigation.h"
+#include "gui/sdlgamepadmapper.h"
 #include "backend/clipboardmanager.h"
 #include "backend/servercommandmanager.h"
 #include "backend/quickmenumanager.h"
@@ -1003,6 +1004,9 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonType<KeyMacroManager>("KeyMacroManager", 1, 0,
                                               "KeyMacroManager",
                                               &KeyMacroManager::create);
+    qmlRegisterSingletonType<SdlGamepadMapper>("SdlGamepadMapper", 1, 0,
+                                               "SdlGamepadMapper",
+                                               &SdlGamepadMapper::create);
 
     // Create the identity manager on the main thread
     IdentityManager::get();

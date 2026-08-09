@@ -401,7 +401,7 @@ ApplicationWindow {
                 }
 
                 // TODO need to make sure browser is brought to foreground.
-                onClicked: Qt.openUrlExternally("https://github.com/wjbeckett/artemis/wiki/Setup-Guide");
+                onClicked: Qt.openUrlExternally("https://github.com/moonlight-stream/moonlight-docs/wiki/Setup-Guide");
 
                 Keys.onDownPressed: {
                     stackView.currentItem.forceActiveFocus(Qt.TabFocus)
@@ -409,9 +409,6 @@ ApplicationWindow {
             }
 
             NavigableToolButton {
-                // TODO: Implement gamepad mapping then unhide this button
-                visible: false
-
                 ToolTip.delay: 1000
                 ToolTip.timeout: 3000
                 ToolTip.visible: hovered
@@ -456,7 +453,7 @@ ApplicationWindow {
         text: qsTr("No functioning hardware accelerated video decoder was detected by Artemis. " +
                    "Your streaming performance may be severely degraded in this configuration.")
         helpText: qsTr("Click the Help button for more information on solving this problem.")
-        helpUrl: "https://github.com/wjbeckett/artemis/wiki/Fixing-Hardware-Decoding-Problems"
+        helpUrl: "https://github.com/moonlight-stream/moonlight-docs/wiki/Fixing-Hardware-Decoding-Problems"
     }
 
     ErrorMessageDialog {
@@ -464,7 +461,7 @@ ApplicationWindow {
         text: qsTr("Hardware acceleration doesn't work on XWayland. Continuing on XWayland may result in poor streaming performance. " +
                    "Try running with QT_QPA_PLATFORM=wayland or switch to X11.")
         helpText: qsTr("Click the Help button for more information.")
-        helpUrl: "https://github.com/wjbeckett/artemis/wiki/Fixing-Hardware-Decoding-Problems"
+        helpUrl: "https://github.com/moonlight-stream/moonlight-docs/wiki/Fixing-Hardware-Decoding-Problems"
     }
 
     NavigableMessageDialog {
@@ -472,17 +469,19 @@ ApplicationWindow {
         standardButtons: Dialog.Ok | Dialog.Cancel
         text: qsTr("This version of Artemis isn't optimized for your PC. Please download the '%1' version of Artemis for the best streaming performance.").arg(SystemProperties.friendlyNativeArchName)
         onAccepted: {
-            Qt.openUrlExternally("https://github.com/wjbeckett/artemis/releases");
+            Qt.openUrlExternally("https://github.com/Lavagnou/LavArtemis/releases");
         }
     }
 
-    ErrorMessageDialog {
+    // Sending people to a wiki page made sense when there was nothing in the
+    // app to send them to. Now the mapper can fix the device on the spot.
+    NavigableMessageDialog {
         id: unmappedGamepadDialog
         property string unmappedGamepads : ""
-        text: qsTr("LavArtemis detected gamepads without a mapping:") + "\n" + unmappedGamepads
-        helpTextSeparator: "\n\n"
-        helpText: qsTr("Click the Help button for information on how to map your gamepads.")
-        helpUrl: "https://github.com/wjbeckett/artemis/wiki/Gamepad-Mapping"
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        text: qsTr("These gamepads have no usable mapping and won't work:") + "\n" + unmappedGamepads +
+              "\n\n" + qsTr("Open the gamepad mapper to set one up?")
+        onAccepted: navigateTo("qrc:/gui/GamepadMapper.qml", GamepadMapper)
     }
 
     // This dialog appears when quitting via keyboard or gamepad button

@@ -204,6 +204,7 @@ SOURCES += \
     path.cpp \
     settings/mappingmanager.cpp \
     gui/sdlgamepadkeynavigation.cpp \
+    gui/sdlgamepadmapper.cpp \
     streaming/video/overlaymanager.cpp \
     streaming/video/pacingstats.cpp \
     backend/systemproperties.cpp \
@@ -253,6 +254,7 @@ HEADERS += \
     path.h \
     settings/mappingmanager.h \
     gui/sdlgamepadkeynavigation.h \
+    gui/sdlgamepadmapper.h \
     streaming/video/overlaymanager.h \
     streaming/video/pacingstats.h \
     backend/systemproperties.h \
