@@ -53,6 +53,10 @@ class ArtemisSettings : public QObject
     // Input
     Q_PROPERTY(bool genericGamepadFallbackEnabled READ genericGamepadFallbackEnabled WRITE setGenericGamepadFallbackEnabled NOTIFY genericGamepadFallbackEnabledChanged)
 
+    // Software update settings
+    Q_PROPERTY(bool autoUpdateEnabled READ autoUpdateEnabled WRITE setAutoUpdateEnabled NOTIFY autoUpdateEnabledChanged)
+    Q_PROPERTY(bool autoUpdatePrerelease READ autoUpdatePrerelease WRITE setAutoUpdatePrerelease NOTIFY autoUpdatePrereleaseChanged)
+
 public:
     static ArtemisSettings* instance();
     static ArtemisSettings* create(QQmlEngine *qmlEngine, QJSEngine *jsEngine);
@@ -126,6 +130,12 @@ public:
     bool genericGamepadFallbackEnabled() const { return m_genericGamepadFallbackEnabled; }
     void setGenericGamepadFallbackEnabled(bool enabled);
 
+    // Software update getters/setters
+    bool autoUpdateEnabled() const { return m_autoUpdateEnabled; }
+    void setAutoUpdateEnabled(bool enabled);
+    bool autoUpdatePrerelease() const { return m_autoUpdatePrerelease; }
+    void setAutoUpdatePrerelease(bool enabled);
+
 signals:
     // Clipboard sync signals
     void clipboardSyncEnabledChanged();
@@ -163,6 +173,10 @@ signals:
 
     // Input signals
     void genericGamepadFallbackEnabledChanged();
+
+    // Software update signals
+    void autoUpdateEnabledChanged();
+    void autoUpdatePrereleaseChanged();
 
 private:
     explicit ArtemisSettings(QObject *parent = nullptr);
@@ -209,4 +223,8 @@ private:
 
     // Input
     bool m_genericGamepadFallbackEnabled;
+
+    // Software update
+    bool m_autoUpdateEnabled;
+    bool m_autoUpdatePrerelease;
 };

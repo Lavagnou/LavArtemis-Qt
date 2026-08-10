@@ -11,6 +11,7 @@ import ClipboardManager 1.0
 import ServerCommandManager 1.0
 import ArtemisSettings 1.0
 import ProfileManager 1.0
+import AutoUpdateChecker 1.0
 
 Flickable {
     id: settingsPage
@@ -2269,6 +2270,68 @@ Flickable {
                             font.pointSize: 9
                             wrapMode: Text.Wrap
                             color: "#aaaaaa"
+                        }
+                    }
+                }
+
+                GroupBox {
+                    width: parent.width
+                    padding: 12
+                    title: "<font color=\"skyblue\">" + qsTr("Software Update") + "</font>"
+                    font.pointSize: 12
+
+                    Column {
+                        anchors.fill: parent
+                        spacing: 8
+
+                        CheckBox {
+                            id: autoUpdateCheck
+                            text: qsTr("Check for updates when the app starts")
+                            font.pointSize: 12
+                            checked: ArtemisSettings.autoUpdateEnabled
+                            onCheckedChanged: {
+                                ArtemisSettings.autoUpdateEnabled = checked
+                            }
+                        }
+
+                        CheckBox {
+                            id: updatePrereleaseCheck
+                            text: qsTr("Include CI pre-release builds")
+                            font.pointSize: 12
+                            checked: ArtemisSettings.autoUpdatePrerelease
+                            onCheckedChanged: {
+                                ArtemisSettings.autoUpdatePrerelease = checked
+                            }
+
+                            ToolTip.delay: 1000
+                            ToolTip.timeout: 5000
+                            ToolTip.visible: hovered
+                            ToolTip.text: qsTr("Pre-releases are built from the latest development state and may be less stable.")
+                        }
+
+                        Button {
+                            id: checkUpdateButton
+                            text: qsTr("Check for updates now")
+                            font.pointSize: 12
+                            onClicked: {
+                                checkUpdateStatusLabel.text = qsTr("Checking…")
+                                AutoUpdateChecker.start()
+                            }
+                        }
+
+                        Label {
+                            id: checkUpdateStatusLabel
+                            width: parent.width
+                            text: ""
+                            font.pointSize: 9
+                            wrapMode: Text.Wrap
+                            color: "#aaaaaa"
+
+                            Component.onCompleted: {
+                                AutoUpdateChecker.onUpdateAvailable.connect(function(version, url) {
+                                    checkUpdateStatusLabel.text = qsTr("Version %1 is available.").arg(version)
+                                })
+                            }
                         }
                     }
                 }

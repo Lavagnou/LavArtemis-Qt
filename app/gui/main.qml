@@ -347,6 +347,8 @@ ApplicationWindow {
 
             NavigableToolButton {
                 property string browserUrl: ""
+                property string downloadUrl: ""
+                property string newVersion: ""
 
                 id: updateButton
 
@@ -361,20 +363,22 @@ ApplicationWindow {
                 visible: false
 
                 onClicked: {
-                    if (SystemProperties.hasBrowser) {
-                        Qt.openUrlExternally(browserUrl);
-                    }
+                    updateDialog.open()
                 }
 
                 function updateAvailable(version, url)
                 {
-                    ToolTip.text = qsTr("Update available for Artemis: Version %1").arg(version)
+                    ToolTip.text = qsTr("Update available for LavArtemis: Version %1").arg(version)
+                    updateButton.newVersion = version
                     updateButton.browserUrl = url
                     updateButton.visible = true
                 }
 
                 Component.onCompleted: {
                     AutoUpdateChecker.onUpdateAvailable.connect(updateAvailable)
+                    AutoUpdateChecker.onUpdateDownloadUrl.connect(function(url) {
+                        updateButton.downloadUrl = url
+                    })
                     AutoUpdateChecker.start()
                 }
 
@@ -482,6 +486,87 @@ ApplicationWindow {
         text: qsTr("These gamepads have no usable mapping and won't work:") + "\n" + unmappedGamepads +
               "\n\n" + qsTr("Open the gamepad mapper to set one up?")
         onAccepted: navigateTo("qrc:/gui/GamepadMapper.qml", GamepadMapper)
+    }
+
+    // Update dialog: offers an in-app download on Windows, or opens the
+    // release page on platforms without self-install (macOS, Linux AppImage).
+    NavigableDialog {
+        id: updateDialog
+        property bool downloading: false
+        property bool downloadDone: false
+        property string downloadedPath: ""
+
+        standardButtons: downloading ? Dialog.NoButton
+                       : (Dialog.Ok | Dialog.Cancel)
+
+        // Ok = download & install (Windows) or open the release page elsewhere
+        onAccepted: {
+            if (downloadDone) {
+                AutoUpdateChecker.installAndRestart(downloadedPath)
+            } else if (updateButton.downloadUrl && AutoUpdateChecker.canSelfInstall()) {
+                downloading = true
+                updateProgressBar.value = 0
+                AutoUpdateChecker.downloadUpdate(updateButton.downloadUrl)
+            } else if (SystemProperties.hasBrowser) {
+                Qt.openUrlExternally(updateButton.browserUrl)
+            }
+        }
+
+        Component.onCompleted: {
+            AutoUpdateChecker.downloadProgress.connect(function(received, total) {
+                if (total > 0) {
+                    updateProgressBar.value = received / total
+                }
+            })
+            AutoUpdateChecker.downloadReady.connect(function(path) {
+                updateDialog.downloading = false
+                updateDialog.downloadDone = true
+                updateDialog.downloadedPath = path
+                updateStatusLabel.text = qsTr("Download complete. Press OK to install and restart.")
+            })
+            AutoUpdateChecker.downloadFailed.connect(function(error) {
+                updateDialog.downloading = false
+                updateStatusLabel.text = qsTr("Download failed: %1").arg(error)
+            })
+        }
+
+        onOpened: {
+            downloading = false
+            downloadDone = false
+            updateStatusLabel.text = ""
+        }
+
+        ColumnLayout {
+            Label {
+                text: qsTr("LavArtemis %1 is available. You are running version %2.")
+                        .arg(updateButton.newVersion).arg(SystemProperties.versionString)
+                font.bold: true
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+
+            Label {
+                text: AutoUpdateChecker.canSelfInstall()
+                      ? qsTr("Press OK to download and install the update.")
+                      : qsTr("Press OK to open the download page in your browser.")
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+
+            ProgressBar {
+                id: updateProgressBar
+                Layout.fillWidth: true
+                visible: updateDialog.downloading
+                from: 0
+                to: 1
+            }
+
+            Label {
+                id: updateStatusLabel
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+        }
     }
 
     // This dialog appears when quitting via keyboard or gamepad button

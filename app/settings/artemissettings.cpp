@@ -107,6 +107,12 @@ void ArtemisSettings::save()
     m_settings->setValue("genericGamepadFallback", m_genericGamepadFallbackEnabled);
     m_settings->endGroup();
 
+    // Software update settings
+    m_settings->beginGroup("SoftwareUpdate");
+    m_settings->setValue("autoUpdateEnabled", m_autoUpdateEnabled);
+    m_settings->setValue("autoUpdatePrerelease", m_autoUpdatePrerelease);
+    m_settings->endGroup();
+
     m_settings->sync();
 }
 
@@ -169,6 +175,12 @@ void ArtemisSettings::load()
     m_maxPendingAudioMs = qBound(10, m_settings->value("maxPendingAudioMs", 30).toInt(), 100);
     m_genericGamepadFallbackEnabled = m_settings->value("genericGamepadFallback", true).toBool();
     m_settings->endGroup();
+
+    // Software update settings
+    m_settings->beginGroup("SoftwareUpdate");
+    m_autoUpdateEnabled = m_settings->value("autoUpdateEnabled", true).toBool();
+    m_autoUpdatePrerelease = m_settings->value("autoUpdatePrerelease", false).toBool();
+    m_settings->endGroup();
 }
 
 void ArtemisSettings::resetToDefaults()
@@ -195,6 +207,8 @@ void ArtemisSettings::resetToDefaults()
     emit appOrderingModeChanged();
     emit showServerPermissionsChanged();
     emit inputOnlyModeEnabledChanged();
+    emit autoUpdateEnabledChanged();
+    emit autoUpdatePrereleaseChanged();
 }
 
 void ArtemisSettings::loadDefaults()
@@ -238,6 +252,11 @@ void ArtemisSettings::loadDefaults()
     // On by default: without it, a gamepad SDL doesn't recognise is silently
     // dropped and the user has no way to tell why.
     m_genericGamepadFallbackEnabled = true;
+
+    // Software update defaults: check at startup, stable channel only. CI
+    // prereleases are opt-in since they're built from workflow_dispatch.
+    m_autoUpdateEnabled = true;
+    m_autoUpdatePrerelease = false;
 }
 
 // Clipboard sync setters
@@ -399,5 +418,22 @@ void ArtemisSettings::setGenericGamepadFallbackEnabled(bool enabled)
     if (m_genericGamepadFallbackEnabled != enabled) {
         m_genericGamepadFallbackEnabled = enabled;
         emit genericGamepadFallbackEnabledChanged();
+    }
+}
+
+// Software update setters
+void ArtemisSettings::setAutoUpdateEnabled(bool enabled)
+{
+    if (m_autoUpdateEnabled != enabled) {
+        m_autoUpdateEnabled = enabled;
+        emit autoUpdateEnabledChanged();
+    }
+}
+
+void ArtemisSettings::setAutoUpdatePrerelease(bool enabled)
+{
+    if (m_autoUpdatePrerelease != enabled) {
+        m_autoUpdatePrerelease = enabled;
+        emit autoUpdatePrereleaseChanged();
     }
 }
