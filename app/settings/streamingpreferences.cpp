@@ -62,6 +62,7 @@
 #define SER_CUSTOMREFRESHRATE "customrefreshrate"
 #define SER_RESOLUTIONSCALING "resolutionscaling"
 #define SER_RESOLUTIONSCALEFACTOR "resolutionscalefactor"
+#define SER_MULTIDISPLAY "multidisplay"
 
 #define CURRENT_DEFAULT_VER 2
 
@@ -198,6 +199,7 @@ void StreamingPreferences::reload()
     customRefreshRate = prefs->value(SER_CUSTOMREFRESHRATE, 59.94).toDouble();
     enableResolutionScaling = prefs->value(SER_RESOLUTIONSCALING, false).toBool();
     resolutionScaleFactor = prefs->value(SER_RESOLUTIONSCALEFACTOR, 100).toInt();
+    useMultiDisplay = prefs->value(SER_MULTIDISPLAY, false).toBool();
 
 
     // Perform default settings updates as required based on last default version
@@ -397,6 +399,7 @@ void StreamingPreferences::save()
     prefs->setValue(SER_CUSTOMREFRESHRATE, customRefreshRate);
     prefs->setValue(SER_RESOLUTIONSCALING, enableResolutionScaling);
     prefs->setValue(SER_RESOLUTIONSCALEFACTOR, resolutionScaleFactor);
+    prefs->setValue(SER_MULTIDISPLAY, useMultiDisplay);
 
     // With a profile active every setValue() above landed in an in-memory map,
     // so this is what actually persists them. It also syncs QSettings when no

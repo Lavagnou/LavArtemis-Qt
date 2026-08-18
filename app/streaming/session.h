@@ -10,6 +10,7 @@
 #include "video/decoder.h"
 #include "audio/renderers/renderer.h"
 #include "video/overlaymanager.h"
+#include "displaylayout.h"
 
 #include "backend/quickmenumanager.h"
 #include "backend/servercommandmanager.h"
@@ -278,6 +279,12 @@ private:
     int m_FlushingWindowEventsRef;
     QStringList m_LaunchWarnings;
     bool m_ShouldExit;
+
+    // The client's monitor arrangement, mirrored onto the host as one virtual display
+    // each. Only meaningful while m_MultiDisplayActive; detect() is not free and the
+    // arrangement must not change under us mid-session, so it is sampled once at startup.
+    DisplayLayout m_DisplayLayout;
+    bool m_MultiDisplayActive;
 
     bool m_AsyncConnectionSuccess;
     int m_PortTestResults;

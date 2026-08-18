@@ -203,7 +203,8 @@ NvHTTP::startApp(QString verb,
                 bool localAudio,
                 int gamepadMask,
                 bool persistGameControllersOnDisconnect,
-                QString& rtspSessionUrl)
+                QString& rtspSessionUrl,
+                QString displayLayout)
 {
     int riKeyId;
 
@@ -279,6 +280,15 @@ NvHTTP::startApp(QString verb,
     if (prefs->enableResolutionScaling && prefs->resolutionScaleFactor != 100) {
         allParams += "&scaleFactor=" + QString::number(prefs->resolutionScaleFactor);
         qInfo() << "Requesting resolution scaling:" << prefs->resolutionScaleFactor << "%";
+    }
+
+    // The layout describes how to carve up the picture that mode= asks for, so the host
+    // validates the two against each other and rejects a layout that disagrees. A host
+    // that has never heard of the argument ignores it and creates one display of the full
+    // size, which is a coherent thing to end up with rather than a broken one.
+    if (!displayLayout.isEmpty()) {
+        allParams += "&displayLayout=" + displayLayout;
+        qInfo() << "Requesting emulated display layout:" << displayLayout;
     }
     
     // Add Limelight parameters

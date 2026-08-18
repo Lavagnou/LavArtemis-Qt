@@ -2,6 +2,7 @@
 #include "settings/streamingpreferences.h"
 #include "settings/mappingmanager.h"
 #include "streaming/streamutils.h"
+#include "streaming/displaylayout.h"
 #include "backend/richpresencemanager.h"
 #include "backend/quickmenumanager.h"
 #include "backend/servercommandmanager.h"
@@ -641,6 +642,7 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
       m_MouseEmulationRefCount(0),
       m_FlushingWindowEventsRef(0),
       m_ShouldExit(false),
+      m_MultiDisplayActive(false),
       m_AsyncConnectionSuccess(false),
       m_PortTestResults(0),
       m_OpusDecoder(nullptr),
@@ -749,6 +751,37 @@ bool Session::initialize(QQuickWindow* qtWindow)
                     m_StreamConfig.width, m_StreamConfig.height);
     }
 
+    // Mirroring the whole monitor arrangement replaces the single chosen resolution: the
+    // stream becomes the arrangement's bounding box, and the host emulates one display per
+    // monitor inside it. This has to happen before the window is sized, since the window
+    // then has to cover the arrangement rather than one screen.
+    if (m_Preferences->useVirtualDisplay && m_Preferences->useMultiDisplay) {
+        if (m_Preferences->enableResolutionScaling && m_Preferences->resolutionScaleFactor != 100) {
+            // Scaling changes every display's size and therefore every origin in the
+            // layout, so the host refuses the combination. Say so here rather than let it
+            // be dropped silently on the far side.
+            emitLaunchWarning(tr("Multi-display streaming was skipped because resolution scaling is enabled."));
+        }
+        else {
+            m_DisplayLayout = DisplayLayout::detect();
+
+            if (m_DisplayLayout.isMultiDisplay()) {
+                m_MultiDisplayActive = true;
+                m_StreamConfig.width = m_DisplayLayout.canvasWidth();
+                m_StreamConfig.height = m_DisplayLayout.canvasHeight();
+
+                SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                            "Mirroring %d displays as a %dx%d canvas, which they %s",
+                            m_DisplayLayout.displays().count(),
+                            m_StreamConfig.width, m_StreamConfig.height,
+                            m_DisplayLayout.tilesBoundingBox() ? "tile exactly" : "leave gaps in");
+            }
+            else if (!m_DisplayLayout.problem().isEmpty()) {
+                emitLaunchWarning(tr("Multi-display streaming was skipped: %1").arg(m_DisplayLayout.problem()));
+            }
+        }
+    }
+
     int x, y, width, height;
     getWindowDimensions(x, y, width, height);
 
@@ -782,6 +815,19 @@ bool Session::initialize(QQuickWindow* qtWindow)
                     "Applied fractional refresh rate: %.2f Hz (internal: %d)",
                     m_Preferences->customRefreshRate,
                     fractionalFps);
+    }
+
+    if (m_MultiDisplayActive) {
+        // One stream carries one frame rate for the whole canvas, so the fastest monitor
+        // sets the ceiling and none of them is held back by a slower neighbour. The slower
+        // ones drop frames, exactly as they already do on a mixed-refresh desktop.
+        int ceiling = m_DisplayLayout.refreshRate();
+        if (ceiling > 0 && m_StreamConfig.fps > ceiling) {
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                        "Capping %d FPS to %d, the fastest display in the layout",
+                        m_StreamConfig.fps, ceiling);
+            m_StreamConfig.fps = ceiling;
+        }
     }
 
 #ifndef STEAM_LINK
@@ -1817,7 +1863,8 @@ bool Session::startConnectionAsync()
                       m_Preferences->playAudioOnHost,
                       m_InputHandler->getAttachedGamepadMask(),
                       !m_Preferences->multiController,
-                      rtspSessionUrl);
+                      rtspSessionUrl,
+                      m_MultiDisplayActive ? m_DisplayLayout.toLaunchArgument() : QString());
     } catch (const GfeHttpResponseException& e) {
         emit displayLaunchError(tr("Host returned error: %1").arg(e.toQString()));
         return false;

@@ -200,6 +200,7 @@ SOURCES += \
     streaming/bandwidth.cpp \
     streaming/streamutils.cpp \
     streaming/panzoom.cpp \
+    streaming/displaylayout.cpp \
     backend/autoupdatechecker.cpp \
     path.cpp \
     settings/mappingmanager.cpp \
@@ -250,6 +251,7 @@ HEADERS += \
     streaming/bandwidth.h \
     streaming/streamutils.h \
     streaming/panzoom.h \
+    streaming/displaylayout.h \
     backend/autoupdatechecker.h \
     path.h \
     settings/mappingmanager.h \

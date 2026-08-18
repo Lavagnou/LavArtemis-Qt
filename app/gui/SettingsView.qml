@@ -1146,6 +1146,33 @@ Flickable {
                     ToolTip.text: qsTr("Creates a virtual display on the Apollo server for streaming. Requires Apollo server - not available with Sunshine/GeForce Experience.")
                 }
 
+                // Multi-Display Control
+                CheckBox {
+                    id: multiDisplayCheck
+                    width: parent.width
+                    hoverEnabled: true
+                    text: qsTr("Mirror all displays")
+                    font.pointSize: 12
+
+                    // Nothing to lay out without virtual displays to lay out.
+                    enabled: virtualDisplayCheck.checked
+
+                    // Without the enabled guard, a preference left on from an earlier
+                    // session would show a greyed-out box as ticked.
+                    checked: enabled && StreamingPreferences.useMultiDisplay
+                    onCheckedChanged: {
+                        StreamingPreferences.useMultiDisplay = checked
+                    }
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 5000
+                    ToolTip.visible: hovered
+                    ToolTip.text: enabled ?
+                                      qsTr("Recreates this PC's entire monitor layout on the host: one virtual display per monitor, with matching resolutions and positions, each shown back on the monitor it belongs to. Requires a host that supports it; you'll be warned at launch if it doesn't.")
+                                    :
+                                      qsTr("Requires \"Use Virtual Display\" to be enabled.")
+                }
+
                 // Resolution Scaling
                 CheckBox {
                     id: resolutionScalingCheck

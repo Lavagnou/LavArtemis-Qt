@@ -174,6 +174,7 @@ public:
     Q_PROPERTY(double customRefreshRate MEMBER customRefreshRate NOTIFY customRefreshRateChanged)
     Q_PROPERTY(bool enableResolutionScaling MEMBER enableResolutionScaling NOTIFY enableResolutionScalingChanged)
     Q_PROPERTY(int resolutionScaleFactor MEMBER resolutionScaleFactor NOTIFY resolutionScaleFactorChanged);
+    Q_PROPERTY(bool useMultiDisplay MEMBER useMultiDisplay NOTIFY useMultiDisplayChanged)
 
     Q_INVOKABLE bool retranslate();
 
@@ -226,6 +227,10 @@ public:
     bool enableResolutionScaling;
     int resolutionScaleFactor;
 
+    // Mirror the client's whole monitor layout onto the host as several virtual
+    // displays, instead of one. Only meaningful with useVirtualDisplay on.
+    bool useMultiDisplay;
+
 signals:
     void displayModeChanged();
     void bitrateChanged();
@@ -271,6 +276,7 @@ signals:
     void customRefreshRateChanged();
     void enableResolutionScalingChanged();
     void resolutionScaleFactorChanged();
+    void useMultiDisplayChanged();
 
 private:
     explicit StreamingPreferences(QQmlEngine *qmlEngine);
