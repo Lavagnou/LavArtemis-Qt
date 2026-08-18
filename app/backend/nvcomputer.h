@@ -113,6 +113,11 @@ public:
     QSslCertificate serverCert;
     QVector<NvApp> appList;
     bool isNvidiaServerSoftware;
+
+    // Whether the host can emulate a whole monitor layout rather than a single display.
+    // A host that predates the feature simply ignores the request and makes one display
+    // the size of the layout, so this only decides whether the user is warned.
+    bool isMultiDisplayCapable;
     QStringList serverCommands;
     quint32 serverPermissions;
     // Remember to update isEqualSerialized() when adding fields here!

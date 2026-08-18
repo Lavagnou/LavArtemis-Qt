@@ -58,6 +58,7 @@ NvComputer::NvComputer(QSettings& settings)
     this->appVersion = nullptr;
     this->maxLumaPixelsHEVC = 0;
     this->serverCodecModeSupport = 0;
+    this->isMultiDisplayCapable = false;
     this->pendingQuit = false;
     this->gpuModel = nullptr;
     this->isSupportedServerVersion = true;
@@ -157,6 +158,10 @@ NvComputer::NvComputer(NvHTTP& http, QString serverInfo)
         // Assume H.264 is always supported
         this->serverCodecModeSupport = SCM_H264;
     }
+
+    // Absent on hosts that predate multi-display support, which is exactly what makes
+    // it a usable capability check.
+    this->isMultiDisplayCapable = NvHTTP::getXmlString(serverInfo, "MultiDisplayCapable") == "1";
 
     QString maxLumaPixelsHEVC = NvHTTP::getXmlString(serverInfo, "MaxLumaPixelsHEVC");
     if (!maxLumaPixelsHEVC.isEmpty()) {

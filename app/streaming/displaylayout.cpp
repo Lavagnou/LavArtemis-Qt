@@ -63,7 +63,14 @@ DisplayLayout DisplayLayout::detect()
             return layout;
         }
 
+        float ddpi = 0.0f, hdpi = 0.0f, vdpi = 0.0f;
+        if (SDL_GetDisplayDPI(i, &ddpi, &hdpi, &vdpi) != 0) {
+            // Not fatal: it only feeds the mixed-scaling warning.
+            ddpi = 0.0f;
+        }
+
         DisplayLayoutEntry entry;
+        entry.scale = ddpi > 0.0f ? ddpi / 96.0f : 1.0f;
         entry.desktopRect = bounds;
         entry.canvasRect = bounds;  // rebased below, once the bounding box is known
         entry.refreshRate = mode.refresh_rate;
@@ -122,6 +129,15 @@ DisplayLayout DisplayLayout::detect()
     // Physical monitors cannot overlap, so covering the bounding box's area is the same as
     // tiling it exactly.
     layout.m_Tiles = (coveredArea == layout.m_DesktopBounds.w * layout.m_DesktopBounds.h);
+
+    // A tenth of a step is far below any scaling Windows offers, so this only fires on a
+    // genuine difference rather than on rounding.
+    for (const DisplayLayoutEntry& entry : displays) {
+        if (qAbs(entry.scale - displays.first().scale) > 0.01f) {
+            layout.m_MixedScaling = true;
+            break;
+        }
+    }
 
     layout.m_RefreshRate = refreshRate;
     layout.m_Displays = displays;

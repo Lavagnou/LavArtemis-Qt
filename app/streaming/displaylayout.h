@@ -18,6 +18,10 @@ struct DisplayLayoutEntry
 
     int refreshRate;
     bool primary;
+
+    /// Windows scaling for this monitor, 1.0 at 100%. Uniform scaling across the layout is
+    /// what lets one window cover the lot without the compositor resampling part of it.
+    float scale;
 };
 
 /**
@@ -86,14 +90,26 @@ public:
     /**
      * @brief True when the monitors leave no gap in their bounding box.
      *
-     * When they tile it, one window spanning the lot shows each monitor exactly its own
-     * region, and no per-monitor rendering is needed at all. When they do not -- a 1440p
-     * beside a 1080p, say -- a spanning window would paint the gap onto real screen space,
-     * so each monitor needs its own window sampling its own part of the canvas.
+     * Purely informational: a gap costs encoded pixels nobody sees, but it does not stop a
+     * single window covering the layout. Every point of the bounding box is either on some
+     * monitor or on none, and the parts on none are never scanned out -- which is the same
+     * reason a window can hang off the edge of a screen.
      */
     bool tilesBoundingBox() const
     {
         return m_Tiles;
+    }
+
+    /**
+     * @brief True when the monitors do not all use the same scaling.
+     *
+     * A window spanning monitors at different DPI is rendered at one of them and bitmap
+     * scaled by the compositor on the others, which throws away the pixel-exact mapping the
+     * whole feature rests on. Nothing can be done about it from here, so it is reported.
+     */
+    bool hasMixedScaling() const
+    {
+        return m_MixedScaling;
     }
 
     /// Value for the `displayLayout=` launch argument: `x,y,w,h,primary` per display,
@@ -114,5 +130,6 @@ private:
     int m_CanvasHeight = 0;
     int m_RefreshRate = 0;
     bool m_Tiles = false;
+    bool m_MixedScaling = false;
     QString m_Problem;
 };

@@ -770,11 +770,26 @@ bool Session::initialize(QQuickWindow* qtWindow)
                 m_StreamConfig.width = m_DisplayLayout.canvasWidth();
                 m_StreamConfig.height = m_DisplayLayout.canvasHeight();
 
+                // A host that predates this ignores the layout and creates one display the
+                // size of the whole canvas. That works, so we still send it -- but without
+                // saying so the user would just wonder where their second screen went.
+                if (!m_Computer->isMultiDisplayCapable) {
+                    emitLaunchWarning(tr("This host doesn't support separate displays, so all your monitors will appear as one large display."));
+                }
+
                 SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                             "Mirroring %d displays as a %dx%d canvas, which they %s",
                             m_DisplayLayout.displays().count(),
                             m_StreamConfig.width, m_StreamConfig.height,
                             m_DisplayLayout.tilesBoundingBox() ? "tile exactly" : "leave gaps in");
+
+                // One window covers the whole arrangement, and the compositor renders it at
+                // one monitor's scaling. Where the monitors disagree, the parts on the
+                // others get bitmap scaled, which is exactly the pixel-exact mapping this
+                // feature is for. Nothing here can prevent it, so say so.
+                if (m_DisplayLayout.hasMixedScaling()) {
+                    emitLaunchWarning(tr("Your displays use different scaling levels, so the picture may be resampled on some of them. Setting them all to the same scaling gives a sharper result."));
+                }
             }
             else if (!m_DisplayLayout.problem().isEmpty()) {
                 emitLaunchWarning(tr("Multi-display streaming was skipped: %1").arg(m_DisplayLayout.problem()));
@@ -1530,6 +1545,26 @@ private:
 void Session::getWindowDimensions(int& x, int& y,
                                   int& width, int& height)
 {
+    // Mirroring the monitor layout means the window has to cover the layout, not sit on
+    // one screen: laid over the whole arrangement at 1:1, each monitor then shows exactly
+    // the part of the canvas that belongs to it, with no per-monitor rendering at all.
+    // Only valid when the monitors tile their bounding box; otherwise the gap would be
+    // painted over real screen space and each monitor needs its own window instead.
+    if (m_MultiDisplayActive) {
+        SDL_Rect bounds = m_DisplayLayout.desktopBounds();
+
+        x = bounds.x;
+        y = bounds.y;
+
+        // The canvas, not the bounding box: they differ by at most the pixel added to each
+        // axis to keep the encoded size even, and matching the canvas exactly is what keeps
+        // the video 1:1 instead of being resampled by a hair. The surplus row or column
+        // hangs off the end of the desktop, where nothing is scanned out anyway.
+        width = m_DisplayLayout.canvasWidth();
+        height = m_DisplayLayout.canvasHeight();
+        return;
+    }
+
     int displayIndex = 0;
 
     if (m_Window != nullptr) {
@@ -2061,6 +2096,16 @@ void Session::exec()
 
     // We always want a resizable window with High DPI enabled
     Uint32 defaultWindowFlags = SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE;
+
+    // A window spanning several monitors cannot be fullscreen -- exclusive fullscreen is a
+    // single-output mode and the desktop-fullscreen flag would snap it back to one screen.
+    // Borderless at the exact size of the layout is the same thing visually.
+    if (m_MultiDisplayActive) {
+        defaultWindowFlags |= SDL_WINDOW_BORDERLESS;
+        defaultWindowFlags &= ~SDL_WINDOW_RESIZABLE;
+        m_IsFullScreen = false;
+        m_FullScreenFlag = 0;
+    }
 
     // If we're starting in windowed mode and the Moonlight GUI is maximized or
     // minimized, match that with the streaming window.
