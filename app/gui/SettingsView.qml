@@ -1151,7 +1151,7 @@ Flickable {
                     id: multiDisplayCheck
                     width: parent.width
                     hoverEnabled: true
-                    text: qsTr("Mirror all displays")
+                    text: qsTr("Virtual Display Multi-Screen")
                     font.pointSize: 12
 
                     // Nothing to lay out without virtual displays to lay out.

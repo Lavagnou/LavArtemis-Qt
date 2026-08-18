@@ -83,7 +83,7 @@ Portée depuis le client Android, sauf mention contraire :
 
 ### 🖥️ Multi-écran émulé
 
-Réglage **« Mirror all displays »** (`StreamingPreferences::useMultiDisplay`, défaut off, grisé si
+Réglage **« Virtual Display Multi-Screen »** (`StreamingPreferences::useMultiDisplay`, défaut off, grisé si
 « Use Virtual Display » est décoché). `DisplayLayout::detect()`
 (`streaming/displaylayout.{h,cpp}`) décrit la disposition des moniteurs ; l'hôte en émule un écran
 virtuel chacun, et le flux transporte **une seule toile** = la bounding box de la disposition.
