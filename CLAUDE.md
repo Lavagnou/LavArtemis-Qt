@@ -81,6 +81,37 @@ Portée depuis le client Android, sauf mention contraire :
 > l'autre produit un intervalle aberrant. `PacingStats` le rejette déjà dans les deux sens (test
 > d'ordre pour un saut arrière, plafond 1 s pour un saut avant) — coût : 1 échantillon sur 512.
 
+### 🖥️ Multi-écran émulé
+
+Réglage **« Mirror all displays »** (`StreamingPreferences::useMultiDisplay`, défaut off, grisé si
+« Use Virtual Display » est décoché). `DisplayLayout::detect()`
+(`streaming/displaylayout.{h,cpp}`) décrit la disposition des moniteurs ; l'hôte en émule un écran
+virtuel chacun, et le flux transporte **une seule toile** = la bounding box de la disposition.
+
+Trois choses qui ne se devinent pas :
+
+- **Une seule fenêtre borderless couvre toute la disposition**, dimensionnée à la **toile** et pas à
+  la bounding box (elles diffèrent du pixel ajouté par axe pour garder une taille paire ; coller à la
+  toile garde le 1:1 exact). Chaque moniteur affiche alors sa propre zone — **aucun code renderer,
+  aucun code d'entrée**. Le mapping souris marche parce que `src` et `dst` de
+  `scaleSourceToDestinationSurfaceWithPanZoom()` deviennent identiques et que `SdlInputHandler`
+  reçoit déjà les dimensions de la toile.
+- **Ça marche même si les moniteurs ne pavent pas leur bounding box.** Tout point du rectangle est
+  soit sur un moniteur, soit sur aucun, et ce qui tombe sur aucun n'est jamais scanné — la même
+  raison qui permet à une fenêtre de déborder d'un écran. `tilesBoundingBox()` n'est resté qu'à
+  titre informatif. Un renderer multi-fenêtres n'apporterait rien.
+- ⚠️ **Le cas qui dégrade vraiment est le DPI mixte** : le compositeur redimensionne la partie de la
+  fenêtre posée sur un moniteur à échelle différente. `hasMixedScaling()` le détecte et un launch
+  warning suggère d'uniformiser. Rien ne peut l'empêcher côté client.
+
+> ⚠️ Pas de plein écran pour ces fenêtres : le plein écran exclusif est mono-sortie et le flag
+> desktop-fullscreen ramènerait la fenêtre sur un seul écran. Borderless à la taille exacte est
+> visuellement identique.
+
+> ⚠️ `DisplayLayout::detect()` refuse la disposition si `SDL_GetDisplayBounds()` et le mode natif
+> divergent — ce serait mélanger coordonnées DPI et pixels physiques. Mesuré : Qt et SDL passent le
+> processus en PerMonitorV2, où les deux concordent, donc c'est un garde-fou et non un chemin normal.
+
 ### Délibérément **non** portés
 
 | Feature Android | Pourquoi |
