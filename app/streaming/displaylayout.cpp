@@ -17,6 +17,8 @@ DisplayLayout DisplayLayout::detect()
         return layout;
     }
 
+    layout.m_DetectedDisplays = displayCount;
+
     if (displayCount < 2) {
         // Not an error, just nothing to mirror.
         return layout;

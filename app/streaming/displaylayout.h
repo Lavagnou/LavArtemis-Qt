@@ -123,6 +123,14 @@ public:
         return m_Problem;
     }
 
+    /// How many displays SDL reported, whatever became of them. Detection can end with no
+    /// layout for several unrelated reasons, and telling them apart afterwards is the
+    /// difference between "your second screen is asleep" and "this is broken".
+    int detectedDisplayCount() const
+    {
+        return m_DetectedDisplays;
+    }
+
 private:
     QVector<DisplayLayoutEntry> m_Displays;
     SDL_Rect m_DesktopBounds {0, 0, 0, 0};
@@ -131,5 +139,6 @@ private:
     int m_RefreshRate = 0;
     bool m_Tiles = false;
     bool m_MixedScaling = false;
+    int m_DetectedDisplays = 0;
     QString m_Problem;
 };

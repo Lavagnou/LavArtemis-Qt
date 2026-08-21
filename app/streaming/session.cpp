@@ -765,6 +765,13 @@ bool Session::initialize(QQuickWindow* qtWindow)
         else {
             m_DisplayLayout = DisplayLayout::detect();
 
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                        "Multi-display requested: SDL reports %d display(s), %d usable in the layout%s%s",
+                        m_DisplayLayout.detectedDisplayCount(),
+                        m_DisplayLayout.displays().count(),
+                        m_DisplayLayout.problem().isEmpty() ? "" : ", problem: ",
+                        m_DisplayLayout.problem().isEmpty() ? "" : qPrintable(m_DisplayLayout.problem()));
+
             if (m_DisplayLayout.isMultiDisplay()) {
                 m_MultiDisplayActive = true;
                 m_StreamConfig.width = m_DisplayLayout.canvasWidth();
@@ -793,6 +800,13 @@ bool Session::initialize(QQuickWindow* qtWindow)
             }
             else if (!m_DisplayLayout.problem().isEmpty()) {
                 emitLaunchWarning(tr("Multi-display streaming was skipped: %1").arg(m_DisplayLayout.problem()));
+            }
+            else {
+                // One display, and nothing wrong with it. Not an error, but the user did ask
+                // for their whole layout to be mirrored, and saying nothing here is what makes
+                // an unplugged or folded-away second screen indistinguishable from a broken
+                // feature.
+                emitLaunchWarning(tr("Multi-display streaming was skipped: only one display was found on this PC."));
             }
         }
     }
@@ -1548,8 +1562,9 @@ void Session::getWindowDimensions(int& x, int& y,
     // Mirroring the monitor layout means the window has to cover the layout, not sit on
     // one screen: laid over the whole arrangement at 1:1, each monitor then shows exactly
     // the part of the canvas that belongs to it, with no per-monitor rendering at all.
-    // Only valid when the monitors tile their bounding box; otherwise the gap would be
-    // painted over real screen space and each monitor needs its own window instead.
+    // This holds whatever the arrangement: every point of the bounding box is either on
+    // some monitor or on none, and what falls on none is never scanned out -- the same
+    // reason a window can hang off the edge of a screen.
     if (m_MultiDisplayActive) {
         SDL_Rect bounds = m_DisplayLayout.desktopBounds();
 
