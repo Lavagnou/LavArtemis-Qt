@@ -107,10 +107,35 @@ Trois choses qui ne se devinent pas :
 > ⚠️ Pas de plein écran pour ces fenêtres : le plein écran exclusif est mono-sortie et le flag
 > desktop-fullscreen ramènerait la fenêtre sur un seul écran. Borderless à la taille exacte est
 > visuellement identique.
+>
+> Deux conséquences que ce choix traîne derrière lui, toutes deux corrigées mais faciles à
+> réintroduire : `m_IsFullScreen = false` fait hériter `SDL_WINDOW_MAXIMIZED` de la fenêtre Qt si
+> elle est maximisée — et une fenêtre maximisée l'est **sur un seul écran** ; et « capturer les
+> raccourcis système *en plein écran* » teste `SDL_WINDOW_FULLSCREEN`, donc ne s'activait jamais.
+> D'où `SdlInputHandler::setSpansEntireDesktop()`, qui rend la fenêtre couvrante équivalente au
+> plein écran pour les deux tests de capture clavier.
 
 > ⚠️ `DisplayLayout::detect()` refuse la disposition si `SDL_GetDisplayBounds()` et le mode natif
 > divergent — ce serait mélanger coordonnées DPI et pixels physiques. Mesuré : Qt et SDL passent le
 > processus en PerMonitorV2, où les deux concordent, donc c'est un garde-fou et non un chemin normal.
+
+> ⚠️ **Ne jamais écrire une préférence depuis `onCheckedChanged`.** Ce signal se déclenche à chaque
+> réévaluation du binding, pas seulement au clic. La case « Virtual Display Multi-Screen » liait
+> `checked: enabled && useMultiDisplay` et réécrivait la préférence : décocher « Use Virtual
+> Display » un instant suffisait à l'effacer **définitivement**, la valeur source étant détruite.
+> `onToggled` ne réagit qu'à une action utilisateur. La case reste cochée en grisé, ce qui est la
+> lecture honnête — `Session::initialize()` exige les deux préférences de toute façon.
+
+Un bouton de bascule est aussi posé dans la barre d'outils de l'accueil (`gui/main.qml`), parce que
+c'est le réglage qu'on change selon l'endroit où l'on est assis. Il **persiste lui-même**
+(`StreamingPreferences.save()`) : contrairement à `SettingsView`, l'accueil n'a pas d'événement de
+navigation sur lequel sauvegarder.
+
+> ⚠️ Un renoncement silencieux est pire que le renoncement lui-même : avec l'option cochée et un
+> seul écran, `detect()` sortait sans `problem()` et `session.cpp` n'avertissait que si `problem()`
+> était non vide — donc **rien**. Impossible de distinguer « option désactivée », « second écran
+> replié » et « cassé ». La décision est maintenant loguée dans tous les cas et avertie quand il n'y
+> a qu'un écran à refléter.
 
 ### Délibérément **non** portés
 
