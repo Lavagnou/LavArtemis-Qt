@@ -2054,6 +2054,11 @@ void Session::start()
     // NB: m_InputHandler must be initialize before starting the connection.
     m_InputHandler = new SdlInputHandler(*m_Preferences, m_StreamConfig.width, m_StreamConfig.height);
 
+    // The window about to be created spans the whole monitor arrangement, so it is
+    // borderless rather than fullscreen. Without this, "capture system keys in fullscreen"
+    // would never engage for a multi-display session.
+    m_InputHandler->setSpansEntireDesktop(m_MultiDisplayActive);
+
     // Kick off the async connection thread then return to the caller to pump the event loop
     auto thread = new AsyncConnectionStartThread(this);
     QObject::connect(thread, &QThread::finished, this, &Session::exec);
@@ -2124,7 +2129,11 @@ void Session::exec()
 
     // If we're starting in windowed mode and the Moonlight GUI is maximized or
     // minimized, match that with the streaming window.
-    if (!m_IsFullScreen && m_QtWindow != nullptr) {
+    //
+    // Never when the window has to span the monitor layout: it is windowed only because
+    // fullscreen is a single-output mode, and a maximized window is just as much a
+    // single-output mode -- it would snap straight back onto one screen.
+    if (!m_IsFullScreen && !m_MultiDisplayActive && m_QtWindow != nullptr) {
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
         // Qt 5.10+ can propagate multiple states together
         if (m_QtWindow->windowStates() & Qt::WindowMaximized) {

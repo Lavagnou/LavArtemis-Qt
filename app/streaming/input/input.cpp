@@ -21,6 +21,7 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
       m_PointerRegionLockToggledByUser(false),
       m_FakeMouseCaptureActive(false),
       m_KeyboardCaptureActive(false),
+      m_SpansEntireDesktop(false),
       m_CaptureSystemKeysMode(prefs.captureSysKeysMode),
       m_MouseCursorCapturedVisibilityState(SDL_DISABLE),
       m_LongPressTimer(0),
@@ -374,6 +375,20 @@ void SdlInputHandler::notifyFocusGained()
 {
 }
 
+void SdlInputHandler::setSpansEntireDesktop(bool spans)
+{
+    m_SpansEntireDesktop = spans;
+}
+
+bool SdlInputHandler::isWindowFullScreen(Uint32 windowFlags)
+{
+    // A window laid over the whole monitor arrangement is fullscreen in every sense the
+    // user means by the word; it just cannot carry the flag, because SDL fullscreen owns a
+    // single output. Treating it otherwise silently disables "capture system keys in
+    // fullscreen" for exactly the sessions that cover the most screen.
+    return (windowFlags & SDL_WINDOW_FULLSCREEN) || m_SpansEntireDesktop;
+}
+
 bool SdlInputHandler::isCaptureActive()
 {
     if (SDL_GetRelativeMouseMode()) {
@@ -390,7 +405,7 @@ void SdlInputHandler::updateKeyboardGrabState()
     if (shouldGrab) {
         Uint32 windowFlags = SDL_GetWindowFlags(m_Window);
         if (m_CaptureSystemKeysMode == StreamingPreferences::CSK_FULLSCREEN &&
-            !(windowFlags & SDL_WINDOW_FULLSCREEN)) {
+            !isWindowFullScreen(windowFlags)) {
             // Ungrab if it's fullscreen only and we left fullscreen
             shouldGrab = false;
         }
@@ -428,7 +443,7 @@ bool SdlInputHandler::isSystemKeyCaptureActive()
     }
 
     if (m_CaptureSystemKeysMode == StreamingPreferences::CSK_FULLSCREEN &&
-            !(windowFlags & SDL_WINDOW_FULLSCREEN)) {
+            !isWindowFullScreen(windowFlags)) {
         return false;
     }
 

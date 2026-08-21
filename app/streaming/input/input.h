@@ -144,6 +144,16 @@ public:
 
     bool isSystemKeyCaptureActive();
 
+    /**
+     * @brief Tell the input handler the window covers the whole desktop.
+     *
+     * A window spanning several monitors cannot be an SDL fullscreen window -- fullscreen
+     * is a single-output mode. It is borderless and exactly the size of the monitor
+     * arrangement instead, which is the same thing to everyone except the flag test, and
+     * "capture system keys in fullscreen" would otherwise never fire for it.
+     */
+    void setSpansEntireDesktop(bool spans);
+
     void setCaptureActive(bool active);
 
     bool isMouseInVideoRegion(int mouseX, int mouseY, int windowWidth = -1, int windowHeight = -1);
@@ -156,6 +166,8 @@ public:
     QString getUnmappedGamepads();
 
 private:
+    bool isWindowFullScreen(Uint32 windowFlags);
+
     enum KeyCombo {
         KeyComboQuit,
         KeyComboUngrabInput,
@@ -229,6 +241,7 @@ private:
     QSet<short> m_KeysDown;
     bool m_FakeMouseCaptureActive;
     bool m_KeyboardCaptureActive;
+    bool m_SpansEntireDesktop;
     QString m_OldIgnoreDevices;
     QString m_OldIgnoreDevicesExcept;
     QStringList m_IgnoreDeviceGuids;
