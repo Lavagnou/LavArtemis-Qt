@@ -320,6 +320,44 @@ ApplicationWindow {
             }
 
             NavigableToolButton {
+                id: multiDisplayButton
+                visible: stackView.currentItem instanceof PcView
+
+                // Same dependency as the settings page: there is nothing to lay out
+                // without virtual displays to lay it out on.
+                enabled: StreamingPreferences.useVirtualDisplay
+
+                iconSource: "qrc:/res/multi_screen-48px.svg"
+
+                checkable: true
+                checked: StreamingPreferences.useMultiDisplay
+
+                // onToggled, not onCheckedChanged: the latter fires when the binding above
+                // re-evaluates too, which would write back values the user never chose.
+                onToggled: {
+                    StreamingPreferences.useMultiDisplay = checked
+
+                    // Nothing else saves on this page -- SettingsView only persists when
+                    // navigating away from itself.
+                    StreamingPreferences.save()
+                }
+
+                ToolTip.delay: 1000
+                ToolTip.timeout: 3000
+                ToolTip.visible: hovered
+                ToolTip.text: !enabled ?
+                                  qsTr("Requires \"Use Virtual Display\" to be enabled.")
+                                : checked ?
+                                  qsTr("Virtual Display Multi-Screen is on: every monitor on this PC will be recreated on the host.")
+                                :
+                                  qsTr("Virtual Display Multi-Screen is off: the host will emulate a single display.")
+
+                Keys.onDownPressed: {
+                    stackView.currentItem.forceActiveFocus(Qt.TabFocus)
+                }
+            }
+
+            NavigableToolButton {
                 id: addPcButton
                 visible: stackView.currentItem instanceof PcView
 
