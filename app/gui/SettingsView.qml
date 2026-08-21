@@ -1136,7 +1136,12 @@ Flickable {
                     text: qsTr("Use Virtual Display")
                     font.pointSize: 12
                     checked: StreamingPreferences.useVirtualDisplay
-                    onCheckedChanged: {
+
+                    // onToggled, not onCheckedChanged: the latter also fires when the
+                    // binding above re-evaluates, so it writes back values the user never
+                    // chose. That is how the dependent multi-screen preference below used
+                    // to erase itself.
+                    onToggled: {
                         StreamingPreferences.useVirtualDisplay = checked
                     }
 
@@ -1157,10 +1162,15 @@ Flickable {
                     // Nothing to lay out without virtual displays to lay out.
                     enabled: virtualDisplayCheck.checked
 
-                    // Without the enabled guard, a preference left on from an earlier
-                    // session would show a greyed-out box as ticked.
-                    checked: enabled && StreamingPreferences.useMultiDisplay
-                    onCheckedChanged: {
+                    // Bound to the preference alone, never to `enabled`. Folding the guard
+                    // into `checked` meant that disabling the box drove `checked` to false,
+                    // and the write-back below then destroyed the preference for good --
+                    // re-enabling "Use Virtual Display" could not bring it back, because the
+                    // value it would have been restored from was already gone. A greyed-out
+                    // box that stays ticked is the honest reading: the choice is still on,
+                    // it simply cannot apply. Session::initialize() requires both anyway.
+                    checked: StreamingPreferences.useMultiDisplay
+                    onToggled: {
                         StreamingPreferences.useMultiDisplay = checked
                     }
 
