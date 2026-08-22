@@ -180,6 +180,8 @@ private:
 
     void toggleFullscreen();
 
+    void setSpanningWindowOnTop(bool onTop);
+
     void toggleQuickMenu();
 
     void notifyMouseEmulationMode(bool enabled);

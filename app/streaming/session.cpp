@@ -1838,6 +1838,22 @@ void Session::toggleFullscreen()
     m_InputHandler->updatePointerRegionLock();
 }
 
+void Session::setSpanningWindowOnTop(bool onTop)
+{
+    // Only a window spanning the monitor layout needs this. A real fullscreen window is
+    // already handled by the shell, and a windowed stream has no business on top of
+    // anything.
+    if (!m_MultiDisplayActive || m_Window == nullptr) {
+        return;
+    }
+
+#if SDL_VERSION_ATLEAST(2, 0, 16)
+    SDL_SetWindowAlwaysOnTop(m_Window, onTop ? SDL_TRUE : SDL_FALSE);
+#else
+    Q_UNUSED(onTop);
+#endif
+}
+
 void Session::notifyMouseEmulationMode(bool enabled)
 {
     m_MouseEmulationRefCount += enabled ? 1 : -1;
@@ -2125,6 +2141,13 @@ void Session::exec()
         defaultWindowFlags &= ~SDL_WINDOW_RESIZABLE;
         m_IsFullScreen = false;
         m_FullScreenFlag = 0;
+
+        // Being borderless is not being fullscreen as far as the shell is concerned, and the
+        // taskbar keeps drawing over the stream: it steps aside for a window matching one
+        // monitor exactly, which a window spanning the layout never does. Staying on top
+        // covers it instead, and focus hands the desktop back (see SDL_WINDOWEVENT_FOCUS_LOST)
+        // so switching away from the stream is not switching behind it.
+        defaultWindowFlags |= SDL_WINDOW_ALWAYS_ON_TOP;
     }
 
     // If we're starting in windowed mode and the Moonlight GUI is maximized or
@@ -2378,6 +2401,9 @@ void Session::exec()
                     m_AudioMuted = true;
                 }
                 m_InputHandler->notifyFocusLost();
+
+                // Stop covering the taskbar while the user is looking elsewhere
+                setSpanningWindowOnTop(false);
                 
                 // Trigger clipboard sync from server when focus is lost
                 if (m_ClipboardManager) {
@@ -2389,6 +2415,7 @@ void Session::exec()
                     m_AudioMuted = false;
                 }
                 m_InputHandler->notifyFocusGained();
+                setSpanningWindowOnTop(true);
                 break;
             case SDL_WINDOWEVENT_LEAVE:
                 m_InputHandler->notifyMouseLeave();

@@ -108,12 +108,18 @@ Trois choses qui ne se devinent pas :
 > desktop-fullscreen ramènerait la fenêtre sur un seul écran. Borderless à la taille exacte est
 > visuellement identique.
 >
-> Deux conséquences que ce choix traîne derrière lui, toutes deux corrigées mais faciles à
+> Trois conséquences que ce choix traîne derrière lui, toutes corrigées mais faciles à
 > réintroduire : `m_IsFullScreen = false` fait hériter `SDL_WINDOW_MAXIMIZED` de la fenêtre Qt si
-> elle est maximisée — et une fenêtre maximisée l'est **sur un seul écran** ; et « capturer les
+> elle est maximisée — et une fenêtre maximisée l'est **sur un seul écran** ; « capturer les
 > raccourcis système *en plein écran* » teste `SDL_WINDOW_FULLSCREEN`, donc ne s'activait jamais.
 > D'où `SdlInputHandler::setSpansEntireDesktop()`, qui rend la fenêtre couvrante équivalente au
 > plein écran pour les deux tests de capture clavier.
+>
+> Et la troisième : **la barre des tâches reste au-dessus**. Le shell ne s'efface que pour une
+> fenêtre qui coïncide avec *un* moniteur, ce qu'une fenêtre couvrante ne fait jamais. D'où
+> `SDL_WINDOW_ALWAYS_ON_TOP` à la création, **retiré au `FOCUS_LOST` et remis au `FOCUS_GAINED`**
+> (`Session::setSpanningWindowOnTop()`) : sans ce va-et-vient, alt-tab enverrait l'application
+> choisie *derrière* un stream qui couvre tout le bureau.
 
 > ⚠️ `DisplayLayout::detect()` refuse la disposition si `SDL_GetDisplayBounds()` et le mode natif
 > divergent — ce serait mélanger coordonnées DPI et pixels physiques. Mesuré : Qt et SDL passent le
