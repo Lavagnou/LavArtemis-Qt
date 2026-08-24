@@ -4,6 +4,7 @@
 
 #include <QSettings>
 #include <QStringList>
+#include <QVector>
 
 class SdlGamepadMapping
 {
@@ -76,11 +77,25 @@ public:
     // correct -- callers use this to offer the user a chance to fix it.
     static QStringList getGuessedDeviceNames();
 
+    // The same devices by GUID. Names are not unique -- two controllers of the
+    // same model are indistinguishable by name -- so this is what a caller
+    // should match on.
+    static QStringList getGuessedDeviceGuids();
+
+    // How an axis should be written in a mapping, decided by where it rests
+    // rather than by what it is being bound to. An axis idling against a stop
+    // (a trigger reporting -32768 at rest) uses its whole travel; one idling
+    // centered only uses the half it moves into. Getting this backwards costs
+    // a trigger half its range, or leaves it reading half pressed at rest.
+    // `deviation` only picks which half for the centered case.
+    static QString axisSourceToken(int axis, int restValue, int deviation);
+
 private:
     // Builds an SDL mapping string for a joystick SDL has no entry for, using
-    // only its axis/button/hat counts. Returns an empty string for devices
-    // that don't look like gamepads.
-    static QString synthesizeMapping(int deviceIndex, int numAxes, int numButtons, int numHats);
+    // its axis/button/hat counts and where its axes rest. Returns an empty
+    // string for devices that don't look like gamepads.
+    static QString synthesizeMapping(int deviceIndex, int numAxes, int numButtons, int numHats,
+                                     const QVector<int>& axisRestValues);
 
     void applyFallbackMappings();
 
@@ -88,5 +103,6 @@ private:
 
     static MappingFetcher* s_MappingFetcher;
     static QStringList s_GuessedDeviceNames;
+    static QStringList s_GuessedDeviceGuids;
 };
 

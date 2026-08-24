@@ -11,8 +11,13 @@
 #define SER_GUID "guid"
 #define SER_MAPPING "mapping"
 
+// An axis resting at least this far out is resting against a stop rather than
+// centered.
+#define AXIS_EXTREME_REST 24000
+
 MappingFetcher* MappingManager::s_MappingFetcher;
 QStringList MappingManager::s_GuessedDeviceNames;
+QStringList MappingManager::s_GuessedDeviceGuids;
 
 MappingManager::MappingManager()
 {
@@ -129,7 +134,25 @@ QStringList MappingManager::getGuessedDeviceNames()
     return s_GuessedDeviceNames;
 }
 
-QString MappingManager::synthesizeMapping(int deviceIndex, int numAxes, int numButtons, int numHats)
+QStringList MappingManager::getGuessedDeviceGuids()
+{
+    return s_GuessedDeviceGuids;
+}
+
+QString MappingManager::axisSourceToken(int axis, int restValue, int deviation)
+{
+    if (restValue <= -AXIS_EXTREME_REST) {
+        return QStringLiteral("a%1").arg(axis);
+    }
+    if (restValue >= AXIS_EXTREME_REST) {
+        return QStringLiteral("a%1~").arg(axis);
+    }
+    return (deviation < 0) ? QStringLiteral("-a%1").arg(axis)
+                           : QStringLiteral("+a%1").arg(axis);
+}
+
+QString MappingManager::synthesizeMapping(int deviceIndex, int numAxes, int numButtons, int numHats,
+                                          const QVector<int>& axisRestValues)
 {
     // Same shape test SdlInputHandler::getUnmappedGamepads() uses to decide a
     // bare joystick is probably a gamepad. Reusing it keeps the thing we warn
@@ -160,7 +183,19 @@ QString MappingManager::synthesizeMapping(int deviceIndex, int numAxes, int numB
     if (numAxes >= 6) {
         // X, Y, Z, Rx, Ry, Rz -- right stick on Rx/Ry, triggers on Z/Rz.
         parts << QStringLiteral("rightx:a3") << QStringLiteral("righty:a4");
-        parts << QStringLiteral("lefttrigger:a2") << QStringLiteral("righttrigger:a5");
+
+        // Where a trigger axis rests decides its syntax. Announcing a
+        // centre-resting axis as a whole axis makes SDL stretch
+        // [-32768, 32767] onto [0, 32767], so the trigger reads ~50% pressed
+        // at idle, forever -- and that is the common shape on exactly the
+        // generic HID pads this fallback exists for. A trigger that idles at a
+        // stop, on the other hand, needs its whole travel or it loses half of
+        // it. The direction is assumed positive; a device that disagrees is
+        // what the gamepad mapper is for.
+        parts << QStringLiteral("lefttrigger:%1")
+                 .arg(axisSourceToken(2, axisRestValues.value(2), 1));
+        parts << QStringLiteral("righttrigger:%1")
+                 .arg(axisSourceToken(5, axisRestValues.value(5), 1));
     }
     else {
         // X, Y, Z, Rz -- right stick on Z/Rz and no analog triggers. This is
@@ -196,6 +231,7 @@ QString MappingManager::synthesizeMapping(int deviceIndex, int numAxes, int numB
 void MappingManager::applyFallbackMappings()
 {
     s_GuessedDeviceNames.clear();
+    s_GuessedDeviceGuids.clear();
 
     int numJoysticks = SDL_NumJoysticks();
     for (int i = 0; i < numJoysticks; i++) {
@@ -215,10 +251,22 @@ void MappingManager::applyFallbackMappings()
             continue;
         }
 
+        // The device has to be sampled before it is closed: where each axis
+        // rests is what decides whether a trigger gets whole-axis or half-axis
+        // syntax, and the counts alone can't tell us.
+        SDL_JoystickUpdate();
+
+        int numAxes = SDL_JoystickNumAxes(joy);
+        QVector<int> axisRestValues(numAxes);
+        for (int axis = 0; axis < numAxes; axis++) {
+            axisRestValues[axis] = SDL_JoystickGetAxis(joy, axis);
+        }
+
         QString mapping = synthesizeMapping(i,
-                                            SDL_JoystickNumAxes(joy),
+                                            numAxes,
                                             SDL_JoystickNumButtons(joy),
-                                            SDL_JoystickNumHats(joy));
+                                            SDL_JoystickNumHats(joy),
+                                            axisRestValues);
         SDL_JoystickClose(joy);
 
         if (mapping.isEmpty()) {
@@ -235,6 +283,11 @@ void MappingManager::applyFallbackMappings()
         const char* name = SDL_JoystickNameForIndex(i);
         s_GuessedDeviceNames.append(name ? QString::fromUtf8(name)
                                          : QStringLiteral("Unknown Gamepad"));
+
+        char guessedGuidStr[33];
+        SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(i),
+                                  guessedGuidStr, sizeof(guessedGuidStr));
+        s_GuessedDeviceGuids.append(QString::fromLatin1(guessedGuidStr));
 
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
                     "Guessed a mapping for unrecognized gamepad: %s",
