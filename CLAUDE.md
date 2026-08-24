@@ -168,6 +168,84 @@ navigation sur lequel sauvegarder.
 > tous deux par `ProfileManager::value()`/`setValue()` — lecture et écriture ne peuvent pas diverger
 > par construction.
 
+## 🎮 Mapper de manettes
+
+SDL ne présente un périphérique comme *game controller* que s'il a une entrée pour son GUID.
+`MappingManager::applyFallbackMappings()` en devine une à partir de la forme de l'appareil (4-8 axes,
+≥8 boutons, ≤1 hat — le **même** test que `SdlInputHandler::getUnmappedGamepads()`), mais une
+supposition peut placer les contrôles au mauvais endroit. Le mapper est là pour corriger, et pour
+faire marcher les appareils trop atypiques pour être devinés.
+
+**On clique le contrôle sur un schéma de manette, puis on l'actionne.** Pas de séquence imposée :
+`SdlGamepadMapper` n'a qu'une cible à la fois (`m_TargetElement`) et une file
+(`selectElements(QStringList)`) qui sert aux **trois** usages — un clic sur un bouton (file de 1), un
+clic sur un stick (file de 2 : X puis Y), et « Tout mapper à la suite » (file de 21). L'ancien
+assistant linéaire est donc devenu un cas particulier gratuit du même moteur.
+
+| Fichier | Rôle |
+|---|---|
+| `gui/sdlgamepadmapper.{h,cpp}` | Le moteur : capture, évaluation live, préremplissage, sauvegarde |
+| `gui/ControllerDiagram.qml` | Le schéma : repère logique 1000×620, `res/gamepad_body.svg` en fond |
+| `gui/GamepadControl.qml` | Un point cliquable ; dérive son état du `ControllerDiagram` qu'il reçoit |
+| `gui/GamepadMapper.qml` | La page : sélecteur de périphérique + schéma |
+| `settings/mappingmanager.{h,cpp}` | Persistance (`QSettings`, tableau `gcmapping`), `gamecontrollerdb.txt`, repli deviné |
+
+> ⚠️ **L'invariant qui a coûté le plus cher : tout entrée doit revenir au repos avant de compter à
+> nouveau.** Les boutons avaient ce verrou, les axes et les hats **non**. Comme les quatre étapes
+> d'axe se suivaient et que le timer tourne à 20 ms, une seule poussée du stick liait `leftx`,
+> `lefty`, `rightx` **et** `righty` au même `a0` — et la croix recevait `h0.1` sur ses quatre
+> directions. `beginListening()` désarme désormais tout ce qui est actif au moment où l'écoute
+> commence, sur les trois familles.
+
+Trois autres règles dont dépend la justesse des captures :
+
+- **Écart au repos, pas valeur absolue.** Un interrupteur ou une gâchette peut reposer en butée. Le
+  repos est échantillonné à l'ouverture, puis **ré-échantillonné à chaque sélection pour les axes
+  calmes seulement** — un axe qu'on tient ne peut ni devenir le nouveau repos, ni déclencher.
+- **Le plus grand écart gagne**, pas le premier index : sinon un seul axe qui dérive rafle tous les
+  éléments.
+- **Le repos décide de la syntaxe d'un axe**, pas la nature de l'élément — `MappingManager::axisSourceToken()`,
+  partagé avec le repli deviné pour que les deux ne puissent pas diverger. Repos en butée ⇒ axe plein
+  `a2` ; repos au centre ⇒ demi-axe `+a2`. À l'envers, une gâchette perd la moitié de sa course, ou
+  lit **50 % en permanence au repos**.
+- **Hat : cardinales uniquement.** SDL teste `(valeur & masque) == masque`, donc un `h0.3` capturé en
+  diagonale ne se déclencherait qu'avec deux directions tenues.
+
+> 📋 **Le retour visuel est un outil de diagnostic, pas une décoration.** Chaque tick réévalue les
+> liaisons posées contre l'état brut et publie `elementValues` ; le schéma anime les sticks, remplit
+> les gâchettes et allume les boutons. C'est ce qui rend un axe inversé ou une gâchette à moitié
+> enfoncée visible **avant** la sauvegarde. `rawActivity` nomme en plus l'entrée brute active, ce qui
+> distingue « mapping faux » de « appareil muet ».
+
+> ⚠️ **La sauvegarde n'est pas destructive.** Le schéma se préremplit depuis
+> `SDL_GameControllerMappingForGUID()`, et les champs qu'on ne modélise pas (paddles, touchpad,
+> `type:`, sorties demi-axe `+lefty:b11`) sont conservés **verbatim** dans `m_PassthroughFields` et
+> réécrits — sauf si leur élément a depuis été lié ici, auquel cas SDL aurait deux sources pour un
+> contrôle. Sans ça, corriger un stick effacerait le reste d'une entrée de la base.
+>
+> Deux exceptions, jetées volontairement : `platform:` (redérivé pour la plateforme courante) et
+> **`crc:`**. Un `crc:` départage des appareils qui partagent un GUID, et celui d'une entrée de base
+> appartient au nom d'appareil de *cette* entrée. Notre GUID est lu directement sur le joystick
+> ouvert, donc SDL sait apparier sans aide — alors qu'un `crc:` faux ferait échouer l'application du
+> mapping **en silence**.
+
+> ⚠️ **La navigation UI à la manette lit les mêmes boutons.** `GamepadMapper.qml` appelle
+> `SdlGamepadKeyNavigation.disable()` sur `StackView.onActivated` et `.enable()` sur
+> `onDeactivating`. Et `Escape` doit être **consommé** (`event.accepted = true`) tant qu'une capture
+> attend, sinon le `Keys.onEscapePressed` du `StackView` dépile la page sous la capture.
+
+> 📋 **Choix assumé : pas de notification au démarrage pour un appareil deviné.** Il *fonctionne* ;
+> un modal à chaque lancement serait du harcèlement. L'information est donnée là où elle est
+> actionnable — au lancement d'un stream, et dans la liste du mapper (« Layout guessed — may be
+> wrong »). Ce badge se lit par **GUID** (`getGuessedDeviceGuids()`), pas par nom : deux manettes du
+> même modèle portent le même nom.
+
+> ⚠️ **Reste à vérifier avec un appareil en main** : `synthesizeMapping()` suppose l'ordre d'axes
+> XInput dès 6 axes (`rightx:a3, righty:a4`), alors que les périphériques que ce repli vise sont
+> typiquement DirectInput, où le stick droit est souvent sur Z/Rz (`a2`/`a5`). Le raisonnement
+> actuel reprend l'heuristique Android et n'a pas été changé à l'aveugle ; le mapper est le chemin de
+> correction en attendant.
+
 ## ⚠️ Pièges / Gotchas
 
 1. **`ArtemisSettings` ne persiste pas tout seul.** Les setters n'écrivent pas ; `SettingsView.qml`
