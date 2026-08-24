@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Schematic gamepad body used as the backdrop of the mapping diagram.
+  The controls themselves are drawn in QML on top of this, so that they can be
+  clicked, coloured by binding state and animated from live input.
+
+  The app forces the Material Dark theme, so the palette is fixed rather than
+  theme-aware.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" width="1000" height="620">
+  <g fill="none" stroke="#4d4d4d" stroke-width="4" stroke-linejoin="round">
+    <path fill="#2d2d2d"
+          d="M 500 92
+             C 428 92 362 100 314 114
+             C 256 132 220 170 198 226
+             C 166 308 126 426 112 488
+             C 100 542 126 580 174 584
+             C 222 588 260 562 290 514
+             C 322 462 360 452 410 450
+             C 440 448 468 486 500 486
+             C 532 486 560 448 590 450
+             C 640 452 678 462 710 514
+             C 740 562 778 588 826 584
+             C 874 580 900 542 888 488
+             C 874 426 834 308 802 226
+             C 780 170 744 132 686 114
+             C 638 100 572 92 500 92 Z"/>
+    <path stroke="#3a3a3a" stroke-width="3"
+          d="M 236 178 C 320 150 400 140 500 140 C 600 140 680 150 764 178"/>
+  </g>
+</svg>

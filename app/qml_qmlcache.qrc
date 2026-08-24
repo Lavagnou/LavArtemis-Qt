@@ -7,6 +7,8 @@
         <file alias="gui/SettingsView.qml">gui/SettingsView.qml</file>
         <file alias="gui/StreamSegue.qml">gui/StreamSegue.qml</file>
         <file alias="gui/GamepadMapper.qml">gui/GamepadMapper.qml</file>
+        <file alias="gui/ControllerDiagram.qml">gui/ControllerDiagram.qml</file>
+        <file alias="gui/GamepadControl.qml">gui/GamepadControl.qml</file>
         <file alias="gui/QuitSegue.qml">gui/QuitSegue.qml</file>
         <file alias="gui/NavigableToolButton.qml">gui/NavigableToolButton.qml</file>
         <file alias="gui/NavigableItemDelegate.qml">gui/NavigableItemDelegate.qml</file>

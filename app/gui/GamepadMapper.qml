@@ -9,7 +9,12 @@ Item {
     id: mapperPage
     objectName: qsTr("Gamepad Mapping")
 
+    focus: true
+
     property var devices: []
+    // True while "map everything" is walking the whole controller, so that
+    // finishing the queue can offer to save. A one-off click shouldn't.
+    property bool walkthroughRunning: false
 
     function refreshDevices() {
         devices = SdlGamepadMapper.enumerateDevices()
@@ -30,6 +35,20 @@ Item {
 
     Component.onDestruction: {
         SdlGamepadMapper.cancel()
+    }
+
+    // Escape means "stop waiting for a control" first and "leave the page"
+    // second. Without consuming it, the StackView's own handler would pop the
+    // view out from under a capture.
+    Keys.onEscapePressed: function(event) {
+        if (SdlGamepadMapper.targetElement !== "") {
+            SdlGamepadMapper.cancelSelection()
+            walkthroughRunning = false
+            event.accepted = true
+        }
+        else {
+            event.accepted = false
+        }
     }
 
     // ---- Device picker ----------------------------------------------------
@@ -125,56 +144,118 @@ Item {
         }
     }
 
-    // ---- Capture wizard ---------------------------------------------------
+    // ---- Mapping diagram --------------------------------------------------
 
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 20
-        spacing: 16
+        spacing: 10
         visible: SdlGamepadMapper.mapping
 
-        Label {
-            text: SdlGamepadMapper.deviceName
-            font.pointSize: 16
+        RowLayout {
             Layout.fillWidth: true
-            elide: Text.ElideRight
+            spacing: 12
+
+            Label {
+                text: SdlGamepadMapper.deviceName
+                font.pointSize: 16
+                Layout.fillWidth: true
+                elide: Text.ElideRight
+            }
+
+            // Raw device activity, independent of any binding. If this stays
+            // empty while the controller is being operated, the problem is the
+            // device or the driver, not the mapping.
+            Label {
+                text: SdlGamepadMapper.rawActivity
+                color: "#00cccc"
+                font.pointSize: 10
+                font.family: "monospace"
+                horizontalAlignment: Text.AlignRight
+                Layout.minimumWidth: 160
+            }
         }
 
-        ProgressBar {
+        // The instruction and the capture prompt share one fixed-height strip
+        // rather than the prompt overlaying the diagram: the triggers sit at
+        // the very top of the controller, and a banner would cover exactly the
+        // control being asked for. A fixed height also keeps the diagram from
+        // resizing under the user's cursor when a capture starts.
+        Rectangle {
+            id: promptStrip
+            readonly property bool listening: SdlGamepadMapper.targetElement !== ""
+
             Layout.fillWidth: true
-            from: 0
-            to: SdlGamepadMapper.stepCount
-            value: SdlGamepadMapper.currentStep
+            Layout.preferredHeight: 54
+            color: listening ? "#2d2d2d" : "transparent"
+            border.color: listening ? "#e0b040" : "transparent"
+            border.width: 2
+            radius: 6
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 14
+
+                Label {
+                    Layout.fillWidth: true
+                    text: promptStrip.listening
+                          ? SdlGamepadMapper.targetPrompt
+                          : qsTr("Click a control, then operate it on your controller. Right-click a control to clear it.")
+                    color: promptStrip.listening ? "#ffffff" : "#aaaaaa"
+                    font.pointSize: promptStrip.listening ? 14 : 10
+                    font.bold: promptStrip.listening
+                    elide: Text.ElideRight
+                }
+
+                Label {
+                    visible: SdlGamepadMapper.queueRemaining > 0
+                    text: qsTr("%1 to go").arg(SdlGamepadMapper.queueRemaining)
+                    color: "#aaaaaa"
+                    font.pointSize: 10
+                }
+
+                Button {
+                    text: qsTr("Skip")
+                    flat: true
+                    visible: promptStrip.listening
+                    onClicked: SdlGamepadMapper.skipTarget()
+                }
+
+                Button {
+                    text: qsTr("Stop")
+                    flat: true
+                    visible: promptStrip.listening
+                    onClicked: {
+                        SdlGamepadMapper.cancelSelection()
+                        mapperPage.walkthroughRunning = false
+                    }
+                }
+            }
         }
 
-        Label {
-            text: qsTr("Step %1 of %2")
-                    .arg(Math.min(SdlGamepadMapper.currentStep + 1, SdlGamepadMapper.stepCount))
-                    .arg(SdlGamepadMapper.stepCount)
-            color: "#aaaaaa"
-            font.pointSize: 9
+        ControllerDiagram {
+            id: diagram
             Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            bindings: SdlGamepadMapper.bindings
+            values: SdlGamepadMapper.elementValues
+            target: SdlGamepadMapper.targetElement
+
+            onSelectRequested: function(elements) {
+                // Picking a control by hand replaces the queue, so a
+                // walkthrough that was running is over -- otherwise finishing
+                // this one control would pop the "save?" prompt.
+                mapperPage.walkthroughRunning = false
+                SdlGamepadMapper.selectElements(elements)
+            }
+            onClearRequested: function(elements) {
+                for (var i = 0; i < elements.length; i++) {
+                    SdlGamepadMapper.clearElement(elements[i])
+                }
+            }
         }
-
-        Item { Layout.fillHeight: true }
-
-        Label {
-            text: SdlGamepadMapper.currentPrompt
-            font.pointSize: 22
-            horizontalAlignment: Text.AlignHCenter
-            wrapMode: Text.Wrap
-            Layout.fillWidth: true
-        }
-
-        Label {
-            text: qsTr("If this control doesn't exist on your device, skip it.")
-            color: "#aaaaaa"
-            font.pointSize: 10
-            horizontalAlignment: Text.AlignHCenter
-            Layout.fillWidth: true
-        }
-
-        Item { Layout.fillHeight: true }
 
         Label {
             id: mappingPreview
@@ -185,9 +266,11 @@ Item {
             wrapMode: Text.Wrap
             Layout.fillWidth: true
 
+            // previewMapping() is a function call, so it would be evaluated
+            // once and never again without this.
             Connections {
                 target: SdlGamepadMapper
-                function onCurrentStepChanged() {
+                function onBindingsChanged() {
                     mappingPreview.text = SdlGamepadMapper.previewMapping()
                 }
             }
@@ -198,20 +281,35 @@ Item {
             spacing: 10
 
             Button {
-                text: qsTr("Skip")
-                onClicked: SdlGamepadMapper.skipCurrentStep()
+                text: qsTr("Map everything in order")
+                onClicked: {
+                    mapperPage.walkthroughRunning = true
+                    SdlGamepadMapper.mapEverything()
+                }
             }
 
             Button {
-                text: qsTr("Start over")
-                onClicked: SdlGamepadMapper.restart()
+                text: qsTr("Clear all")
+                enabled: SdlGamepadMapper.bindingCount > 0
+                onClicked: SdlGamepadMapper.clearAll()
+            }
+
+            Label {
+                visible: savedNotice.running
+                text: qsTr("Mapping saved")
+                color: "#60c060"
+                font.pointSize: 10
             }
 
             Item { Layout.fillWidth: true }
 
             Button {
-                text: qsTr("Cancel")
-                onClicked: SdlGamepadMapper.cancel()
+                text: qsTr("Back to device list")
+                onClicked: {
+                    SdlGamepadMapper.cancel()
+                    mapperPage.walkthroughRunning = false
+                    refreshDevices()
+                }
             }
 
             Button {
@@ -222,6 +320,7 @@ Item {
                 highlighted: true
                 onClicked: {
                     if (SdlGamepadMapper.saveMapping()) {
+                        savedNotice.restart()
                         refreshDevices()
                     }
                 }
@@ -229,10 +328,18 @@ Item {
         }
     }
 
+    Timer {
+        id: savedNotice
+        interval: 3000
+    }
+
     Connections {
         target: SdlGamepadMapper
-        function onMappingComplete() {
-            savePrompt.open()
+        function onQueueFinished() {
+            if (mapperPage.walkthroughRunning) {
+                mapperPage.walkthroughRunning = false
+                savePrompt.open()
+            }
         }
     }
 
@@ -241,9 +348,10 @@ Item {
         standardButtons: Dialog.Save | Dialog.Cancel
         text: qsTr("All controls have been visited. Save this mapping?")
         onAccepted: {
-            SdlGamepadMapper.saveMapping()
-            refreshDevices()
+            if (SdlGamepadMapper.saveMapping()) {
+                savedNotice.restart()
+                refreshDevices()
+            }
         }
-        onRejected: SdlGamepadMapper.cancel()
     }
 }
