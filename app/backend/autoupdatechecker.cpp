@@ -12,8 +12,49 @@
 #include <QJsonObject>
 
 AutoUpdateChecker::AutoUpdateChecker(QObject *parent) :
-    QObject(parent)
+    QObject(parent),
+    m_Nam(nullptr),
+    m_CheckInProgress(false),
+    m_DownloadReply(nullptr),
+    m_DownloadCanceled(false)
 {
+    QString currentVersion(VERSION_STR);
+    qDebug() << "Current Artemis version:" << currentVersion;
+    parseStringToVersionQuad(currentVersion, m_CurrentVersionQuad);
+
+    // Should at least have a 1.0-style version number
+    Q_ASSERT(m_CurrentVersionQuad.count() > 1);
+}
+
+void AutoUpdateChecker::start()
+{
+    if (!ArtemisSettings::instance()->autoUpdateEnabled()) {
+        qDebug() << "Update check disabled in settings";
+        return;
+    }
+
+    performCheck();
+}
+
+void AutoUpdateChecker::checkNow()
+{
+    // Deliberately ignores autoUpdateEnabled: that preference governs the check
+    // at startup, not a button the user just pressed.
+    performCheck();
+}
+
+void AutoUpdateChecker::performCheck()
+{
+#if defined(Q_OS_WIN32) || defined(Q_OS_DARWIN) || defined(STEAM_LINK) || defined(APP_IMAGE) // Only run update checker on platforms without auto-update
+    if (m_CheckInProgress) {
+        qDebug() << "Update check already in progress";
+        return;
+    }
+
+    // A fresh manager per check. The previous one is destroyed once its reply
+    // has been handled, so this is also what makes a second check possible at
+    // all -- the old code kept the deleted manager's null pointer and every
+    // later check returned without sending anything.
     m_Nam = new QNetworkAccessManager(this);
 
     // Never communicate over HTTP
@@ -25,27 +66,6 @@ AutoUpdateChecker::AutoUpdateChecker(QObject *parent) :
     connect(m_Nam, &QNetworkAccessManager::finished,
             this, &AutoUpdateChecker::handleUpdateCheckRequestFinished);
 
-    QString currentVersion(VERSION_STR);
-    qDebug() << "Current Artemis version:" << currentVersion;
-    parseStringToVersionQuad(currentVersion, m_CurrentVersionQuad);
-
-    // Should at least have a 1.0-style version number
-    Q_ASSERT(m_CurrentVersionQuad.count() > 1);
-}
-
-void AutoUpdateChecker::start()
-{
-    if (!m_Nam) {
-        Q_ASSERT(m_Nam);
-        return;
-    }
-
-    if (!ArtemisSettings::instance()->autoUpdateEnabled()) {
-        qDebug() << "Update check disabled in settings";
-        return;
-    }
-
-#if defined(Q_OS_WIN32) || defined(Q_OS_DARWIN) || defined(STEAM_LINK) || defined(APP_IMAGE) // Only run update checker on platforms without auto-update
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0) && QT_VERSION < QT_VERSION_CHECK(5, 15, 1) && !defined(QT_NO_BEARERMANAGEMENT)
     // HACK: Set network accessibility to work around QTBUG-80947 (introduced in Qt 5.14.0 and fixed in Qt 5.15.1)
     QT_WARNING_PUSH
@@ -69,7 +89,11 @@ void AutoUpdateChecker::start()
 #else
     request.setAttribute(QNetworkRequest::HTTP2AllowedAttribute, true);
 #endif
+
+    m_CheckInProgress = true;
     m_Nam->get(request);
+#else
+    emit updateCheckFailed(tr("Updates are not handled in-app on this platform."));
 #endif
 }
 
@@ -157,12 +181,11 @@ int AutoUpdateChecker::compareVersionStrings(const QString& a, const QString& b)
 QString AutoUpdateChecker::findAssetDownloadUrl(const QJsonObject& releaseObj)
 {
 #ifdef Q_OS_WIN32
-    // The combined WiX installer covers both architectures, but the published
-    // artifacts are per-arch; pick the one matching the running binary.
-    QString arch = QSysInfo::currentCpuArchitecture();
-    QString wantedSuffix = (arch == "arm64")
-            ? QStringLiteral("-win-arm64.zip")
-            : QStringLiteral("-win-installer.exe");
+    // One installer covers both architectures: the WiX bundle carries the x64
+    // and the arm64 MSI and picks by NativeMachine. The per-arch zips published
+    // beside it are portable builds with no installer inside, so pointing arm64
+    // at one of those left installAndRestart() with a .zip to execute.
+    QString wantedSuffix = QStringLiteral("-win-installer.exe");
 #elif defined(Q_OS_DARWIN)
     QString wantedSuffix = QStringLiteral(".dmg");
 #elif defined(APP_IMAGE)
@@ -194,6 +217,11 @@ bool AutoUpdateChecker::canSelfInstall() const
 
 void AutoUpdateChecker::downloadUpdate(QString url)
 {
+    if (m_DownloadReply) {
+        qDebug() << "Update download already in progress";
+        return;
+    }
+
     QNetworkAccessManager* downloadNam = new QNetworkAccessManager(this);
     downloadNam->setStrictTransportSecurityEnabled(true);
     downloadNam->setRedirectPolicy(QNetworkRequest::NoLessSafeRedirectPolicy);
@@ -216,6 +244,18 @@ void AutoUpdateChecker::downloadUpdate(QString url)
         return;
     }
 
+    m_DownloadReply = reply;
+    m_DownloadCanceled = false;
+
+    // GitHub answers an asset URL with a redirect to its object store. Qt
+    // follows it on the same reply, so whatever was written before the redirect
+    // belongs to that response and not to the installer.
+    connect(reply, &QNetworkReply::redirected,
+            this, [file](const QUrl&) {
+        file->seek(0);
+        file->resize(0);
+    });
+
     connect(reply, &QNetworkReply::downloadProgress,
             this, [this](qint64 received, qint64 total) {
         emit downloadProgress(received, total);
@@ -228,13 +268,22 @@ void AutoUpdateChecker::downloadUpdate(QString url)
 
     connect(reply, &QNetworkReply::finished,
             this, [this, reply, file, tempPath, downloadNam]() {
+        file->write(reply->readAll());
         file->flush();
         file->close();
         file->deleteLater();
 
-        if (reply->error() == QNetworkReply::NoError) {
+        bool canceled = m_DownloadCanceled;
+        m_DownloadReply = nullptr;
+        m_DownloadCanceled = false;
+
+        if (canceled) {
+            QFile::remove(tempPath);
+        }
+        else if (reply->error() == QNetworkReply::NoError) {
             emit downloadReady(tempPath);
-        } else {
+        }
+        else {
             QFile::remove(tempPath);
             emit downloadFailed(reply->errorString());
         }
@@ -242,6 +291,18 @@ void AutoUpdateChecker::downloadUpdate(QString url)
         reply->deleteLater();
         downloadNam->deleteLater();
     });
+}
+
+void AutoUpdateChecker::cancelDownload()
+{
+    if (!m_DownloadReply) {
+        return;
+    }
+
+    // No downloadFailed follows an abort: the caller asked for it, and the
+    // dialog would otherwise report its own Cancel button as an error.
+    m_DownloadCanceled = true;
+    m_DownloadReply->abort();
 }
 
 void AutoUpdateChecker::installAndRestart(QString installerPath)
@@ -263,10 +324,11 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
 {
     Q_ASSERT(reply->isFinished());
 
-    // Delete the QNetworkAccessManager to free resources and
-    // prevent the bearer plugin from polling in the background.
+    // Delete the QNetworkAccessManager to free resources and prevent the bearer
+    // plugin from polling in the background. performCheck() builds a new one.
     m_Nam->deleteLater();
     m_Nam = nullptr;
+    m_CheckInProgress = false;
 
     if (reply->error() == QNetworkReply::NoError) {
         QTextStream stream(reply);
@@ -285,6 +347,7 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
         QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonString.toUtf8(), &error);
         if (jsonDoc.isNull()) {
             qWarning() << "Update manifest malformed:" << error.errorString();
+            emit updateCheckFailed(error.errorString());
             return;
         }
 
@@ -295,6 +358,7 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
             QJsonArray releasesArray = jsonDoc.array();
             if (releasesArray.isEmpty()) {
                 qWarning() << "GitHub API response doesn't contain any releases";
+                emit updateCheckFailed(tr("No release has been published yet."));
                 return;
             }
             releaseObj = releasesArray[0].toObject();
@@ -308,6 +372,7 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
 
         if (version.isEmpty()) {
             qWarning() << "GitHub release missing tag_name";
+            emit updateCheckFailed(tr("The latest release carries no version tag."));
             return;
         }
 
@@ -327,15 +392,19 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
         }
         else if (res > 0) {
             qDebug() << "GitHub release version lower than current version";
+            emit noUpdateAvailable(currentVersion);
             return;
         }
         else {
             qDebug() << "GitHub release version equal to current version";
+            emit noUpdateAvailable(currentVersion);
             return;
         }
     }
     else {
         qWarning() << "Update checking failed with error:" << reply->error();
+        QString errorString = reply->errorString();
         reply->deleteLater();
+        emit updateCheckFailed(errorString);
     }
 }

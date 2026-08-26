@@ -533,81 +533,114 @@ ApplicationWindow {
 
     // Update dialog: offers an in-app download on Windows, or opens the
     // release page on platforms without self-install (macOS, Linux AppImage).
-    NavigableDialog {
+    NavigableMessageDialog {
         id: updateDialog
-        property bool downloading: false
-        property bool downloadDone: false
-        property string downloadedPath: ""
+        standardButtons: Dialog.Ok | Dialog.Cancel
 
-        standardButtons: downloading ? Dialog.NoButton
-                       : (Dialog.Ok | Dialog.Cancel)
+        property bool canDownload: AutoUpdateChecker.canSelfInstall() && updateButton.downloadUrl !== ""
 
-        // Ok = download & install (Windows) or open the release page elsewhere
+        text: qsTr("LavArtemis %1 is available. You are running version %2.")
+                  .arg(updateButton.newVersion).arg(SystemProperties.versionString) +
+              "\n\n" +
+              (canDownload ? qsTr("Press OK to download and install it.")
+                           : qsTr("Press OK to open the download page in your browser."))
+
         onAccepted: {
-            if (downloadDone) {
-                AutoUpdateChecker.installAndRestart(downloadedPath)
-            } else if (updateButton.downloadUrl && AutoUpdateChecker.canSelfInstall()) {
-                downloading = true
-                updateProgressBar.value = 0
-                AutoUpdateChecker.downloadUpdate(updateButton.downloadUrl)
+            if (canDownload) {
+                updateDownloadDialog.open()
             } else if (SystemProperties.hasBrowser) {
                 Qt.openUrlExternally(updateButton.browserUrl)
+            }
+        }
+    }
+
+    // The download gets its own dialog because pressing a standard button closes
+    // the dialog it belongs to. Driving the progress bar from updateDialog's own
+    // OK handler drew it on a dialog that had already gone away, which is why
+    // accepting an update looked like it did nothing at all.
+    NavigableDialog {
+        id: updateDownloadDialog
+
+        property bool downloading: false
+        property string downloadedPath: ""
+        property string errorText: ""
+
+        // Nothing to accept until the download resolves one way or the other.
+        standardButtons: downloading ? Dialog.Cancel : (Dialog.Ok | Dialog.Cancel)
+
+        // A click outside the dialog must not silently abandon a running download.
+        closePolicy: Popup.NoAutoClose
+
+        onOpened: {
+            downloading = true
+            downloadedPath = ""
+            errorText = ""
+            updateProgressBar.value = 0
+            updateProgressBar.indeterminate = true
+            AutoUpdateChecker.downloadUpdate(updateButton.downloadUrl)
+        }
+
+        onAccepted: {
+            if (downloadedPath !== "") {
+                AutoUpdateChecker.installAndRestart(downloadedPath)
+            } else if (errorText !== "" && SystemProperties.hasBrowser) {
+                // The in-app path failed, so hand them the release page instead.
+                Qt.openUrlExternally(updateButton.browserUrl)
+            }
+        }
+
+        onRejected: {
+            if (downloading) {
+                AutoUpdateChecker.cancelDownload()
             }
         }
 
         Component.onCompleted: {
             AutoUpdateChecker.downloadProgress.connect(function(received, total) {
                 if (total > 0) {
+                    updateProgressBar.indeterminate = false
                     updateProgressBar.value = received / total
                 }
             })
             AutoUpdateChecker.downloadReady.connect(function(path) {
-                updateDialog.downloading = false
-                updateDialog.downloadDone = true
-                updateDialog.downloadedPath = path
-                updateStatusLabel.text = qsTr("Download complete. Press OK to install and restart.")
+                updateDownloadDialog.downloading = false
+                updateDownloadDialog.downloadedPath = path
             })
             AutoUpdateChecker.downloadFailed.connect(function(error) {
-                updateDialog.downloading = false
-                updateStatusLabel.text = qsTr("Download failed: %1").arg(error)
+                updateDownloadDialog.downloading = false
+                updateDownloadDialog.errorText = error
             })
-        }
-
-        onOpened: {
-            downloading = false
-            downloadDone = false
-            updateStatusLabel.text = ""
         }
 
         ColumnLayout {
             Label {
-                text: qsTr("LavArtemis %1 is available. You are running version %2.")
-                        .arg(updateButton.newVersion).arg(SystemProperties.versionString)
-                font.bold: true
+                text: {
+                    if (updateDownloadDialog.downloading) {
+                        return qsTr("Downloading LavArtemis %1…").arg(updateButton.newVersion)
+                    }
+                    else if (updateDownloadDialog.downloadedPath !== "") {
+                        return qsTr("LavArtemis %1 is ready to install. Press OK to install it and restart.")
+                                  .arg(updateButton.newVersion)
+                    }
+                    else if (SystemProperties.hasBrowser) {
+                        return qsTr("Download failed: %1").arg(updateDownloadDialog.errorText) +
+                               "\n\n" + qsTr("Press OK to open the download page in your browser.")
+                    }
+                    else {
+                        return qsTr("Download failed: %1").arg(updateDownloadDialog.errorText)
+                    }
+                }
                 wrapMode: Text.Wrap
                 Layout.fillWidth: true
-            }
-
-            Label {
-                text: AutoUpdateChecker.canSelfInstall()
-                      ? qsTr("Press OK to download and install the update.")
-                      : qsTr("Press OK to open the download page in your browser.")
-                wrapMode: Text.Wrap
-                Layout.fillWidth: true
+                Layout.maximumWidth: 400
             }
 
             ProgressBar {
                 id: updateProgressBar
                 Layout.fillWidth: true
-                visible: updateDialog.downloading
+                visible: updateDownloadDialog.downloading
                 from: 0
                 to: 1
-            }
-
-            Label {
-                id: updateStatusLabel
-                wrapMode: Text.Wrap
-                Layout.fillWidth: true
             }
         }
     }

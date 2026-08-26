@@ -2350,9 +2350,19 @@ Flickable {
                             id: checkUpdateButton
                             text: qsTr("Check for updates now")
                             font.pointSize: 12
+
+                            property bool checking: false
+                            enabled: !checking
+
                             onClicked: {
+                                checking = true
                                 checkUpdateStatusLabel.text = qsTr("Checking…")
-                                AutoUpdateChecker.start()
+
+                                // checkNow(), not start(): start() honours the
+                                // startup preference above, so with that box
+                                // unticked it would decline the very check the
+                                // user just asked for.
+                                AutoUpdateChecker.checkNow()
                             }
                         }
 
@@ -2364,10 +2374,29 @@ Flickable {
                             wrapMode: Text.Wrap
                             color: "#aaaaaa"
 
-                            Component.onCompleted: {
-                                AutoUpdateChecker.onUpdateAvailable.connect(function(version, url) {
-                                    checkUpdateStatusLabel.text = qsTr("Version %1 is available.").arg(version)
-                                })
+                            // Every outcome has to land here, "nothing to do" and
+                            // "the request failed" included. Those are the common
+                            // ones, and with only the update-available signal
+                            // wired up the label sat on "Checking…" forever.
+                            Connections {
+                                target: AutoUpdateChecker
+
+                                // The doubled prefix is not a typo: the signal is
+                                // itself named onUpdateAvailable.
+                                function onOnUpdateAvailable(newVersion, url) {
+                                    checkUpdateButton.checking = false
+                                    checkUpdateStatusLabel.text = qsTr("Version %1 is available. Use the update button in the toolbar to install it.").arg(newVersion)
+                                }
+
+                                function onNoUpdateAvailable(currentVersion) {
+                                    checkUpdateButton.checking = false
+                                    checkUpdateStatusLabel.text = qsTr("LavArtemis %1 is up to date.").arg(currentVersion)
+                                }
+
+                                function onUpdateCheckFailed(error) {
+                                    checkUpdateButton.checking = false
+                                    checkUpdateStatusLabel.text = qsTr("Update check failed: %1").arg(error)
+                                }
                             }
                         }
                     }
