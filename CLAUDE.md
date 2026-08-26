@@ -40,7 +40,7 @@ macOS et Steam Link : le code amont est là mais **hors périmètre** — aucune
 
 | Dossier | Rôle |
 |---|---|
-| `app/backend/` | Découverte d'hôtes, `nvhttp` (pairing, HTTP), `computermanager`, `keymacromanager` |
+| `app/backend/` | Découverte d'hôtes, `nvhttp` (pairing, HTTP), `computermanager`, `keymacromanager`, `autoupdatechecker` |
 | `app/streaming/` | Session de stream, entrées (clavier/souris/manette), `panzoom`, `streamutils` |
 | `app/streaming/video/` | Décodeurs, `pacingstats`, et `ffmpeg-renderers/` (un backend par API graphique) |
 | `app/gui/` | QML — `SettingsView`, `AppView`, `QuickMenu`, `PcView` |
@@ -250,6 +250,42 @@ Trois autres règles dont dépend la justesse des captures :
 > typiquement DirectInput, où le stick droit est souvent sur Z/Rz (`a2`/`a5`). Le raisonnement
 > actuel reprend l'heuristique Android et n'a pas été changé à l'aveugle ; le mapper est le chemin de
 > correction en attendant.
+
+## 🔄 Mise à jour in-app
+
+`backend/autoupdatechecker.{h,cpp}` interroge les releases GitHub de **LavArtemis** (pas Moonlight) et,
+sous Windows, télécharge et lance l'installeur lui-même. Réglages dans **Software Update** de
+`SettingsView.qml` : « Check for updates when the app starts » et « Include CI pre-release builds ».
+
+| | |
+|---|---|
+| Canal stable | `/releases/latest` — les builds CI sont publiés en *prerelease* et n'y apparaissent pas |
+| Canal prerelease | `/releases` (liste complète), premier élément |
+| Comparaison | `compareVersionStrings()` : `20.8.2` > `20.8.2-ci.41` — une stable bat toujours la prerelease de même base |
+| Asset Windows | **`-win-installer.exe`, pour les deux architectures.** Le bundle WiX embarque les MSI x64 *et* arm64 et choisit par `NativeMachine` ; les zips `-win-x64`/`-win-arm64` sont des builds **portables**, sans installeur à exécuter dedans |
+| Auto-install | Windows uniquement (`canSelfInstall()`). macOS et AppImage ouvrent la page de release |
+
+> ⚠️ **Un `Dialog` Qt Quick se ferme dès qu'on presse un bouton standard.** `onAccepted` s'exécute
+> *après* la fermeture : y afficher une barre de progression, c'est dessiner sur une boîte qui n'existe
+> déjà plus. C'est le bug de la 20.8.1 — le téléchargement partait bien et arrivait **complet** dans
+> `%TEMP%`, sans que rien ne s'affiche jamais, et rouvrir la boîte remettait `downloadDone` à faux,
+> jetant le fichier déjà téléchargé. D'où **deux** dialogues dans `main.qml` : `updateDialog` demande,
+> `updateDownloadDialog` (`closePolicy: Popup.NoAutoClose`) survit au clic qui l'a ouvert.
+
+> ⚠️ **Tout check se termine par exactement un signal** — `onUpdateAvailable`, `noUpdateAvailable` ou
+> `updateCheckFailed`. N'émettre que le premier laissait « Checking… » tourner indéfiniment dans les
+> réglages : « déjà à jour » et « échec réseau » sont *les cas les plus fréquents*, pas des cas limites.
+
+> ⚠️ **Le `QNetworkAccessManager` est reconstruit à chaque check.**
+> `handleUpdateCheckRequestFinished()` le détruit pour que le plugin bearer ne poll pas entre deux
+> checks ; tant que `performCheck()` ne le recréait pas, le check du démarrage consommait l'unique
+> instance et **tous les suivants sortaient sans rien envoyer**.
+
+> ⚠️ **Le bouton des réglages appelle `checkNow()`, pas `start()`.** `start()` respecte la case
+> « vérifier au démarrage » — décochée, elle lui faisait refuser le check qu'on venait de demander.
+
+> 📋 Une correction de l'updater **ne peut pas se livrer par l'updater** : la version cassée est celle
+> qui télécharge. Prévoir une installation manuelle et le dire dans les notes de release.
 
 ## ⚠️ Pièges / Gotchas
 
