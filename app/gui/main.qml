@@ -321,7 +321,12 @@ ApplicationWindow {
 
             NavigableToolButton {
                 id: multiDisplayButton
-                visible: stackView.currentItem instanceof PcView
+
+                // Also on the app list, not just the host list: this is the setting
+                // you reach for right before launching something, and walking back to
+                // the home page to flip it is the wrong moment to ask for.
+                visible: stackView.currentItem instanceof PcView ||
+                         stackView.currentItem instanceof AppView
 
                 // Same dependency as the settings page: there is nothing to lay out
                 // without virtual displays to lay it out on.
