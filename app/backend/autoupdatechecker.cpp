@@ -191,8 +191,17 @@ QString AutoUpdateChecker::findAssetDownloadUrl(const QJsonObject& releaseObj)
 #elif defined(APP_IMAGE)
     QString wantedSuffix = QStringLiteral("-linux-x86_64.AppImage");
 #else
-    return QString();
+    // A distro or source build updates through whatever installed it, so there
+    // is no asset to pick. Declared empty rather than returned early: `return`
+    // does not stop the compiler from parsing the loop below, so an early exit
+    // here left `wantedSuffix` undeclared and broke every Linux build that was
+    // not the AppImage.
+    QString wantedSuffix;
 #endif
+
+    if (wantedSuffix.isEmpty()) {
+        return QString();
+    }
 
     QJsonArray assets = releaseObj["assets"].toArray();
     for (const QJsonValue& assetVal : assets) {
