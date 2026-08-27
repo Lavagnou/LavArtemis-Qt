@@ -324,6 +324,14 @@ sous Windows, télécharge et lance l'installeur lui-même. Réglages dans **Sof
 
 - **`.github/workflows/build.yml`** — compile check à chaque push/PR sur `main` (Windows x64/arm64 +
   Linux). ~7 min. Ne produit **pas** de release.
+- ⚠️ **Le compile-check Linux construit *sans* `APP_IMAGE`**, alors que la release construit l'AppImage
+  *avec*. Les branches `#ifdef` compilées ne sont donc pas les mêmes : une erreur qui ne touche qu'un
+  chemin laisse la release **verte** pendant que `build.yml` est rouge. C'est ce qui a caché 17 jours
+  de compile-check cassé (10 → 26 août 2026) : `findAssetDownloadUrl()` sortait par
+  `return QString();` dans son `#else`, mais **`return` n'empêche pas le compilateur d'analyser la
+  suite** — la boucle en dessous référençait un `wantedSuffix` jamais déclaré. Un `#else` qui ne fait
+  que sortir doit quand même **déclarer** ce dont le code suivant se sert. Et un compile-check rouge
+  n'est jamais cosmétique, même quand la release passe.
 - Les **artefacts publiés** viennent du workflow de release de
   [`Lavagnou/LavArtemis`](https://github.com/Lavagnou/LavArtemis), qui consomme ce dépôt comme
   sous-module `desktop/` et publie Android + desktop sous un tag unique.
