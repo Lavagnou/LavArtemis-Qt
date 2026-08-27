@@ -287,6 +287,16 @@ sous Windows, télécharge et lance l'installeur lui-même. Réglages dans **Sof
 > 📋 Une correction de l'updater **ne peut pas se livrer par l'updater** : la version cassée est celle
 > qui télécharge. Prévoir une installation manuelle et le dire dans les notes de release.
 
+> ⚠️ **L'installeur ne peut pas se supprimer lui-même.** `installAndRestart()` lui passe le fichier
+> puis quitte : le seul processus qui pourrait nettoyer est celui qu'on remplace. C'est donc le
+> **démarrage suivant** qui le fait (`cleanupDownloadedInstallers()`, appelé depuis le constructeur),
+> et à ce moment-là l'installeur a forcément fini — l'app qu'il a installée est celle qui tourne.
+
+> ⚠️ **Le nettoyage compare des versions, pas des dates.** Un installeur **plus récent** que la version
+> qui tourne peut être un téléchargement en cours dans une **autre instance** — il n'y a pas de verrou
+> d'instance unique côté desktop — donc il est conservé. Tout le reste (plus ancien ou égal) a déjà été
+> installé ou abandonné. Un critère par ancienneté de fichier n'aurait pas cette garantie.
+
 ## ⚠️ Pièges / Gotchas
 
 1. **`ArtemisSettings` ne persiste pas tout seul.** Les setters n'écrivent pas ; `SettingsView.qml`

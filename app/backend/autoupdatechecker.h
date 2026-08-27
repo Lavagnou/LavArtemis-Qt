@@ -61,6 +61,10 @@ private:
     // decided whether the check should happen at all.
     void performCheck();
 
+    // Deletes update installers left in the temp directory. Called once per
+    // process, at construction, before any download of this run can start.
+    void cleanupDownloadedInstallers();
+
     void parseStringToVersionQuad(QString& string, QVector<int>& version);
 
     int compareVersion(QVector<int>& version1, QVector<int>& version2);

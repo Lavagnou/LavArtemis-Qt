@@ -2,9 +2,11 @@
 #include "settings/artemissettings.h"
 
 #include <QCoreApplication>
+#include <QDir>
 #include <QFile>
 #include <QNetworkReply>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <QSysInfo>
 #include <QJsonDocument>
@@ -24,6 +26,12 @@ AutoUpdateChecker::AutoUpdateChecker(QObject *parent) :
 
     // Should at least have a 1.0-style version number
     Q_ASSERT(m_CurrentVersionQuad.count() > 1);
+
+    // An installer cannot delete itself: installAndRestart() hands it the file
+    // and quits, so the only process that could clean up is the one being
+    // replaced. The next start does it instead -- and by then the installer has
+    // certainly finished, because the app it installed is the one running.
+    cleanupDownloadedInstallers();
 }
 
 void AutoUpdateChecker::start()
@@ -312,6 +320,47 @@ void AutoUpdateChecker::cancelDownload()
     // dialog would otherwise report its own Cancel button as an error.
     m_DownloadCanceled = true;
     m_DownloadReply->abort();
+}
+
+void AutoUpdateChecker::cleanupDownloadedInstallers()
+{
+#ifdef Q_OS_WIN32
+    QDir tempDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation));
+    const QStringList leftovers = tempDir.entryList(
+                QStringList() << QStringLiteral("LavArtemis-v*-win-installer.exe"),
+                QDir::Files);
+    if (leftovers.isEmpty()) {
+        return;
+    }
+
+    QString currentVersion(VERSION_STR);
+    static const QRegularExpression versionRe(
+                QStringLiteral("^LavArtemis-v(.+)-win-installer\\.exe$"));
+
+    for (const QString& name : leftovers) {
+        QRegularExpressionMatch match = versionRe.match(name);
+        if (!match.hasMatch()) {
+            continue;
+        }
+
+        // An installer newer than what is running may be a download in flight
+        // from another instance -- there is no single-instance lock -- so it
+        // stays. Everything else has either been installed already or been
+        // abandoned, and comparing versions rather than timestamps is what
+        // makes that distinction safe without any locking.
+        if (compareVersionStrings(match.captured(1), currentVersion) > 0) {
+            continue;
+        }
+
+        QString path = tempDir.filePath(name);
+        if (QFile::remove(path)) {
+            qDebug() << "Removed stale update installer:" << path;
+        }
+        else {
+            qWarning() << "Could not remove stale update installer:" << path;
+        }
+    }
+#endif
 }
 
 void AutoUpdateChecker::installAndRestart(QString installerPath)
