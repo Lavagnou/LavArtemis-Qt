@@ -297,6 +297,47 @@ sous Windows, télécharge et lance l'installeur lui-même. Réglages dans **Sof
 > d'instance unique côté desktop — donc il est conservé. Tout le reste (plus ancien ou égal) a déjà été
 > installé ou abandonné. Un critère par ancienneté de fichier n'aurait pas cette garantie.
 
+## 🌊 PyroWave
+
+[PyroWave](https://github.com/Themaister/pyrowave) est un codec intra-only en ondelettes, décodé sur
+GPU en Vulkan : moins d'une milliseconde, mais des centaines de Mbit/s, donc réseau filaire. Porté
+depuis le fork moonlight-qt de Nonary (`release/6.1.0-vrr18`), sans sa partie VRR ; le protocole est
+celui de Vibepollo, inchangé (`docs/pyrowave-protocol.md`, **identique** à celui de LavApollo —
+changer les deux ensemble). Jamais choisi en Auto : uniquement via le codec « PyroWave ».
+
+| Pièce | Où |
+|---|---|
+| Lib (codec + Granite élagué) | sous-module `pyrowave/pyrowave` → `Lavagnou/pyrowave` (branche `lavartemis`), sources dans `pyrowave/lavartemis/pyrowave.pri`, projet `pyrowave/pyrowave.pro` |
+| Parsing du record framing, frames partielles | `streaming/video/pyrowave/pyrowaveframing.{h,cpp}` |
+| Décodeur (Vulkan) | `streaming/video/pyrowave/pyrowavedecoder.{h,cpp}` |
+| Rendu Windows | `ffmpeg-renderers/d3d11pyrowave.{h,cpp}` + `d3d11va.cpp` + shader `d3d11_yuv_planar_pixel` |
+| Rendu Linux | `pyrowave/pyrowaveplacebo.{h,cpp}` + `plvk.cpp` |
+| Intégration décodeur | `FFmpegVideoDecoder::initializePyroWave()` / `sendPyroWaveFrame()` / `receiveFrame()` (`ffmpeg.cpp`) |
+| Calibrage | `pyrowave/pyrowavecalibrator.{h,cpp}`, `backend/networkbuffers.{h,cpp}`, `NvHTTP::probePyroWaveDownloadMbps()` |
+
+> ⚠️ **Un seul PyroWave.** Le bitstream n'a pas de champ de version : LavApollo, ce client et
+> l'Android doivent épingler **le même commit** de `Lavagnou/pyrowave`. `PYROWAVE_BITSTREAM_ID`
+> (`Limelight.h`) vaut `502a3b52` (v1) ; `186f0393` (Vibepollo/Nonary) est accepté, le format réseau
+> étant identique.
+
+> ⚠️ **Pas de patchs Nonary dans la lib.** Le décodeur de Nonary appelait trois fonctions ajoutées
+> par ses patchs locaux de PyroWave (cache de vues, 4 frame contexts, timing de contexte). Le fork
+> reste au plus près d'upstream (MIT) : ces appels sont retirés, on garde les 2 frame contexts
+> d'upstream. Si des frames « stale » sautent sous charge GPU, c'est la première piste.
+
+> ⚠️ **FFmpeg n'est pas impliqué.** `completeInitialization()` a été scindé : la partie codec FFmpeg
+> est dans `initializeAVCodecContext()`, sautée quand `decoder == nullptr` (PyroWave). Une frame
+> PyroWave est un `AVFrame` dont `buf[0]` porte un `PyroWaveFrameRef` (surface + valeurs de fence) ;
+> `d3d11va.cpp` la reconnaît avec `PyroWaveFrameRef::fromFrame()`.
+
+> 📋 **x86_64 uniquement** (`lavartemis.pro` / `app.pro`, condition identique aux deux endroits) :
+> les maths de Granite n'ont pas été vérifiées sous MSVC ARM64. Le build arm64 compile sans
+> `HAVE_PYROWAVE` et n'affiche pas l'option.
+
+> 📋 **Sans VRR.** Le calibrateur classe les formats par marge de décodage ; les paliers « vrr » /
+> « vrrLarge » de Nonary sont présentés comme « Tight » / « Very tight » puisque ce client n'a pas de
+> mode de présentation VRR.
+
 ## ⚠️ Pièges / Gotchas
 
 1. **`ArtemisSettings` ne persiste pas tout seul.** Les setters n'écrivent pas ; `SettingsView.qml`
@@ -359,7 +400,8 @@ d'elle-même si le pointeur est en retard.
 
 `moonlight-common-c/moonlight-common-c` → [`Lavagnou/moonlight-common-c`](https://github.com/Lavagnou/moonlight-common-c),
 branche `lavartemis` = `moonlight-stream/master` + `84af637` (`LiSendExecServerCmd`, extension
-Apollo) + `c999436` (`LiSendEmptyPayload`).
+Apollo) + `c999436` (`LiSendEmptyPayload`) + les 7 commits PyroWave de Nonary (négociation, frames
+partielles, délai de réassemblage) + l'ID de bitstream v1.
 
 **Le client Android pointe le même commit.** `LiSendEmptyPayload` est du code mort ici ; il est sur
 la branche pour que l'Android puisse la partager. Voir `CLAUDE.md` côté LavArtemis pour ce qu'un
