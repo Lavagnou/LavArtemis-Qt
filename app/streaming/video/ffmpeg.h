@@ -167,8 +167,12 @@ private:
     // Data buffers in the queued DU are not valid
     QQueue<DECODE_UNIT> m_FrameInfoQueue;
 
-    // PyroWave state (null/empty for the other codecs)
+    // PyroWave state (null/empty for the other codecs). The decoder only
+    // exists where PyroWave is built: elsewhere ffmpeg.cpp never sees its
+    // definition, and destroying a unique_ptr to an incomplete type fails.
+#ifdef HAVE_PYROWAVE
     std::unique_ptr<PyroWaveDecoder> m_PyroWave;
+#endif
     bool m_PyroWaveActive;
     QQueue<AVFrame*> m_PyroWaveOutput;
     std::vector<PyroWaveFraming::Segment> m_PyroWavePackets;
