@@ -8,3 +8,7 @@
 [submodule "app/SDL_GameControllerDB"]
 	path = app/SDL_GameControllerDB
 	url = https://github.com/gabomdq/SDL_GameControllerDB.git
+[submodule "pyrowave/pyrowave"]
+	path = pyrowave/pyrowave
+	url = https://github.com/Lavagnou/pyrowave.git
+	branch = lavartemis
