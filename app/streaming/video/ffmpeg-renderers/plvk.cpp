@@ -162,6 +162,9 @@ PlVkRenderer::~PlVkRenderer()
     SDL_assert(!m_HasPendingSwapchainFrame);
 
     if (m_Vulkan != nullptr) {
+#if defined(HAVE_PYROWAVE) && defined(Q_OS_LINUX)
+        m_PyroWavePool.reset();
+#endif
 #ifdef PLVK_USE_EARLY_RENDER_TO_WAIT
         pl_tex_destroy(m_Vulkan->gpu, &m_EmptyOverlay.tex);
 #endif
@@ -375,6 +378,15 @@ bool PlVkRenderer::tryInitializeDevice(VkPhysicalDevice device, VkPhysicalDevice
         vkParams.extra_queues = VK_QUEUE_FLAG_BITS_MAX_ENUM;
     }
 
+#if defined(HAVE_PYROWAVE) && defined(Q_OS_LINUX)
+    const bool pyroWave = (decoderParams->videoFormat & VIDEO_FORMAT_MASK_PYROWAVE) != 0;
+    if (pyroWave) {
+        // The PyroWave decoder shares this VkDevice and needs a few features
+        // libplacebo does not enable on its own
+        vkParams.features = PyroWavePlaceboPool::requestedFeatures();
+    }
+#endif
+
     {
         // Don't let Qt take DRM master from us during pl_vulkan_create()
         DrmMasterLocker locker;
@@ -392,6 +404,19 @@ bool PlVkRenderer::tryInitializeDevice(VkPhysicalDevice device, VkPhysicalDevice
                      deviceProps->deviceName);
         return false;
     }
+
+#if defined(HAVE_PYROWAVE) && defined(Q_OS_LINUX)
+    if (pyroWave) {
+        if (PyroWavePlaceboPool::supported(m_Vulkan)) {
+            m_PyroWavePool = std::make_unique<PyroWavePlaceboPool>(m_PlVkInstance, m_Vulkan, m_CommandLock);
+        }
+        else {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                        "Vulkan device '%s' lacks features to decode PyroWave into renderer surfaces",
+                        deviceProps->deviceName);
+        }
+    }
+#endif
 
     SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                 "Vulkan rendering device chosen: %s",
@@ -425,6 +450,8 @@ bool PlVkRenderer::isExtensionSupportedByPhysicalDevice(VkPhysicalDevice device,
 
 bool PlVkRenderer::initialize(PDECODER_PARAMETERS params)
 {
+    m_VideoFormat = params->videoFormat;
+
     m_Window = params->window;
     m_MaxVideoFps = params->frameRate;
 
@@ -688,6 +715,12 @@ bool PlVkRenderer::mapAvFrameToPlacebo(const AVFrame *frame, pl_frame* mappedFra
     }
     else
 #endif
+#if defined(HAVE_PYROWAVE) && defined(Q_OS_LINUX)
+    if (m_PyroWavePool && m_PyroWavePool->ownsFrame(frame)) {
+        m_PyroWavePool->mapFrame(frame, mappedFrame);
+    }
+    else
+#endif
     {
         pl_avframe_params mapParams = {};
         mapParams.frame = frame;
@@ -713,13 +746,23 @@ bool PlVkRenderer::mapAvFrameToPlacebo(const AVFrame *frame, pl_frame* mappedFra
     // bitstream data, so libplacebo incorrectly renders the content as limited range.
     //
     // As a workaround, set full range manually in the mapped frame ourselves.
-    mappedFrame->repr.levels = PL_COLOR_LEVELS_FULL;
+    // PyroWave carries no bitstream colour at all: its frames take the range
+    // the stream negotiated, which may be limited.
+    if (!(m_VideoFormat & VIDEO_FORMAT_MASK_PYROWAVE)) {
+        mappedFrame->repr.levels = PL_COLOR_LEVELS_FULL;
+    }
 
     return true;
 }
 
 void PlVkRenderer::unmapAvFrameFromPlacebo(const AVFrame *frame, pl_frame* mappedFrame)
 {
+#if defined(HAVE_PYROWAVE) && defined(Q_OS_LINUX)
+    // Its planes stay owned by the pool; there is no mapping to undo
+    if (m_PyroWavePool && m_PyroWavePool->ownsFrame(frame)) {
+        return;
+    }
+#endif
 #ifdef Q_OS_DARWIN
     if (frame->format == AV_PIX_FMT_VIDEOTOOLBOX) {
         m_MetalTextureFactory->unmapVideoToolboxFromPlacebo(mappedFrame);
@@ -951,6 +994,7 @@ void PlVkRenderer::cleanupRenderContext()
     // We have to submit a pending swapchain frame before shutting down
     // in order to release a mutex that pl_swapchain_start_frame() acquires.
     if (m_HasPendingSwapchainFrame) {
+        std::lock_guard<std::mutex> commandLock(m_CommandLock);
         pl_swapchain_submit_frame(m_Swapchain);
         m_HasPendingSwapchainFrame = false;
     }
@@ -1085,7 +1129,12 @@ void PlVkRenderer::renderFrame(AVFrame *frame)
 
     // Submit the frame for display and swap buffers
     m_HasPendingSwapchainFrame = false;
-    if (!pl_swapchain_submit_frame(m_Swapchain)) {
+    bool submitted;
+    {
+        std::lock_guard<std::mutex> commandLock(m_CommandLock);
+        submitted = pl_swapchain_submit_frame(m_Swapchain);
+    }
+    if (!submitted) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                      "pl_swapchain_submit_frame() failed");
 
@@ -1216,7 +1265,12 @@ bool PlVkRenderer::createOverlay(pl_overlay* overlay, SDL_Surface* surface)
     xferParams.ptr = surface->pixels;
     xferParams.callback = overlayUploadComplete;
     xferParams.priv = surface;
-    if (!pl_tex_upload(m_Vulkan->gpu, &xferParams)) {
+    bool uploaded;
+    {
+        std::lock_guard<std::mutex> commandLock(m_CommandLock);
+        uploaded = pl_tex_upload(m_Vulkan->gpu, &xferParams);
+    }
+    if (!uploaded) {
         pl_tex_destroy(m_Vulkan->gpu, &overlay->tex);
         SDL_zerop(overlay);
         SDL_FreeSurface(surface);

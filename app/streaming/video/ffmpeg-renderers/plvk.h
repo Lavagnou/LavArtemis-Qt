@@ -10,6 +10,13 @@
 #include <libplacebo/renderer.h>
 #include <libplacebo/vulkan.h>
 
+#include <memory>
+#include <mutex>
+
+#if defined(HAVE_PYROWAVE) && defined(Q_OS_LINUX)
+#include "streaming/video/pyrowave/pyrowaveplacebo.h"
+#endif
+
 #ifdef Q_OS_DARWIN
 class MetalVulkanTextureFactory {
 public:
@@ -53,6 +60,9 @@ public:
     virtual int getDecoderCapabilities() override;
     virtual bool isPixelFormatSupported(int videoFormat, enum AVPixelFormat pixelFormat) override;
     virtual AVPixelFormat getPreferredPixelFormat(int videoFormat) override;
+#if defined(HAVE_PYROWAVE) && defined(Q_OS_LINUX)
+    IPyroWaveVulkanPool* getPyroWaveVulkanPool() override { return m_PyroWavePool.get(); }
+#endif
 
 private:
     static void lockQueue(AVHWDeviceContext *dev_ctx, uint32_t queue_family, uint32_t index);
@@ -93,6 +103,7 @@ private:
 
     // Stream state
     int m_MaxVideoFps;
+    int m_VideoFormat = 0;
 
     // The libplacebo rendering state
     pl_log m_Log = nullptr;
@@ -105,6 +116,18 @@ private:
     pl_renderer m_Renderer = nullptr;
     pl_tex m_Textures[PL_MAX_PLANES] = {};
     pl_color_space m_LastColorspace = {};
+
+    // pl_swapchain_submit_frame() takes libplacebo's pending graphics command
+    // outside the lock that guards command recording. Work recorded on other
+    // threads (overlay uploads, PyroWave surface holds on the decoder thread)
+    // must not begin a command inside that window, so it and every swapchain
+    // submit hold this lock. Texture creation records nothing and stays out.
+    std::mutex m_CommandLock;
+#if defined(HAVE_PYROWAVE) && defined(Q_OS_LINUX)
+    // PyroWave planes decoded on this VkDevice (null for other codecs, or when
+    // the device lacks the decoder's features: the decoder then reads back)
+    std::unique_ptr<PyroWavePlaceboPool> m_PyroWavePool;
+#endif
 
 #ifdef PLVK_USE_EARLY_RENDER_TO_WAIT
     pl_overlay m_EmptyOverlay = {};

@@ -163,6 +163,10 @@ NvComputer::NvComputer(NvHTTP& http, QString serverInfo)
     // it a usable capability check.
     this->isMultiDisplayCapable = NvHTTP::getXmlString(serverInfo, "MultiDisplayCapable") == "1";
 
+    bool validLink = false;
+    const auto hostLink = NvHTTP::getXmlString(serverInfo, "PyroWaveHostLinkMbps").toUInt(&validLink);
+    this->pyrowaveHostLinkMbps = validLink && hostLink <= 400000 ? hostLink : 0;
+
     QString maxLumaPixelsHEVC = NvHTTP::getXmlString(serverInfo, "MaxLumaPixelsHEVC");
     if (!maxLumaPixelsHEVC.isEmpty()) {
         this->maxLumaPixelsHEVC = maxLumaPixelsHEVC.toInt();
@@ -592,6 +596,7 @@ bool NvComputer::update(const NvComputer& that)
     ASSIGN_IF_CHANGED(externalPort);
     ASSIGN_IF_CHANGED(pairState);
     ASSIGN_IF_CHANGED(serverCodecModeSupport);
+    ASSIGN_IF_CHANGED(pyrowaveHostLinkMbps);
     ASSIGN_IF_CHANGED(currentGameId);
     ASSIGN_IF_CHANGED(activeAddress);
     ASSIGN_IF_CHANGED(state);

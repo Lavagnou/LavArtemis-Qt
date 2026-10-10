@@ -50,6 +50,9 @@ public:
 
     Q_INVOKABLE Session* createSessionForCurrentGame(int computerIndex);
 
+    // Stable identity of a host, for callers that outlive the model's indices
+    Q_INVOKABLE QString uuidAt(int computerIndex) const;
+
 signals:
     void pairingCompleted(QVariant error);
     void connectionTestCompleted(int result, QString blockedPorts);

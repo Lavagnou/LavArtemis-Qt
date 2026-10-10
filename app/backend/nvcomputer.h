@@ -98,6 +98,9 @@ public:
     QVector<NvDisplayMode> displayModes;
     int maxLumaPixelsHEVC;
     int serverCodecModeSupport;
+    // Optional paired-host /serverinfo extension (LavApollo, Vibepollo): the
+    // host's outbound wired link speed for PyroWave; zero means unknown.
+    uint32_t pyrowaveHostLinkMbps = 0;
     QString gpuModel;
     bool isSupportedServerVersion;
 

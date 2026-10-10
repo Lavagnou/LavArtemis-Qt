@@ -423,11 +423,14 @@ win32:!winrt {
     SOURCES += \
         streaming/video/ffmpeg-renderers/dxva2.cpp \
         streaming/video/ffmpeg-renderers/d3d11va.cpp \
+        streaming/video/ffmpeg-renderers/d3d11pyrowave.cpp \
         streaming/video/ffmpeg-renderers/pacer/dxvsyncsource.cpp
 
     HEADERS += \
         streaming/video/ffmpeg-renderers/dxva2.h \
         streaming/video/ffmpeg-renderers/d3d11va.h \
+        streaming/video/ffmpeg-renderers/d3d11pyrowave.h \
+        streaming/video/pyrowave/pyrowavesurfaces.h \
         streaming/video/ffmpeg-renderers/pacer/dxvsyncsource.h
 }
 macx {
@@ -457,6 +460,55 @@ glslow {
 
     DEFINES += GL_IS_SLOW
 }
+# PyroWave decoding runs on Vulkan (pyrowave/pyrowave.pro, built from the
+# Lavagnou/pyrowave submodule). Windows shares D3D11 surfaces; Linux presents
+# the decoded planes through the libplacebo Vulkan renderer. The condition must
+# match the one that adds the pyrowave subdir in lavartemis.pro.
+win32:!winrt:contains(QT_ARCH, x86_64):!disable-pyrowave {
+    message(PyroWave decoder enabled)
+    CONFIG += pyrowave
+}
+linux:contains(QT_ARCH, x86_64):!disable-pyrowave:contains(CONFIG, libplacebo) {
+    message(PyroWave decoder enabled)
+    CONFIG += pyrowave
+}
+# The framing parser, the calibrator and the network buffer checker are built
+# everywhere: the decoder interface uses the framing types, and without
+# HAVE_PYROWAVE the calibrator reports that local decoding is unavailable.
+SOURCES += \
+    streaming/video/pyrowave/pyrowaveframing.cpp \
+    streaming/video/pyrowave/pyrowavecalibrator.cpp \
+    backend/networkbuffers.cpp
+HEADERS += \
+    streaming/video/pyrowave/pyrowaveframing.h \
+    streaming/video/pyrowave/pyrowavecalibrator.h \
+    streaming/video/pyrowave/pyrowavebitrate.h \
+    backend/networkbuffers.h
+win32: LIBS += -liphlpapi -lshell32 -ladvapi32
+pyrowave {
+    DEFINES += HAVE_PYROWAVE
+
+    SOURCES += \
+        streaming/video/pyrowave/pyrowavedecoder.cpp
+    HEADERS += \
+        streaming/video/pyrowave/pyrowavedecoder.h \
+        streaming/video/pyrowave/pyrowavesurfaces.h
+    linux {
+        SOURCES += streaming/video/pyrowave/pyrowaveplacebo.cpp
+        HEADERS += streaming/video/pyrowave/pyrowaveplacebo.h
+    }
+
+    # Only pyrowave.h (and, on Windows, the Vulkan headers it was built
+    # against) come from the submodule
+    INCLUDEPATH += $$PWD/../pyrowave/pyrowave
+    win32: INCLUDEPATH += $$PWD/../pyrowave/pyrowave/Granite/third_party/khronos/vulkan-headers/include
+
+    win32:CONFIG(release, debug|release): LIBS += -L$$OUT_PWD/../pyrowave/release/ -lpyrowave
+    else:win32:CONFIG(debug, debug|release): LIBS += -L$$OUT_PWD/../pyrowave/debug/ -lpyrowave
+    else:unix: LIBS += -L$$OUT_PWD/../pyrowave/ -lpyrowave
+    win32: LIBS += -luser32
+}
+
 vkslow {
     message(Vulkan slow build)
 

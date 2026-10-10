@@ -1,6 +1,7 @@
 #pragma once
 
 #include "renderer.h"
+#include "d3d11pyrowave.h"
 
 #include <d3d11_4.h>
 #include <dxgi1_6.h>
@@ -28,11 +29,13 @@ public:
     virtual int getDecoderCapabilities() override;
     virtual InitFailureReason getInitFailureReason() override;
     virtual void setHdrMode(bool enabled) override;
+    virtual IPyroWaveSurfacePool* getPyroWaveSurfacePool() override;
 
     enum PixelShaders {
         GENERIC_YUV_420,
         GENERIC_AYUV,
         GENERIC_Y410,
+        GENERIC_YUV_PLANAR,
         _COUNT
     };
 
@@ -51,6 +54,8 @@ private:
     void bindColorConversion(bool frameChanged, AVFrame* frame);
     void bindVideoVertexBuffer(bool frameChanged, AVFrame* frame);
     void renderVideo(AVFrame* frame);
+    void renderPyroWaveVideo(AVFrame* frame, PyroWaveFrameRef* ref);
+    bool isPyroWave() const { return (m_DecoderParams.videoFormat & VIDEO_FORMAT_MASK_PYROWAVE) != 0; }
     bool checkDecoderSupport(IDXGIAdapter* adapter);
     bool createDeviceByAdapterIndex(int adapterIndex, bool* adapterNotFound = nullptr);
     bool setupSharedDevice(IDXGIAdapter1* adapter);
@@ -113,5 +118,10 @@ private:
     Microsoft::WRL::ComPtr<ID3D11PixelShader> m_OverlayPixelShader;
 
     AVBufferRef* m_HwDeviceContext;
+
+    // PyroWave: planes written by the Vulkan decoder (null for other codecs),
+    // on the render adapter identified by m_RenderAdapterLuid.
+    std::unique_ptr<D3D11PyroWaveSurfaces> m_PyroWaveSurfaces;
+    LUID m_RenderAdapterLuid = {};
 };
 

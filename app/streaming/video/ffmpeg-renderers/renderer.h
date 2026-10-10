@@ -137,6 +137,9 @@ private:
 #define RENDERER_ATTRIBUTE_NO_BUFFERING 0x08
 #define RENDERER_ATTRIBUTE_FORCE_PACING 0x10
 
+class IPyroWaveSurfacePool;
+class IPyroWaveVulkanPool;
+
 class IFFmpegRenderer : public Overlay::IOverlayRenderer {
 public:
     enum class RendererType {
@@ -278,6 +281,18 @@ public:
     virtual bool isRenderThreadSupported() {
         // Render thread is supported by default
         return true;
+    }
+
+    // Renderers that can display PyroWave frames expose the surface pool the
+    // PyroWave decoder writes into. Only valid after initialize() succeeded
+    // for a PyroWave video format.
+    virtual IPyroWaveSurfacePool* getPyroWaveSurfacePool() {
+        return nullptr;
+    }
+
+    // Linux renderers on Vulkan lend planes on their own VkDevice instead
+    virtual IPyroWaveVulkanPool* getPyroWaveVulkanPool() {
+        return nullptr;
     }
 
     virtual bool isDirectRenderingSupported() {

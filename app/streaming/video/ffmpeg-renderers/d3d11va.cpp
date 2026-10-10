@@ -53,6 +53,7 @@ static const std::array<const char*, D3D11VARenderer::PixelShaders::_COUNT> k_Vi
     "d3d11_yuv420_pixel.fxc",
     "d3d11_ayuv_pixel.fxc",
     "d3d11_y410_pixel.fxc",
+    "d3d11_yuv_planar_pixel.fxc",
 };
 
 D3D11VARenderer::D3D11VARenderer(int decoderSelectionPass)
@@ -111,6 +112,8 @@ D3D11VARenderer::~D3D11VARenderer()
     m_DecodeR2DFence.Reset();
     m_RenderD2RFence.Reset();
     m_RenderR2DFence.Reset();
+
+    m_PyroWaveSurfaces.reset();
 
     m_RenderTargetView.Reset();
     m_SwapChain.Reset();
@@ -357,6 +360,25 @@ bool D3D11VARenderer::createDeviceByAdapterIndex(int adapterIndex, bool* adapter
                 }
             }
         }
+    }
+
+    if (isPyroWave()) {
+        // PyroWave decodes in Vulkan into textures owned by this device, and the
+        // two APIs synchronize through shared monitored fences. FFmpeg and the
+        // D3D11 video decoder are not involved, so no codec check applies.
+        if (m_FenceType != SupportedFenceType::Monitored || featureLevel < D3D_FEATURE_LEVEL_11_0) {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                        "PyroWave needs monitored D3D11 fences on this GPU");
+            goto Exit;
+        }
+
+        m_DecodeDevice = m_RenderDevice;
+        m_DecodeDeviceContext = m_RenderDeviceContext;
+        m_BindDecoderOutputTextures = false;
+        m_DevicesWithCodecSupport++;
+        m_RenderAdapterLuid = adapterDesc.AdapterLuid;
+        success = true;
+        goto Exit;
     }
 
     bool separateDevices;
@@ -647,7 +669,18 @@ bool D3D11VARenderer::initialize(PDECODER_PARAMETERS params)
         return false;
     }
 
-    {
+    if (isPyroWave()) {
+        // The PyroWave decoder writes into these surfaces; FFmpeg is not involved.
+        m_PyroWaveSurfaces = std::make_unique<D3D11PyroWaveSurfaces>();
+        if (!m_PyroWaveSurfaces->initialize(m_RenderDevice.Get(), m_RenderAdapterLuid,
+                                            params->width, params->height,
+                                            (params->videoFormat & VIDEO_FORMAT_MASK_YUV444) != 0,
+                                            (params->videoFormat & VIDEO_FORMAT_MASK_10BIT) != 0)) {
+            m_PyroWaveSurfaces.reset();
+            return false;
+        }
+    }
+    else {
         m_HwDeviceContext = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_D3D11VA);
         if (!m_HwDeviceContext) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
@@ -923,10 +956,15 @@ void D3D11VARenderer::bindVideoVertexBuffer(bool frameChanged, AVFrame* frame)
         SDL_FRect renderRect;
         StreamUtils::screenSpaceToNormalizedDeviceCoords(&dst, &renderRect, m_DisplayWidth, m_DisplayHeight);
 
-        // Don't sample from the alignment padding area
-        auto framesContext = (AVHWFramesContext*)frame->hw_frames_ctx->data;
-        float uMax = (float)frame->width / framesContext->width;
-        float vMax = (float)frame->height / framesContext->height;
+        // Don't sample from the alignment padding area. PyroWave planes have
+        // no padding and no FFmpeg frames context.
+        float uMax = 1.0f;
+        float vMax = 1.0f;
+        if (frame->hw_frames_ctx != nullptr) {
+            auto framesContext = (AVHWFramesContext*)frame->hw_frames_ctx->data;
+            uMax = (float)frame->width / framesContext->width;
+            vMax = (float)frame->height / framesContext->height;
+        }
 
         VERTEX verts[] =
         {
@@ -965,9 +1003,21 @@ void D3D11VARenderer::bindVideoVertexBuffer(bool frameChanged, AVFrame* frame)
 void D3D11VARenderer::bindColorConversion(bool frameChanged, AVFrame* frame)
 {
     bool yuv444 = (m_DecoderParams.videoFormat & VIDEO_FORMAT_MASK_YUV444);
-    auto framesContext = (AVHWFramesContext*)frame->hw_frames_ctx->data;
 
-    if (yuv444) {
+    // PyroWave planes are exactly the frame size; D3D11VA surfaces may be padded
+    int textureWidth = frame->width;
+    int textureHeight = frame->height;
+    if (frame->hw_frames_ctx != nullptr) {
+        auto framesContext = (AVHWFramesContext*)frame->hw_frames_ctx->data;
+        textureWidth = framesContext->width;
+        textureHeight = framesContext->height;
+    }
+
+    if (isPyroWave()) {
+        // Separate Y, Cb and Cr planes at 4:2:0 or 4:4:4
+        m_RenderDeviceContext->PSSetShader(m_VideoPixelShaders[PixelShaders::GENERIC_YUV_PLANAR].Get(), nullptr, 0);
+    }
+    else if (yuv444) {
         // We'll need to use one of the 4:4:4 shaders for this pixel format
         switch (m_TextureFormat)
         {
@@ -1015,14 +1065,14 @@ void D3D11VARenderer::bindColorConversion(bool frameChanged, AVFrame* frame)
 
     std::array<float, 2> chromaOffset;
     getFrameChromaCositingOffsets(frame, chromaOffset);
-    constBuf.chromaOffset[0] = chromaOffset[0] / framesContext->width;
-    constBuf.chromaOffset[1] = chromaOffset[1] / framesContext->height;
+    constBuf.chromaOffset[0] = chromaOffset[0] / textureWidth;
+    constBuf.chromaOffset[1] = chromaOffset[1] / textureHeight;
 
     // Limit chroma texcoords to avoid sampling from alignment texels
-    constBuf.chromaUVMax[0] = frame->width != framesContext->width ?
-                                  ((float)(frame->width - 1) / framesContext->width) : 1.0f;
-    constBuf.chromaUVMax[1] = frame->height != (int)framesContext->height ?
-                                  ((float)(frame->height - 1) / framesContext->height) : 1.0f;
+    constBuf.chromaUVMax[0] = frame->width != textureWidth ?
+                                  ((float)(frame->width - 1) / textureWidth) : 1.0f;
+    constBuf.chromaUVMax[1] = frame->height != textureHeight ?
+                                  ((float)(frame->height - 1) / textureHeight) : 1.0f;
 
     D3D11_SUBRESOURCE_DATA constData = {};
     constData.pSysMem = &constBuf;
@@ -1040,8 +1090,54 @@ void D3D11VARenderer::bindColorConversion(bool frameChanged, AVFrame* frame)
     }
 }
 
+void D3D11VARenderer::renderPyroWaveVideo(AVFrame* frame, PyroWaveFrameRef* ref)
+{
+    const auto* views = m_PyroWaveSurfaces ? m_PyroWaveSurfaces->planeViews(ref->surface) : nullptr;
+    if (views == nullptr) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                     "PyroWave frame references unknown surface %d", ref->surface);
+        return;
+    }
+
+    // The render context waits on the GPU for the Vulkan decode of this surface
+    if (!m_PyroWaveSurfaces->waitForDecode(m_RenderDeviceContext.Get(), ref)) {
+        SDL_Event event;
+        event.type = SDL_RENDER_DEVICE_RESET;
+        SDL_PushEvent(&event);
+        return;
+    }
+
+    bool frameChanged = hasFrameFormatChanged(frame);
+    bindVideoVertexBuffer(frameChanged, frame);
+    bindColorConversion(frameChanged, frame);
+
+    ID3D11ShaderResourceView* frameSrvs[] = { (*views)[0].Get(), (*views)[1].Get(), (*views)[2].Get() };
+    m_RenderDeviceContext->PSSetShaderResources(0, 3, frameSrvs);
+    m_RenderDeviceContext->DrawIndexed(6, 0, 0);
+
+    ID3D11ShaderResourceView* nullSrvs[3] = {};
+    m_RenderDeviceContext->PSSetShaderResources(0, 3, nullSrvs);
+
+    // Hand the surface back to the decoder once this read retires on the GPU
+    if (!m_PyroWaveSurfaces->signalRelease(m_RenderDeviceContext.Get(), ref)) {
+        SDL_Event event;
+        event.type = SDL_RENDER_DEVICE_RESET;
+        SDL_PushEvent(&event);
+    }
+}
+
+IPyroWaveSurfacePool* D3D11VARenderer::getPyroWaveSurfacePool()
+{
+    return m_PyroWaveSurfaces.get();
+}
+
 void D3D11VARenderer::renderVideo(AVFrame* frame)
 {
+    if (auto* pyroWaveRef = PyroWaveFrameRef::fromFrame(frame)) {
+        renderPyroWaveVideo(frame, pyroWaveRef);
+        return;
+    }
+
     // Insert a fence to force the render context to wait for the decode context to finish writing
     if (m_DecodeDevice != m_RenderDevice) {
         SDL_assert(m_DecodeD2RFence);

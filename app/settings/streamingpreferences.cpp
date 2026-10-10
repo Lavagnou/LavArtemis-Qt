@@ -1,4 +1,5 @@
 #include "streamingpreferences.h"
+#include "streaming/video/pyrowave/pyrowavebitrate.h"
 #include "profilemanager.h"
 #include "utils.h"
 
@@ -419,6 +420,13 @@ void StreamingPreferences::notifyAllPropertiesChanged()
             property.notifySignal().invoke(this, Qt::DirectConnection);
         }
     }
+}
+
+int StreamingPreferences::getDefaultPyroWaveBitrate(int width, int height, int fps, bool yuv444, bool hdr)
+{
+    // Themaister's objective bitrate regression at "good quality" (35 dB
+    // PSNR-HVS-M-H), the same figure calibration recommends without running it.
+    return pyroWaveRecommendedKbps(width, height, fps, yuv444, hdr);
 }
 
 int StreamingPreferences::getDefaultBitrate(int width, int height, int fps, bool yuv444)

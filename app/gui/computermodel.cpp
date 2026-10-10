@@ -132,6 +132,13 @@ int ComputerModel::rowCount(const QModelIndex& parent) const
     return m_Computers.count();
 }
 
+QString ComputerModel::uuidAt(int computerIndex) const
+{
+    if (computerIndex < 0 || computerIndex >= m_Computers.count()) return {};
+    QReadLocker lock(&m_Computers[computerIndex]->lock);
+    return m_Computers[computerIndex]->uuid;
+}
+
 QHash<int, QByteArray> ComputerModel::roleNames() const
 {
     QHash<int, QByteArray> names;

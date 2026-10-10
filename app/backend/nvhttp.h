@@ -120,6 +120,11 @@ public:
     QString
     getServerInfo(NvLogLevel logLevel, bool fastFail = false);
 
+    // Downloads the paired host's fixed-size PyroWave bandwidth probe over
+    // pinned HTTPS. Returns the measured Mbps, or throws on an unsupported or
+    // failed request.
+    int probePyroWaveDownloadMbps();
+
     static
     void
     verifyResponseStatus(QString xml);

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <functional>
+#include <memory>
+#include <vector>
 #include <QQueue>
 #include <QFile>
 #include <QTextStream>
@@ -10,6 +12,9 @@
 #include "decoder.h"
 #include "ffmpeg-renderers/renderer.h"
 #include "ffmpeg-renderers/pacer/pacer.h"
+#include "pyrowave/pyrowaveframing.h"
+
+class PyroWaveDecoder;
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -51,6 +56,21 @@ private:
                                 PDECODER_PARAMETERS params,
                                 TestMode testMode,
                                 bool useAlternateFrontend);
+
+    // Opens and (optionally) test-decodes the FFmpeg decoder. Not used for
+    // PyroWave, which decodes without FFmpeg.
+    bool initializeAVCodecContext(const AVCodec* decoder,
+                                  enum AVPixelFormat requiredFormat,
+                                  PDECODER_PARAMETERS params,
+                                  TestMode testMode);
+
+    // PyroWave (docs/pyrowave-protocol.md): an intra-only GPU wavelet codec
+    // decoded on Vulkan into surfaces the D3D11 or libplacebo renderer owns.
+    bool initializePyroWave(PDECODER_PARAMETERS params);
+    void sendPyroWaveFrame(int length);
+
+    // avcodec_receive_frame(), or the next decoded PyroWave frame
+    int receiveFrame(AVFrame* frame);
 
     void stringifyVideoStats(VIDEO_STATS& stats, char* output, int length);
 
@@ -146,6 +166,22 @@ private:
 
     // Data buffers in the queued DU are not valid
     QQueue<DECODE_UNIT> m_FrameInfoQueue;
+
+    // PyroWave state (null/empty for the other codecs)
+    std::unique_ptr<PyroWaveDecoder> m_PyroWave;
+    bool m_PyroWaveActive;
+    QQueue<AVFrame*> m_PyroWaveOutput;
+    std::vector<PyroWaveFraming::Segment> m_PyroWavePackets;
+    size_t m_PyroWaveCriticalPackets;
+    uint32_t m_PyroWaveRejectedFrames;
+    uint32_t m_PyroWavePartialFrames;
+    uint32_t m_PyroWaveStaleSkips;
+    uint32_t m_PyroWaveSkipRun;
+    uint64_t m_PyroWaveSkipRunWaitUs;
+    uint64_t m_PyroWaveLastErrorLogUs;
+    uint64_t m_PyroWaveSourcePeriodUs;
+    uint32_t m_PyroWaveLastRtp;
+    int m_PyroWaveLastFrameNumber;
 
     static const uint8_t k_H264TestFrame[];
     static const uint8_t k_HEVCMainTestFrame[];

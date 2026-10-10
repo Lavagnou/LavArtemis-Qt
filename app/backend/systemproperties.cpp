@@ -106,6 +106,14 @@ SystemProperties::SystemProperties()
     hasDiscordIntegration = false;
 #endif
 
+    // PyroWave has a D3D11 path on Windows and a Vulkan path on Linux, and is
+    // only built for x86_64 (see app.pro).
+#ifdef HAVE_PYROWAVE
+    hasPyroWave = true;
+#else
+    hasPyroWave = false;
+#endif
+
     // These will be queried asynchronously to avoid blocking the UI
     hasHardwareAcceleration = true;
     rendererAlwaysFullScreen = false;
