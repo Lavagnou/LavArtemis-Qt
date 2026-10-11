@@ -124,6 +124,14 @@ private:
     QString m_Msg;
 };
 
+// Drains the async logger, so a diagnostic capture or crash report sees every line.
+void Utils::flushLogs()
+{
+    s_LoggerThread.waitForDone();
+    QMutexLocker locker(&s_SyncLoggerMutex);
+    s_LoggerStream.flush();
+}
+
 void logToLoggerStream(QString& message)
 {
 #if defined(QT_DEBUG) && defined(Q_OS_WIN32)

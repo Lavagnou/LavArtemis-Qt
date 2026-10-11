@@ -10,6 +10,7 @@
 #include <QtNetwork/QNetworkReply>
 #include <QEventLoop>
 #include <QTimer>
+#include <QElapsedTimer>
 #include <QXmlStreamReader>
 #include <QSslKey>
 #include <QImageReader>
@@ -225,6 +226,7 @@ NvHTTP::startApp(QString verb,
                 bool localAudio,
                 int gamepadMask,
                 bool persistGameControllersOnDisconnect,
+                bool clientVrrRequested,
                 QString& rtspSessionUrl,
                 QString displayLayout)
 {
@@ -313,6 +315,13 @@ NvHTTP::startApp(QString verb,
         qInfo() << "Requesting emulated display layout:" << displayLayout;
     }
     
+    // Tells VRR-aware hosts that this client paces playback from RTP timestamps, so they
+    // can capture with precise frame timing (LavApollo and Vibepollo: 1000 Hz virtual
+    // display). Other hosts ignore unknown launch parameters.
+    if (clientVrrRequested) {
+        allParams += "&clientVrrRequested=1";
+    }
+
     // Add Limelight parameters
     allParams += LiGetLaunchUrlQueryParameters();
 

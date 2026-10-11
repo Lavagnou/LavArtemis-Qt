@@ -1400,8 +1400,11 @@ Flickable {
                         model = createModel()
                         currentIndex = 0
 
-                        // Set the current value based on the saved preferences
-                        var savedWm = StreamingPreferences.windowMode
+                        // VRR sessions use borderless presentation, but the
+                        // saved window-mode preference is never overwritten.
+                        var savedWm = vrrForced ?
+                                          StreamingPreferences.WM_FULLSCREEN_DESKTOP :
+                                          StreamingPreferences.windowMode
                         for (var i = 0; i < model.count; i++) {
                              var thisWm = model.get(i).val;
                              if (savedWm === thisWm) {
@@ -1410,7 +1413,13 @@ Flickable {
                              }
                         }
 
-                        activated(currentIndex)
+                        if (!vrrForced) {
+                            activated(currentIndex)
+                        }
+
+                        // VRR skips activation to preserve the saved mode, but
+                        // the disabled control still needs its text measured.
+                        recalculateWidth()
                     }
 
                     Component.onCompleted: {
@@ -1419,8 +1428,10 @@ Flickable {
                     }
 
                     id: windowModeComboBox
+                    property bool vrrForced: StreamingPreferences.enableVsync && StreamingPreferences.enableVrr
+                    onVrrForcedChanged: reinitialize()
                     visible: SystemProperties.hasDesktopEnvironment
-                    enabled: !SystemProperties.rendererAlwaysFullScreen
+                    enabled: !SystemProperties.rendererAlwaysFullScreen && !vrrForced
                     hoverEnabled: true
                     textRole: "text"
                     onActivated: {
@@ -1430,7 +1441,10 @@ Flickable {
                     ToolTip.delay: 1000
                     ToolTip.timeout: 5000
                     ToolTip.visible: hovered
-                    ToolTip.text: qsTr("Fullscreen generally provides the best performance, but borderless windowed may work better with features like macOS Spaces, Alt+Tab, screenshot tools, on-screen overlays, etc.")
+                    ToolTip.text: vrrForced ?
+                                      qsTr("Borderless windowed mode is required for active VRR streaming. Your saved display mode will be restored for non-VRR sessions.")
+                                    :
+                                      qsTr("Fullscreen generally provides the best performance, but borderless windowed may work better with features like macOS Spaces, Alt+Tab, screenshot tools, on-screen overlays, etc.")
                 }
 
                 Row {
@@ -1468,6 +1482,106 @@ Flickable {
                         ToolTip.visible: hovered
                         ToolTip.text: qsTr("Frame pacing reduces micro-stutter by delaying frames that come in too early")
                     }
+
+                    CheckBox {
+                        hoverEnabled: true
+                        text: qsTr("VRR")
+                        font.pointSize: 12
+                        enabled: StreamingPreferences.enableVsync
+                        checked: StreamingPreferences.enableVrr
+                        // onToggled, not onCheckedChanged: the latter also fires when the
+                        // binding re-evaluates and would write the preference back to itself.
+                        onToggled: StreamingPreferences.enableVrr = checked
+
+                        ToolTip.delay: 1000
+                        ToolTip.timeout: 5000
+                        ToolTip.visible: hovered
+                        ToolTip.text: enabled ?
+                                          qsTr("Shows each frame as soon as it arrives on a G-Sync / FreeSync display, in borderless fullscreen. The host is told to capture at precise times (LavApollo: 1000 Hz virtual display).")
+                                        :
+                                          qsTr("VRR requires V-Sync. Enable V-Sync to change this setting.")
+                    }
+                }
+
+                Column {
+                    width: parent.width
+                    spacing: 5
+                    visible: StreamingPreferences.enableVrr
+                    enabled: StreamingPreferences.enableVsync && StreamingPreferences.enableVrr
+
+                    Label {
+                        width: parent.width
+                        text: qsTr("VRR timing")
+                        font.pointSize: 12
+                        wrapMode: Text.Wrap
+                    }
+
+                    AutoResizingComboBox {
+                        id: vrrLatencyModeComboBox
+                        textRole: "text"
+                        model: ListModel {
+                            id: vrrLatencyModeListModel
+                            ListElement {
+                                text: qsTr("Low Latency")
+                                val: StreamingPreferences.VLM_LOW_LATENCY
+                            }
+                            ListElement {
+                                text: qsTr("Balanced Target")
+                                val: StreamingPreferences.VLM_BALANCED_TARGET
+                            }
+                            ListElement {
+                                text: qsTr("Smooth")
+                                val: StreamingPreferences.VLM_SMOOTH
+                            }
+                        }
+                        currentIndex: {
+                            for (var i = 0; i < vrrLatencyModeListModel.count; i++) {
+                                if (vrrLatencyModeListModel.get(i).val === StreamingPreferences.vrrLatencyMode) {
+                                    return i
+                                }
+                            }
+                            return 1
+                        }
+                        onActivated: {
+                            StreamingPreferences.vrrLatencyMode = vrrLatencyModeListModel.get(currentIndex).val
+                        }
+                        Component.onCompleted: {
+                            recalculateWidth()
+                            languageChanged.connect(recalculateWidth)
+                        }
+                    }
+
+                    Label {
+                        width: parent.width
+                        wrapMode: Text.Wrap
+                        text: StreamingPreferences.vrrLatencyMode === StreamingPreferences.VLM_LOW_LATENCY ?
+                                  qsTr("Minimizes added delay. Uneven delivery can cause more stutter or skipped frames. Buffer allowance: up to 1 source frame.") :
+                              StreamingPreferences.vrrLatencyMode === StreamingPreferences.VLM_SMOOTH ?
+                                  qsTr("Uses more padding and holds it longer for steadier motion, with more input delay. Buffer allowance: up to 4 source frames.") :
+                                  qsTr("Targets steadier motion with a moderate timing reserve and balanced input delay. Buffer allowance: up to 2 source frames.")
+                    }
+
+                    Label {
+                        width: parent.width
+                        wrapMode: Text.Wrap
+                        text: qsTr("The learned delay is often lower than the allowance. Reconnect the stream after changing this setting.")
+                    }
+                }
+
+                CheckBox {
+                    hoverEnabled: true
+                    text: qsTr("Reduce judder")
+                    font.pointSize: 12
+                    visible: StreamingPreferences.enableVrr
+                    enabled: StreamingPreferences.enableVsync && StreamingPreferences.enableVrr
+                    checked: StreamingPreferences.smoothVrrFrameTiming
+                    onToggled: StreamingPreferences.smoothVrrFrameTiming = checked
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 10000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("Evens out when frames are displayed, including games whose frame rate does not divide the host display's refresh rate. Adds up to a few milliseconds of delay only while uneven frames need it.") + "\n\n" +
+                                  qsTr("Reconnect the stream after changing this setting.")
                 }
 
                 CheckBox {
@@ -2629,6 +2743,54 @@ Flickable {
                     ToolTip.text: qsTr("Display real-time stream performance information while streaming.") + "\n\n" +
                                   qsTr("You can toggle it at any time while streaming using Ctrl+Alt+Shift+S or Select+L1+R1+X.") + "\n\n" +
                                   qsTr("The performance overlay is not supported on Steam Link or Raspberry Pi.")
+                }
+            }
+        }
+
+        GroupBox {
+            width: parent.width - (parent.leftPadding + parent.rightPadding)
+            padding: 12
+            title: "<font color=\"skyblue\">" + qsTr("VRR diagnostics") + "</font>"
+            font.pointSize: 12
+            visible: StreamingPreferences.enableVrr || StreamingPreferences.traceVrrFrames
+
+            Column {
+                anchors.fill: parent
+                spacing: 8
+
+                CheckBox {
+                    text: qsTr("Trace VRR frames for debugging")
+                    font.pointSize: 12
+                    checked: StreamingPreferences.traceVrrFrames
+                    onToggled: StreamingPreferences.traceVrrFrames = checked
+                }
+
+                Label {
+                    width: parent.width
+                    wrapMode: Text.Wrap
+                    text: qsTr("Saves frame traces and session logs to the vrr-diagnostics folder on your Desktop, one folder per stream. Reconnect to start recording; it can use a lot of disk space, so turn it off after debugging.")
+                }
+
+                Row {
+                    spacing: 8
+
+                    Button {
+                        text: StreamingPreferences.exportingDiagnostics ? qsTr("Exporting...") : qsTr("Export latest recording (ZIP)")
+                        enabled: !StreamingPreferences.exportingDiagnostics
+                        onClicked: StreamingPreferences.exportLatestDiagnostics()
+                    }
+
+                    Button {
+                        text: qsTr("Open folder")
+                        onClicked: StreamingPreferences.openDiagnosticsFolder()
+                    }
+                }
+
+                Label {
+                    width: parent.width
+                    wrapMode: Text.Wrap
+                    visible: StreamingPreferences.diagnosticsStatus !== ""
+                    text: StreamingPreferences.diagnosticsStatus
                 }
             }
         }

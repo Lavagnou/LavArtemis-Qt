@@ -50,7 +50,8 @@ win32 {
     }
 
     INCLUDEPATH += $$PWD/../libs/windows/include
-    LIBS += ws2_32.lib winmm.lib dxva2.lib ole32.lib gdi32.lib user32.lib d3d9.lib dwmapi.lib dbghelp.lib
+    # dcomp: VRR composition presenter (d3d11composition.cpp)
+    LIBS += dcomp.lib advapi32.lib shell32.lib ws2_32.lib winmm.lib dxva2.lib ole32.lib gdi32.lib user32.lib d3d9.lib dwmapi.lib dbghelp.lib
 }
 macx:!disable-prebuilts {
     !exists($$PWD/../libs/mac) {
@@ -208,6 +209,10 @@ SOURCES += \
     gui/sdlgamepadmapper.cpp \
     streaming/video/overlaymanager.cpp \
     streaming/video/pacingstats.cpp \
+    streaming/vrrratepolicy.cpp \
+    diagnostics/diagnosticcapture.cpp \
+    diagnostics/diagnosticzip.cpp \
+    diagnostics/gputrace.cpp \
     backend/systemproperties.cpp \
     backend/clipboardmanager.cpp \
     backend/servercommandmanager.cpp \
@@ -259,6 +264,14 @@ HEADERS += \
     gui/sdlgamepadmapper.h \
     streaming/video/overlaymanager.h \
     streaming/video/pacingstats.h \
+    streaming/vrrratepolicy.h \
+    streaming/video/clientpacingwarning.h \
+    streaming/video/incomingframetiming.h \
+    streaming/video/vrrrenderpolicy.h \
+    windowsvblankvirtualization.h \
+    diagnostics/diagnosticcapture.h \
+    diagnostics/diagnosticzip.h \
+    diagnostics/gputrace.h \
     backend/systemproperties.h \
     backend/clipboardmanager.h \
     backend/servercommandmanager.h \
@@ -279,7 +292,11 @@ ffmpeg {
         streaming/video/ffmpeg-renderers/genhwaccel.cpp \
         streaming/video/ffmpeg-renderers/sdlvid.cpp \
         streaming/video/ffmpeg-renderers/swframemapper.cpp \
-        streaming/video/ffmpeg-renderers/pacer/pacer.cpp
+        streaming/video/ffmpeg-renderers/pacer/pacer.cpp \
+        streaming/video/ffmpeg-renderers/pacer/vrrpacingworker.cpp \
+        streaming/video/ffmpeg-renderers/pacer/vrr/profile.cpp \
+        streaming/video/ffmpeg-renderers/pacer/vrr/vrrtimingcontroller.cpp \
+        streaming/video/ffmpeg-renderers/pacer/vrr/vrrtargetwaiter.cpp
 
     HEADERS += \
         streaming/video/ffmpeg.h \
@@ -287,7 +304,13 @@ ffmpeg {
         streaming/video/ffmpeg-renderers/genhwaccel.h \
         streaming/video/ffmpeg-renderers/sdlvid.h \
         streaming/video/ffmpeg-renderers/swframemapper.h \
-        streaming/video/ffmpeg-renderers/pacer/pacer.h
+        streaming/video/ffmpeg-renderers/pacer/pacer.h \
+        streaming/video/ffmpeg-renderers/pacer/pacertelemetry.h \
+        streaming/video/ffmpeg-renderers/pacer/vrrpacingworker.h \
+        streaming/video/ffmpeg-renderers/ivrrframepresenter.h \
+        streaming/video/ffmpeg-renderers/vrrpreparedframe.h \
+        streaming/video/ffmpeg-renderers/presentationclock.h \
+        $$files(streaming/video/ffmpeg-renderers/pacer/vrr/*.h)
 }
 libva {
     message(VAAPI renderer selected)
@@ -424,6 +447,7 @@ win32:!winrt {
         streaming/video/ffmpeg-renderers/dxva2.cpp \
         streaming/video/ffmpeg-renderers/d3d11va.cpp \
         streaming/video/ffmpeg-renderers/d3d11pyrowave.cpp \
+        streaming/video/ffmpeg-renderers/d3d11composition.cpp \
         streaming/video/ffmpeg-renderers/pacer/dxvsyncsource.cpp
 
     HEADERS += \
@@ -431,6 +455,10 @@ win32:!winrt {
         streaming/video/ffmpeg-renderers/d3d11va.h \
         streaming/video/ffmpeg-renderers/d3d11pyrowave.h \
         streaming/video/pyrowave/pyrowavesurfaces.h \
+        streaming/video/ffmpeg-renderers/d3d11composition.h \
+        streaming/video/ffmpeg-renderers/d3d11fencewait.h \
+        streaming/video/ffmpeg-renderers/d3d11bindpolicy.h \
+        streaming/video/ffmpeg-renderers/dxgipresent.h \
         streaming/video/ffmpeg-renderers/pacer/dxvsyncsource.h
 }
 macx {

@@ -137,9 +137,11 @@ private:
 #define RENDERER_ATTRIBUTE_NO_BUFFERING 0x08
 #define RENDERER_ATTRIBUTE_FORCE_PACING 0x10
 
+class IVrrFramePresenter;
 class IPyroWaveSurfacePool;
 class IPyroWaveVulkanPool;
 
+class GpuTrace;
 class IFFmpegRenderer : public Overlay::IOverlayRenderer {
 public:
     enum class RendererType {
@@ -163,6 +165,7 @@ public:
     virtual bool initialize(PDECODER_PARAMETERS params) = 0;
     virtual bool prepareDecoderContext(AVCodecContext* context, AVDictionary** options) = 0;
     virtual void renderFrame(AVFrame* frame) = 0;
+    virtual GpuTrace* gpuDiagnosticTrace() { return nullptr; }
 
     // When the last presented frame actually reached the display, in
     // microseconds, or 0 when the backend cannot say.
@@ -283,6 +286,13 @@ public:
         return true;
     }
 
+    // Renderers opt into VRR through a separate presenter rather than changing
+    // renderFrame().  The ordinary fixed and unpaced paths continue to call
+    // renderFrame() exactly as before.
+    virtual IVrrFramePresenter* getVrrFramePresenter() {
+        return nullptr;
+    }
+
     // Renderers that can display PyroWave frames expose the surface pool the
     // PyroWave decoder writes into. Only valid after initialize() succeeded
     // for a PyroWave video format.
@@ -341,6 +351,8 @@ public:
     RendererType getRendererType() {
         return m_Type;
     }
+
+    virtual QString getCalibrationIdentity() { return {}; }
 
     const char *getRendererName() {
         switch (m_Type) {

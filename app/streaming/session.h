@@ -11,6 +11,7 @@
 #include "audio/renderers/renderer.h"
 #include "video/overlaymanager.h"
 #include "displaylayout.h"
+#include "diagnostics/diagnosticcapture.h"
 
 #include "backend/quickmenumanager.h"
 #include "backend/servercommandmanager.h"
@@ -134,6 +135,16 @@ public:
         return m_OverlayManager;
     }
 
+    bool clientPacingWarningsEnabled() const { return m_Preferences->connectionWarnings; }
+    bool hevcPacingAlternative() const { return m_HevcPacingAlternative; }
+
+    int streamColorRange() const
+    {
+        return m_StreamConfig.colorRange;
+    }
+
+    QString vrrCalibrationContext() const;
+
     void flushWindowEvents();
 
     void setShouldExit(bool quitHostApp = false);
@@ -166,6 +177,8 @@ private:
     void emitLaunchWarning(QString text);
 
     bool populateDecoderProperties(SDL_Window* window);
+
+    void snapshotPresentationSettings(SDL_Window* window);
 
     IAudioRenderer* createAudioRenderer(const POPUS_MULTISTREAM_CONFIGURATION opusConfig);
 
@@ -208,8 +221,12 @@ private:
                        StreamingPreferences::RendererSelection renderer,
                        SDL_Window* window, int videoFormat, int width, int height,
                        int frameRate, bool enableVsync, bool enableFramePacing,
-                       bool testOnly,
-                       IVideoDecoder*& chosenDecoder);
+                       bool testOnly, IVideoDecoder*& chosenDecoder,
+                       bool enableVrr = false, bool preferVrrRenderer = false,
+                       int vrrDisplayRefreshHz = 0,
+                       bool* effectiveVrr = nullptr, bool smoothVrrFrameTiming = true,
+                       bool gamescopeMailbox = false, int vrrLatencyMode = 0,
+                       bool gamescopeRepaint = false);
 
     static
     void clStageStarting(int stage);
@@ -264,8 +281,25 @@ private:
     static
     int drSubmitDecodeUnit(PDECODE_UNIT du);
 
+    struct PresentationSettings {
+        bool effectiveVsync = false;
+        bool enableFramePacing = false;
+        bool enableVrr = false;
+        int vrrLatencyMode = 0;
+        bool gamescopeMailbox = false;
+        bool gamescopeRepaint = false;
+        bool smoothVrrFrameTiming = true;
+        int refreshRate = 0;
+        StreamingPreferences::WindowMode effectiveWindowMode = StreamingPreferences::WM_WINDOWED;
+        StreamingPreferences::VideoDecoderSelection decoderSelection = StreamingPreferences::VDS_AUTO;
+        StreamingPreferences::RendererSelection rendererSelection = StreamingPreferences::RS_AUTO;
+    };
+
     StreamingPreferences* m_Preferences;
+    PresentationSettings m_PresentationSettings;
+    std::unique_ptr<DiagnosticCapture> m_DiagnosticCapture;
     bool m_IsFullScreen;
+    bool m_HevcPacingAlternative = false;
     SupportedVideoFormatList m_SupportedVideoFormats; // Sorted in order of descending priority
     STREAM_CONFIGURATION m_StreamConfig;
     DECODER_RENDERER_CALLBACKS m_VideoCallbacks;

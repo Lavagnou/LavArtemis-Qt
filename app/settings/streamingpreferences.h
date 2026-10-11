@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QRect>
 #include <QQmlEngine>
+#include <QVariantList>
 
 class StreamingPreferences : public QObject
 {
@@ -49,6 +50,21 @@ public:
         VDS_FORCE_SOFTWARE
     };
     Q_ENUM(VideoDecoderSelection)
+
+    // Persisted IDs also identify the VRR controller's timing profile. Keep
+    // the numeric values stable when changing the user-facing names.
+    enum VrrLatencyMode
+    {
+        VLM_SMOOTH = 0,
+        VLM_BALANCED_TARGET = 1,
+        VLM_LOW_LATENCY = 2,
+
+        // Source compatibility for code using the former profile names.
+        VLM_SMOOTHEST = VLM_SMOOTH,
+        VLM_BALANCED = VLM_BALANCED_TARGET,
+        VLM_LOWEST_LATENCY = VLM_LOW_LATENCY
+    };
+    Q_ENUM(VrrLatencyMode)
 
     // Mac only (for now)
     enum RendererSelection
@@ -141,6 +157,12 @@ public:
     Q_PROPERTY(bool unlockBitrate MEMBER unlockBitrate NOTIFY unlockBitrateChanged)
     Q_PROPERTY(bool autoAdjustBitrate MEMBER autoAdjustBitrate NOTIFY autoAdjustBitrateChanged)
     Q_PROPERTY(bool enableVsync MEMBER enableVsync NOTIFY enableVsyncChanged)
+    Q_PROPERTY(bool enableVrr MEMBER enableVrr NOTIFY enableVrrChanged)
+    Q_PROPERTY(int vrrLatencyMode MEMBER vrrLatencyMode NOTIFY vrrLatencyModeChanged)
+    Q_PROPERTY(bool smoothVrrFrameTiming MEMBER smoothVrrFrameTiming NOTIFY smoothVrrFrameTimingChanged)
+    Q_PROPERTY(bool traceVrrFrames MEMBER traceVrrFrames NOTIFY traceVrrFramesChanged)
+    Q_PROPERTY(bool exportingDiagnostics MEMBER m_ExportingDiagnostics NOTIFY diagnosticsChanged)
+    Q_PROPERTY(QString diagnosticsStatus MEMBER m_DiagnosticsStatus NOTIFY diagnosticsChanged)
     Q_PROPERTY(bool gameOptimizations MEMBER gameOptimizations NOTIFY gameOptimizationsChanged)
     Q_PROPERTY(bool playAudioOnHost MEMBER playAudioOnHost NOTIFY playAudioOnHostChanged)
     Q_PROPERTY(bool multiController MEMBER multiController NOTIFY multiControllerChanged)
@@ -183,6 +205,13 @@ public:
     Q_PROPERTY(bool useMultiDisplay MEMBER useMultiDisplay NOTIFY useMultiDisplayChanged)
 
     Q_INVOKABLE bool retranslate();
+    Q_INVOKABLE void openDiagnosticsFolder();
+    Q_INVOKABLE void exportLatestDiagnostics();
+    void setDiagnosticsStatus(const QString& message);
+
+    // Rate choices are advisory; toggling VRR never rewrites the saved FPS
+    // preference.
+    Q_INVOKABLE QVariantList getFpsChoices(const QVariantList& refreshRates) const;
 
     // Directly accessible members for preferences
     int width;
@@ -192,6 +221,13 @@ public:
     bool unlockBitrate;
     bool autoAdjustBitrate;
     bool enableVsync;
+    bool enableVrr;
+    int vrrLatencyMode;
+    // Re-present the last frame inside a host gap longer than the panel's
+    // adaptive-refresh floor, so the panel never engages its own
+    // low-framerate compensation.
+    bool smoothVrrFrameTiming;
+    bool traceVrrFrames;
     bool gameOptimizations;
     bool playAudioOnHost;
     bool multiController;
@@ -243,6 +279,11 @@ signals:
     void unlockBitrateChanged();
     void autoAdjustBitrateChanged();
     void enableVsyncChanged();
+    void enableVrrChanged();
+    void vrrLatencyModeChanged();
+    void smoothVrrFrameTimingChanged();
+    void traceVrrFramesChanged();
+    void diagnosticsChanged();
     void gameOptimizationsChanged();
     void playAudioOnHostChanged();
     void multiControllerChanged();
@@ -294,5 +335,6 @@ private:
     void notifyAllPropertiesChanged();
 
     QQmlEngine* m_QmlEngine;
+    bool m_ExportingDiagnostics = false;
+    QString m_DiagnosticsStatus;
 };
-

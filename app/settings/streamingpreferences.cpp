@@ -2,6 +2,8 @@
 #include "streaming/video/pyrowave/pyrowavebitrate.h"
 #include "profilemanager.h"
 #include "utils.h"
+#include "streaming/vrrratepolicy.h"
+#include "diagnostics/diagnosticcapture.h"
 
 #include <QMetaProperty>
 #include <QSettings>
@@ -9,9 +11,16 @@
 #include <QCoreApplication>
 #include <QLocale>
 #include <QReadWriteLock>
+#include <QVariantMap>
 #include <QtMath>
+#include <QDesktopServices>
+#include <QDir>
+#include <QThread>
+#include <QUrl>
 
 #include <QtDebug>
+
+#include <vector>
 
 #define SER_STREAMSETTINGS "streamsettings"
 #define SER_WIDTH "width"
@@ -22,6 +31,11 @@
 #define SER_AUTOADJUSTBITRATE "autoadjustbitrate"
 #define SER_FULLSCREEN "fullscreen"
 #define SER_VSYNC "vsync"
+#define SER_ENABLEVRR "enablevrr"
+#define SER_VRRLATENCYFIX "vrrlatencyfix"
+#define SER_VRRLATENCYMODE "vrrlatencymode"
+#define SER_SMOOTHVRRFRAMETIMING "smoothvrrframetiming"
+#define SER_TRACEVRRFRAMES "tracevrrframes"
 #define SER_GAMEOPTS "gameopts"
 #define SER_HOSTAUDIO "hostaudio"
 #define SER_MULTICONT "multicontroller"
@@ -150,6 +164,17 @@ void StreamingPreferences::reload()
     unlockBitrate = prefs->value(SER_UNLOCK_BITRATE, false).toBool();
     autoAdjustBitrate = prefs->value(SER_AUTOADJUSTBITRATE, true).toBool();
     enableVsync = prefs->value(SER_VSYNC, true).toBool();
+    enableVrr = prefs->value(SER_ENABLEVRR, false).toBool();
+    vrrLatencyMode = VLM_BALANCED;
+    {
+        bool validMode = false;
+        const int savedMode = prefs->value(SER_VRRLATENCYMODE, VLM_BALANCED).toInt(&validMode);
+        if (validMode && savedMode >= VLM_SMOOTH && savedMode <= VLM_LOW_LATENCY) {
+            vrrLatencyMode = savedMode;
+        }
+    }
+    smoothVrrFrameTiming = prefs->value(SER_SMOOTHVRRFRAMETIMING, true).toBool();
+    traceVrrFrames = prefs->value(SER_TRACEVRRFRAMES, false).toBool();
     gameOptimizations = prefs->value(SER_GAMEOPTS, true).toBool();
     playAudioOnHost = prefs->value(SER_HOSTAUDIO, false).toBool();
     multiController = prefs->value(SER_MULTICONT, true).toBool();
@@ -360,6 +385,10 @@ void StreamingPreferences::save()
     prefs->setValue(SER_UNLOCK_BITRATE, unlockBitrate);
     prefs->setValue(SER_AUTOADJUSTBITRATE, autoAdjustBitrate);
     prefs->setValue(SER_VSYNC, enableVsync);
+    prefs->setValue(SER_ENABLEVRR, enableVrr);
+    prefs->setValue(SER_VRRLATENCYMODE, vrrLatencyMode);
+    prefs->setValue(SER_SMOOTHVRRFRAMETIMING, smoothVrrFrameTiming);
+    prefs->setValue(SER_TRACEVRRFRAMES, traceVrrFrames);
     prefs->setValue(SER_GAMEOPTS, gameOptimizations);
     prefs->setValue(SER_HOSTAUDIO, playAudioOnHost);
     prefs->setValue(SER_MULTICONT, multiController);
@@ -429,6 +458,87 @@ int StreamingPreferences::getDefaultPyroWaveBitrate(int width, int height, int f
     return pyroWaveRecommendedKbps(width, height, fps, yuv444, hdr);
 }
 
+void StreamingPreferences::setDiagnosticsStatus(const QString& message)
+{
+    m_DiagnosticsStatus = message;
+    emit diagnosticsChanged();
+}
+
+void StreamingPreferences::openDiagnosticsFolder()
+{
+    const auto root = DiagnosticCapture::rootDirectory();
+    if (root.isEmpty() || !QDir().mkpath(root) || !QDesktopServices::openUrl(QUrl::fromLocalFile(root)))
+        setDiagnosticsStatus(tr("Unable to open the diagnostics folder: %1").arg(root));
+    else
+        setDiagnosticsStatus(tr("Diagnostics folder: %1").arg(QDir::toNativeSeparators(root)));
+}
+
+void StreamingPreferences::exportLatestDiagnostics()
+{
+    if (m_ExportingDiagnostics) return;
+    m_ExportingDiagnostics = true;
+    setDiagnosticsStatus(tr("Exporting the latest diagnostic recording..."));
+    const auto root = DiagnosticCapture::rootDirectory();
+    // Trace ZIPs can be large. Keep export I/O out of both the GUI and pacing.
+    struct ExportResult { QString destination, error; };
+    const auto result = std::make_shared<ExportResult>();
+    auto thread = QThread::create([root, result] {
+        result->destination = DiagnosticCapture::exportLatest(root, result->error);
+    });
+    connect(thread, &QThread::finished, this, [this, root, result] {
+        m_ExportingDiagnostics = false;
+        setDiagnosticsStatus(result->destination.isEmpty() ? result->error :
+            tr("Exported: %1").arg(QDir::toNativeSeparators(result->destination)));
+        if (!result->destination.isEmpty()) QDesktopServices::openUrl(QUrl::fromLocalFile(root));
+    });
+    connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    // Finish the atomic export on normal application exit. The worker never
+    // dereferences preferences; Qt discards the UI callback if they are gone.
+    connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, thread, [thread] { thread->wait(); });
+    thread->start();
+}
+
+QVariantList StreamingPreferences::getFpsChoices(const QVariantList& refreshRates) const
+{
+    std::vector<int> rates;
+    rates.reserve(refreshRates.size());
+    for (const QVariant& value : refreshRates) {
+        bool ok = false;
+        const int refreshHz = value.toInt(&ok);
+        if (ok && refreshHz > 0) {
+            rates.push_back(refreshHz);
+        }
+    }
+
+    const std::vector<VrrFpsChoice> choices = VrrRatePolicy::buildChoices(
+        rates, fps, enableVsync && enableVrr);
+    QVariantList result;
+    for (const VrrFpsChoice& choice : choices) {
+        QVariantMap item;
+        item.insert("video_fps", QString::number(choice.fps));
+        item.insert("is_custom", choice.kind == VrrFpsChoiceKind::Custom);
+
+        switch (choice.kind) {
+        case VrrFpsChoiceKind::Fixed:
+            item.insert("kind", "fixed");
+            break;
+        case VrrFpsChoiceKind::Vrr:
+            item.insert("kind", "vrr");
+            break;
+        case VrrFpsChoiceKind::LowLatencyVrr:
+            item.insert("kind", "low-latency-vrr");
+            break;
+        case VrrFpsChoiceKind::Custom:
+            item.insert("kind", "custom");
+            break;
+        }
+
+        result.append(item);
+    }
+
+    return result;
+}
+
 int StreamingPreferences::getDefaultBitrate(int width, int height, int fps, bool yuv444)
 {
     // Don't scale bitrate linearly beyond 60 FPS. It's definitely not a linear
@@ -484,3 +594,4 @@ int StreamingPreferences::getDefaultBitrate(int width, int height, int fps, bool
 
     return qRound(resolutionFactor * frameRateFactor) * 1000;
 }
+

@@ -334,9 +334,44 @@ changer les deux ensemble). Jamais choisi en Auto : uniquement via le codec « P
 > les maths de Granite n'ont pas été vérifiées sous MSVC ARM64. Le build arm64 compile sans
 > `HAVE_PYROWAVE` et n'affiche pas l'option.
 
-> 📋 **Sans VRR.** Le calibrateur classe les formats par marge de décodage ; les paliers « vrr » /
-> « vrrLarge » de Nonary sont présentés comme « Tight » / « Very tight » puisque ce client n'a pas de
-> mode de présentation VRR.
+> 📋 Le calibrateur classe les formats par marge de décodage ; les paliers « vrr » / « vrrLarge » de
+> Nonary restent présentés comme « Tight » / « Very tight ». La VRR (ci-dessous) est arrivée après le
+> calibrateur et ne l'a pas changé.
+
+## 🖥️ VRR (présentation adaptative, Windows)
+
+Port **fidèle** du pacer VRR de [Nonary/moonlight-qt](https://github.com/Nonary/moonlight-qt)
+(`release/6.1.0-vrr18`, 18e itération réglée sur matériel). Sur un écran G-Sync/FreeSync, chaque image
+est présentée **à l'instant que vise sa timestamp RTP** (slot source + délai de lecture appris), avec
+`Present(0, ALLOW_TEARING)` en plein écran sans bordure, au lieu d'attendre le vsync suivant.
+
+| Pièce | Où |
+|---|---|
+| Contrôleur de timing (horloge hôte→locale, budgets appris, 3 profils) | `pacer/vrr/vrrtimingcontroller.{h,cpp}` + en-têtes de politique `pacer/vrr/*` |
+| Worker de pacing (admission, attente de cible, Present) | `pacer/vrrpacingworker.{h,cpp}`, créé par `Pacer::initialize()` si le renderer expose un `IVrrFramePresenter` |
+| Présentateur D3D11 | `d3d11va.{h,cpp}` (`prepareFrame()` / `presentAdaptive()`, frontières de décodage par fence, échantillonnage du balayage), `d3d11composition.*`, `dxgipresent.h` |
+| Activation | `Session::snapshotPresentationSettings()` : V-Sync effective, fréquence d'écran connue, marge (`VrrRatePolicy`), puis plein écran **sans bordure** forcé pour la session (la préférence enregistrée n'est pas touchée) |
+| Demande à l'hôte | `&clientVrrRequested=1` sur `/launch` (`NvHTTP::startApp`) → LavApollo crée l'écran virtuel à 1000 Hz |
+| PyroWave | `holdPyroWaveDecodeForPresent()` retient un décodage qui chevaucherait le Present, et l'échéance de réassemblage passe par `VrrReceiveDeadline` (`LiSetVideoReassemblyDeadlineCallback`) |
+| Diagnostics | `diagnostics/` (traces par stream dans `vrr-diagnostics` sur le Bureau, export ZIP), groupe « VRR diagnostics » des réglages |
+| Tests | `tests/` (opt-in : `qmake tests/tests.pro CONFIG+=tests`), 12 suites portées ; `tst_overlay` se lance avec `app/` en argument (police ModeSeven) |
+
+> ⚠️ **Le pacer VRR alimente aussi `PacingStats`** (`VrrPacingWorker`, paramètre `pacingStats`) : sans
+> ça, l'overlay et le CSV de perf ne décriraient que le chemin classique et une session VRR paraîtrait
+> vide. La mesure est l'instant de soumission, comme le hand-off du chemin classique.
+
+> ⚠️ **Jamais avec le multi-écran émulé** : la toile couvre plusieurs moniteurs dans une seule fenêtre,
+> la présentation adaptative suit un seul écran. `snapshotPresentationSettings()` refuse la VRR et le
+> dit par un launch warning.
+
+> ⚠️ **Fusion sélective.** Les fichiers partagés ont été fusionnés en 3-way contre moonlight-qt
+> `17d5b1a8` (base de Nonary) en ne gardant que la VRR : **ni** l'haptique DualSense (et son mapping
+> `psmap`), **ni** Gamescope, **ni** leur versionnage n'ont été repris. Les stats suivent leur
+> refonte (`totalPacerTimeUs`/`totalRenderTimeUs` → files/pacing/rendu séparés, télémétrie du Pacer
+> fusionnée par le décodeur via `syncPacerTelemetry()`).
+
+> 📋 **Linux : pas encore.** Le présentateur Vulkan (`plvk`) de Nonary n'est pas porté. Le code compile
+> sur Linux et une demande VRR y retombe proprement sur le pacing fixe (« unsupported renderer »).
 
 ## ⚠️ Pièges / Gotchas
 
