@@ -59,6 +59,7 @@ NvComputer::NvComputer(QSettings& settings)
     this->maxLumaPixelsHEVC = 0;
     this->serverCodecModeSupport = 0;
     this->isMultiDisplayCapable = false;
+    this->micPassthroughState.clear();
     this->pendingQuit = false;
     this->gpuModel = nullptr;
     this->isSupportedServerVersion = true;
@@ -162,6 +163,9 @@ NvComputer::NvComputer(NvHTTP& http, QString serverInfo)
     // Absent on hosts that predate multi-display support, which is exactly what makes
     // it a usable capability check.
     this->isMultiDisplayCapable = NvHTTP::getXmlString(serverInfo, "MultiDisplayCapable") == "1";
+
+    // Computed by the host for this client (permission, host setting, virtual device)
+    this->micPassthroughState = NvHTTP::getXmlString(serverInfo, "MicPassthroughState");
 
     bool validLink = false;
     const auto hostLink = NvHTTP::getXmlString(serverInfo, "PyroWaveHostLinkMbps").toUInt(&validLink);
@@ -597,6 +601,9 @@ bool NvComputer::update(const NvComputer& that)
     ASSIGN_IF_CHANGED(pairState);
     ASSIGN_IF_CHANGED(serverCodecModeSupport);
     ASSIGN_IF_CHANGED(pyrowaveHostLinkMbps);
+    // Both change on the host while we keep polling it (an update, a permission ticked)
+    ASSIGN_IF_CHANGED(isMultiDisplayCapable);
+    ASSIGN_IF_CHANGED(micPassthroughState);
     ASSIGN_IF_CHANGED(currentGameId);
     ASSIGN_IF_CHANGED(activeAddress);
     ASSIGN_IF_CHANGED(state);

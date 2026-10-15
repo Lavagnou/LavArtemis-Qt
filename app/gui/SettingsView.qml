@@ -2814,6 +2814,70 @@ Flickable {
                 GroupBox {
                     width: parent.width
                     padding: 12
+                    title: "<font color=\"skyblue\">" + qsTr("Microphone") + "</font>"
+                    font.pointSize: 12
+
+                    Column {
+                        anchors.fill: parent
+                        spacing: 8
+
+                        CheckBox {
+                            id: micPassthroughCheck
+                            width: parent.width
+                            text: qsTr("Send my microphone to the host")
+                            font.pointSize: 12
+                            checked: ArtemisSettings.micPassthroughEnabled
+                            // onToggled, not onCheckedChanged: the latter also fires when the
+                            // binding above updates, and would write the setting back by itself
+                            onToggled: {
+                                ArtemisSettings.micPassthroughEnabled = checked
+                            }
+
+                            ToolTip.delay: 1000
+                            ToolTip.timeout: 8000
+                            ToolTip.visible: hovered
+                            ToolTip.text: qsTr("The host plays it into a virtual microphone (Steam Streaming Microphone), for voice chat and games with proximity chat. Needs LavApollo 2.2 or later. Mute it while streaming with Ctrl+Alt+Shift+U or from the quick menu.")
+                        }
+
+                        Row {
+                            spacing: 10
+                            enabled: micPassthroughCheck.checked
+
+                            Label {
+                                text: qsTr("Microphone:")
+                                font.pointSize: 12
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            AutoResizingComboBox {
+                                id: micDeviceComboBox
+                                // Read when the page opens: plug a microphone in later and
+                                // reopen the settings to see it
+                                property var devices: ArtemisSettings.microphoneDevices()
+                                model: [qsTr("System default")].concat(devices)
+                                currentIndex: {
+                                    var index = devices.indexOf(ArtemisSettings.micDeviceName)
+                                    return index < 0 ? 0 : index + 1
+                                }
+                                onActivated: {
+                                    ArtemisSettings.micDeviceName = currentIndex === 0 ? "" : devices[currentIndex - 1]
+                                }
+                            }
+                        }
+
+                        Label {
+                            width: parent.width
+                            text: qsTr("Use a headset: with speakers, the game's sound gets picked up by the microphone and sent back to the host.")
+                            font.pointSize: 9
+                            wrapMode: Text.Wrap
+                            color: "#aaaaaa"
+                        }
+                    }
+                }
+
+                GroupBox {
+                    width: parent.width
+                    padding: 12
                     title: "<font color=\"skyblue\">" + qsTr("Streaming Performance") + "</font>"
                     font.pointSize: 12
 

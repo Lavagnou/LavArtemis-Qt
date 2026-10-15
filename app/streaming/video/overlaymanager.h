@@ -19,7 +19,7 @@ enum OverlayType {
     OverlayMax
 };
 
-enum class StatusSource { Network, ClientPacing, Mouse, Count };
+enum class StatusSource { Network, ClientPacing, Mouse, Microphone, Count };
 
 class IOverlayRenderer
 {

@@ -228,7 +228,8 @@ NvHTTP::startApp(QString verb,
                 bool persistGameControllersOnDisconnect,
                 bool clientVrrRequested,
                 QString& rtspSessionUrl,
-                QString displayLayout)
+                QString displayLayout,
+                bool clientMicRequested)
 {
     int riKeyId;
 
@@ -320,6 +321,12 @@ NvHTTP::startApp(QString verb,
     // display). Other hosts ignore unknown launch parameters.
     if (clientVrrRequested) {
         allParams += "&clientVrrRequested=1";
+    }
+
+    // Asks LavApollo to play this client's microphone into its virtual microphone. Only sent
+    // when its serverinfo said "ready" for us; the frames themselves travel in the control stream.
+    if (clientMicRequested) {
+        allParams += "&clientMicRequested=1";
     }
 
     // Add Limelight parameters

@@ -10,8 +10,8 @@ SdlAudioRenderer::SdlAudioRenderer()
       // callback thread for every packet.
       m_MaxPendingAudioMs(ArtemisSettings::instance()->maxPendingAudioMs())
 {
-    SDL_assert(!SDL_WasInit(SDL_INIT_AUDIO));
-
+    // SDL's audio subsystem is reference counted and shared with the microphone
+    // (MicStreamer), so it may already be initialized here.
     if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                      "SDL_InitSubSystem(SDL_INIT_AUDIO) failed: %s",
@@ -88,8 +88,8 @@ SdlAudioRenderer::~SdlAudioRenderer()
         SDL_free(m_AudioBuffer);
     }
 
+    // The microphone may still hold the subsystem, so it can outlive this
     SDL_QuitSubSystem(SDL_INIT_AUDIO);
-    SDL_assert(!SDL_WasInit(SDL_INIT_AUDIO));
 }
 
 void* SdlAudioRenderer::getAudioBuffer(int*)

@@ -1,4 +1,5 @@
 #include "artemissettings.h"
+#include "streaming/audio/micstreamer.h"
 #include <QStandardPaths>
 #include <QDir>
 #include <QDebug>
@@ -105,6 +106,8 @@ void ArtemisSettings::save()
     m_settings->setValue("perfCsvLogging", m_perfCsvLoggingEnabled);
     m_settings->setValue("maxPendingAudioMs", m_maxPendingAudioMs);
     m_settings->setValue("genericGamepadFallback", m_genericGamepadFallbackEnabled);
+    m_settings->setValue("micPassthrough", m_micPassthroughEnabled);
+    m_settings->setValue("micDeviceName", m_micDeviceName);
     m_settings->endGroup();
 
     // Software update settings
@@ -174,6 +177,8 @@ void ArtemisSettings::load()
     // Clamped to the same 10-100 ms range the Android client exposes.
     m_maxPendingAudioMs = qBound(10, m_settings->value("maxPendingAudioMs", 30).toInt(), 100);
     m_genericGamepadFallbackEnabled = m_settings->value("genericGamepadFallback", true).toBool();
+    m_micPassthroughEnabled = m_settings->value("micPassthrough", false).toBool();
+    m_micDeviceName = m_settings->value("micDeviceName", QString()).toString();
     m_settings->endGroup();
 
     // Software update settings
@@ -252,6 +257,10 @@ void ArtemisSettings::loadDefaults()
     // On by default: without it, a gamepad SDL doesn't recognise is silently
     // dropped and the user has no way to tell why.
     m_genericGamepadFallbackEnabled = true;
+
+    // Off by default: sending the microphone is something to opt into, per machine.
+    m_micPassthroughEnabled = false;
+    m_micDeviceName.clear();
 
     // Software update defaults: check at startup, stable channel only. CI
     // prereleases are opt-in since they're built from workflow_dispatch.
@@ -410,6 +419,28 @@ void ArtemisSettings::setMaxPendingAudioMs(int ms)
         m_maxPendingAudioMs = ms;
         emit maxPendingAudioMsChanged();
     }
+}
+
+// Microphone passthrough setters
+void ArtemisSettings::setMicPassthroughEnabled(bool enabled)
+{
+    if (m_micPassthroughEnabled != enabled) {
+        m_micPassthroughEnabled = enabled;
+        emit micPassthroughEnabledChanged();
+    }
+}
+
+void ArtemisSettings::setMicDeviceName(const QString &name)
+{
+    if (m_micDeviceName != name) {
+        m_micDeviceName = name;
+        emit micDeviceNameChanged();
+    }
+}
+
+QStringList ArtemisSettings::microphoneDevices() const
+{
+    return MicStreamer::availableDevices();
 }
 
 // Input setters

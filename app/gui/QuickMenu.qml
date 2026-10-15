@@ -281,6 +281,12 @@ Rectangle {
             description: qsTr("Toggle keyboard capture mode")
         }
         ListElement {
+            text: qsTr("Mute / Unmute Microphone")
+            icon: "🎤"
+            action: "toggle_microphone"
+            description: qsTr("Stop or resume sending your microphone (Ctrl+Alt+Shift+U)")
+        }
+        ListElement {
             text: qsTr("Toggle Fullscreen")
             icon: "🖥"
             action: "toggle_fullscreen"
@@ -404,6 +410,9 @@ Rectangle {
                 break
             case "toggle_fullscreen":
                 message = "Toggling fullscreen..."
+                break
+            case "toggle_microphone":
+                message = "Toggling microphone..."
                 break
             default:
                 message = "Executing action..."

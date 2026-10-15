@@ -373,6 +373,30 @@ est présentée **à l'instant que vise sa timestamp RTP** (slot source + délai
 > 📋 **Linux : pas encore.** Le présentateur Vulkan (`plvk`) de Nonary n'est pas porté. Le code compile
 > sur Linux et une demande VRR y retombe proprement sur le pacing fixe (« unsupported renderer »).
 
+## 🎤 Passthrough du micro
+
+Le micro de ce PC est joué par LavApollo dans un micro virtuel de l'hôte (Steam Streaming Microphone).
+Réglage **LavArtemis Features → Microphone**, désactivé par défaut, avec le choix du micro. Protocole :
+`LavApollo/docs/mic-passthrough.md`, vue d'ensemble dans le `CLAUDE.md` racine de LavArtemis.
+
+- `streaming/audio/micstreamer.{h,cpp}` : capture SDL 48 kHz mono S16 par blocs de 960, découpe en
+  trames exactes de 20 ms, Opus VOIP 32 kbit/s (FEC + DTX), `LiSendMicrophoneData()`. **Tout dans le
+  callback SDL** : c'est le seul thread qui appelle l'envoi, ce qu'exige moonlight-common-c.
+- **Session** : `validateLaunch()` lit `NvComputer::micPassthroughState` (serverinfo) et décide
+  `m_MicRequested` (sinon avertissement de lancement avec la raison) ; `startApp()` ajoute
+  `clientMicRequested=1` ; le micro démarre après `LiStartConnection()` et s'arrête dans
+  `DeferredSessionCleanupTask` **avant** `LiStopConnection()`.
+- `NvComputer::update()` recopie maintenant `micPassthroughState` **et** `isMultiDisplayCapable` : sans ça
+  un droit coché sur l'hôte (ou un hôte mis à jour) n'était vu qu'au redémarrage du client.
+- **Couper** : `KeyComboToggleMicrophone` (Ctrl+Alt+Shift+**U**, M étant le mode souris) et l'entrée
+  `toggle_microphone` du menu rapide, tous deux vers `Session::toggleMicrophoneMute()`. Le message
+  « Microphone muted » passe par `Overlay::StatusSource::Microphone`, affiché **en plus** des autres
+  messages d'état, jamais masqué par eux.
+- ⚠️ **Sous-système audio SDL partagé** avec `SdlAudioRenderer` : ses deux `SDL_assert(!SDL_WasInit(...))`
+  ont été retirés, le comptage de références de SDL suffit.
+- ⚠️ **Pas d'annulation d'écho** côté SDL : avec des haut-parleurs, le son du jeu repart vers l'hôte.
+  Le texte du réglage recommande un casque.
+
 ## ⚠️ Pièges / Gotchas
 
 1. **`ArtemisSettings` ne persiste pas tout seul.** Les setters n'écrivent pas ; `SettingsView.qml`

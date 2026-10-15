@@ -188,6 +188,7 @@ private:
         KeyComboPanRight,
         KeyComboPanUp,
         KeyComboPanDown,
+        KeyComboToggleMicrophone,
         KeyComboMax
     };
 

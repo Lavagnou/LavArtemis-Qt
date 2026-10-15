@@ -81,6 +81,10 @@ void OverlayManager::setStatusMessage(StatusSource source, const std::string& te
             if (!combined.empty() && !client.empty()) combined += "\n\n";
             combined += client;
         }
+        // Shown whatever else is: a muted microphone must never go unnoticed
+        const auto& microphone = m_StatusMessages[static_cast<int>(StatusSource::Microphone)];
+        if (!combined.empty() && !microphone.empty()) combined += "\n\n";
+        combined += microphone;
         auto& overlay = m_Overlays[OverlayStatusUpdate];
         if (combined == overlay.text && overlay.enabled == !combined.empty()) return;
         SDL_utf8strlcpy(overlay.text, combined.c_str(), sizeof(overlay.text));

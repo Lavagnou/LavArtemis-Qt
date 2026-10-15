@@ -157,6 +157,10 @@ void QuickMenuManager::executeAction(const QString &action)
         toggleKeyboardCapture();
     } else if (action == "toggle_fullscreen") {
         toggleFullscreen();
+    } else if (action == "toggle_microphone") {
+        if (Session::get()) {
+            Session::get()->toggleMicrophoneMute();
+        }
     }
 }
 

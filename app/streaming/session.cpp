@@ -13,6 +13,7 @@
 #include "backend/quickmenumanager.h"
 #include "backend/servercommandmanager.h"
 #include "backend/clipboardmanager.h"
+#include "settings/artemissettings.h"
 
 #include <Limelight.h>
 #include "SDL_compat.h"
@@ -699,7 +700,9 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
     m_DropAudioEndTime(0),
     m_QuickMenuManager(new QuickMenuManager()),
     m_ServerCommandManager(new ServerCommandManager()),
-    m_ClipboardManager(ClipboardManager::instance())
+    m_ClipboardManager(ClipboardManager::instance()),
+    m_MicRequested(false),
+    m_MicStreamer(nullptr)
 {
 }
 
@@ -1375,6 +1378,28 @@ bool Session::validateLaunch(SDL_Window* testWindow)
         emitLaunchWarning(tr("Your settings selection to force software decoding may cause poor streaming performance."));
     }
 
+    // The host says per client whether its microphone would be heard. Only ask when it would,
+    // and otherwise say what to fix: a microphone that silently goes nowhere is the worst case.
+    m_MicRequested = false;
+    if (ArtemisSettings::instance()->micPassthroughEnabled()) {
+        const QString& micState = m_Computer->micPassthroughState;
+        if (micState == "ready") {
+            m_MicRequested = true;
+        }
+        else if (micState == "disabled") {
+            emitLaunchWarning(tr("Your microphone won't be sent: microphone passthrough is turned off on the host (LavApollo, Audio/Video settings)."));
+        }
+        else if (micState == "no_permission") {
+            emitLaunchWarning(tr("Your microphone won't be sent: the host hasn't given this device the Microphone permission (LavApollo, Clients)."));
+        }
+        else if (micState == "no_device") {
+            emitLaunchWarning(tr("Your microphone won't be sent: the host has no virtual microphone. Installing Steam on the host provides one, or pick another in LavApollo's Audio/Video settings."));
+        }
+        else {
+            emitLaunchWarning(tr("Your microphone won't be sent: this host doesn't support microphone passthrough. It needs LavApollo 2.2 or later."));
+        }
+    }
+
     if (m_SupportedVideoFormats & VIDEO_FORMAT_MASK_PYROWAVE) {
         if (!(m_Computer->serverCodecModeSupport & SCM_PYROWAVE)) {
             emitLaunchWarning(tr("Your host PC doesn't support PyroWave. Using H.264 instead."));
@@ -1737,6 +1762,11 @@ private:
         // try to interact with APIs that can only be called between
         // LiStartConnection() and LiStopConnection().
         SDL_assert(m_Session->m_VideoDecoder == nullptr);
+
+        // The microphone sends through the connection: stop it first
+        delete m_Session->m_MicStreamer;
+        m_Session->m_MicStreamer = nullptr;
+        m_Session->m_OverlayManager.setStatusMessage(Overlay::StatusSource::Microphone, "");
 
         // Finish cleanup of the connection state
         LiStopConnection();
@@ -2145,7 +2175,8 @@ bool Session::startConnectionAsync()
                       !m_Preferences->multiController,
                       m_PresentationSettings.enableVrr,
                       rtspSessionUrl,
-                      m_MultiDisplayActive ? m_DisplayLayout.toLaunchArgument() : QString());
+                      m_MultiDisplayActive ? m_DisplayLayout.toLaunchArgument() : QString(),
+                      m_MicRequested);
     } catch (const GfeHttpResponseException& e) {
         emit displayLaunchError(tr("Host returned error: %1").arg(e.toQString()));
         return false;
@@ -2262,8 +2293,32 @@ bool Session::startConnectionAsync()
         return false;
     }
 
+    if (m_MicRequested) {
+        m_MicStreamer = new MicStreamer();
+        if (!m_MicStreamer->start(ArtemisSettings::instance()->micDeviceName())) {
+            // The stream itself is fine: carry on without the microphone
+            delete m_MicStreamer;
+            m_MicStreamer = nullptr;
+        }
+    }
+
     emit connectionStarted();
     return true;
+}
+
+void Session::toggleMicrophoneMute()
+{
+    if (m_MicStreamer == nullptr) {
+        return;
+    }
+
+    bool muted = !m_MicStreamer->isMuted();
+    m_MicStreamer->setMuted(muted);
+
+    // Stays on screen for as long as it's muted, like a voice app's mute indicator: forgetting
+    // you're muted is the classic voice chat mistake.
+    m_OverlayManager.setStatusMessage(Overlay::StatusSource::Microphone,
+                                      muted ? tr("Microphone muted").toStdString() : std::string());
 }
 
 void Session::flushWindowEvents()

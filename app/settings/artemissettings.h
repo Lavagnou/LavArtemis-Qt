@@ -50,6 +50,10 @@ class ArtemisSettings : public QObject
     Q_PROPERTY(bool perfCsvLoggingEnabled READ perfCsvLoggingEnabled WRITE setPerfCsvLoggingEnabled NOTIFY perfCsvLoggingEnabledChanged)
     Q_PROPERTY(int maxPendingAudioMs READ maxPendingAudioMs WRITE setMaxPendingAudioMs NOTIFY maxPendingAudioMsChanged)
 
+    // Microphone passthrough (LavApollo plays it into a virtual microphone on the host)
+    Q_PROPERTY(bool micPassthroughEnabled READ micPassthroughEnabled WRITE setMicPassthroughEnabled NOTIFY micPassthroughEnabledChanged)
+    Q_PROPERTY(QString micDeviceName READ micDeviceName WRITE setMicDeviceName NOTIFY micDeviceNameChanged)
+
     // Input
     Q_PROPERTY(bool genericGamepadFallbackEnabled READ genericGamepadFallbackEnabled WRITE setGenericGamepadFallbackEnabled NOTIFY genericGamepadFallbackEnabledChanged)
 
@@ -126,6 +130,15 @@ public:
     int maxPendingAudioMs() const { return m_maxPendingAudioMs; }
     void setMaxPendingAudioMs(int ms);
 
+    // Microphone passthrough getters/setters
+    bool micPassthroughEnabled() const { return m_micPassthroughEnabled; }
+    void setMicPassthroughEnabled(bool enabled);
+    QString micDeviceName() const { return m_micDeviceName; }
+    void setMicDeviceName(const QString &name);
+
+    // Recording devices SDL can open, for the microphone picker. Empty name = system default.
+    Q_INVOKABLE QStringList microphoneDevices() const;
+
     // Input getters/setters
     bool genericGamepadFallbackEnabled() const { return m_genericGamepadFallbackEnabled; }
     void setGenericGamepadFallbackEnabled(bool enabled);
@@ -170,6 +183,10 @@ signals:
     // LavArtemis hot path signals
     void perfCsvLoggingEnabledChanged();
     void maxPendingAudioMsChanged();
+
+    // Microphone passthrough signals
+    void micPassthroughEnabledChanged();
+    void micDeviceNameChanged();
 
     // Input signals
     void genericGamepadFallbackEnabledChanged();
@@ -223,6 +240,10 @@ private:
 
     // Input
     bool m_genericGamepadFallbackEnabled;
+
+    // Microphone passthrough
+    bool m_micPassthroughEnabled;
+    QString m_micDeviceName;
 
     // Software update
     bool m_autoUpdateEnabled;

@@ -183,7 +183,8 @@ public:
              bool persistGameControllersOnDisconnect,
              bool clientVrrRequested,
              QString& rtspSessionUrl,
-             QString displayLayout = QString());
+             QString displayLayout = QString(),
+             bool clientMicRequested = false);
 
     QVector<NvApp>
     getAppList();

@@ -182,6 +182,13 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
     m_SpecialKeyCombos[KeyComboPanDown].scanCode = SDL_SCANCODE_DOWN;
     m_SpecialKeyCombos[KeyComboPanDown].enabled = true;
 
+    // Mutes the microphone sent to the host (microphone passthrough). M is taken by the
+    // mouse mode, so U, as in "unmute".
+    m_SpecialKeyCombos[KeyComboToggleMicrophone].keyCombo = KeyComboToggleMicrophone;
+    m_SpecialKeyCombos[KeyComboToggleMicrophone].keyCode = SDLK_u;
+    m_SpecialKeyCombos[KeyComboToggleMicrophone].scanCode = SDL_SCANCODE_U;
+    m_SpecialKeyCombos[KeyComboToggleMicrophone].enabled = true;
+
     m_OldIgnoreDevices = SDL_GetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES);
     m_OldIgnoreDevicesExcept = SDL_GetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT);
 

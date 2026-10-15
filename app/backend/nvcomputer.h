@@ -121,6 +121,10 @@ public:
     // A host that predates the feature simply ignores the request and makes one display
     // the size of the layout, so this only decides whether the user is warned.
     bool isMultiDisplayCapable;
+
+    // LavApollo's verdict on this client's microphone: "ready", "disabled", "no_permission",
+    // "no_device", or empty for a host without microphone passthrough.
+    QString micPassthroughState;
     QStringList serverCommands;
     quint32 serverPermissions;
     // Remember to update isEqualSerialized() when adding fields here!

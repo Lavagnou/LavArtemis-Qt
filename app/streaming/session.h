@@ -9,6 +9,7 @@
 #include "input/input.h"
 #include "video/decoder.h"
 #include "audio/renderers/renderer.h"
+#include "audio/micstreamer.h"
 #include "video/overlaymanager.h"
 #include "displaylayout.h"
 #include "diagnostics/diagnosticcapture.h"
@@ -134,6 +135,12 @@ public:
     {
         return m_OverlayManager;
     }
+
+    // Microphone passthrough: whether this PC's microphone is being sent, and muting it.
+    // Main thread only.
+    bool isMicrophoneActive() const { return m_MicStreamer != nullptr; }
+    bool isMicrophoneMuted() const { return m_MicStreamer != nullptr && m_MicStreamer->isMuted(); }
+    void toggleMicrophoneMute();
 
     bool clientPacingWarningsEnabled() const { return m_Preferences->connectionWarnings; }
     bool hevcPacingAlternative() const { return m_HevcPacingAlternative; }
@@ -345,6 +352,11 @@ private:
     QuickMenuManager* m_QuickMenuManager;
     ServerCommandManager* m_ServerCommandManager;
     ClipboardManager* m_ClipboardManager;
+
+    // Microphone passthrough: requested when the setting is on and the host said "ready";
+    // the streamer lives from a successful LiStartConnection() to just before LiStopConnection().
+    bool m_MicRequested;
+    MicStreamer* m_MicStreamer;
 
     static CONNECTION_LISTENER_CALLBACKS k_ConnCallbacks;
     static Session* s_ActiveSession;
