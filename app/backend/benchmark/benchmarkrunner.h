@@ -11,9 +11,10 @@
 #include <functional>
 #include <memory>
 
+#include "streaming/session.h"
+
 class ComputerManager;
 class NvComputer;
-class Session;
 class StreamingPreferences;
 
 // Streams LavApollo's Benchmark scene once per configuration the planner picks,
