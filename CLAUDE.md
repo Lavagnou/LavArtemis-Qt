@@ -397,6 +397,54 @@ Réglage **LavArtemis Features → Microphone**, désactivé par défaut, avec l
 - ⚠️ **Pas d'annulation d'écho** côté SDL : avec des haut-parleurs, le son du jeu repart vers l'hôte.
   Le texte du réglage recommande un casque.
 
+## 📊 Benchmark des réglages
+
+Clic droit sur un hôte → **Benchmark Testing** (`gui/BenchmarkView.qml`) : le client streame plusieurs fois
+la scène animée de l'app cachée « Benchmark » de LavApollo, une combinaison codec / débit / pacing par
+run, et note chaque run (latence, fluidité) face aux réglages de l'utilisateur. Spécification commune aux
+deux clients (planification, mesures, formules, JSON) : `LavApollo/docs/benchmark.md`.
+
+| Pièce | Où |
+|---|---|
+| Logique pure (planificateur Rapide / Complet / Adaptatif, scores, rapport JSON + historique) | `backend/benchmark/benchmark{types,planner,scoring,report}.*`, `presenthistogram.h`, testés par `tests/benchmark` |
+| Chef d'orchestre (sessions, mesure, rapport, appliquer) | `backend/benchmark/benchmarkrunner.{h,cpp}`, singleton QML `BenchmarkRunner` |
+| Stats d'une session | `IVideoDecoder::getSessionStats()` (publié par `FFmpegVideoDecoder::publishBenchmarkStats()` à chaque fenêtre d'1 s), `Session::benchmarkSnapshot()` |
+| Calendrier d'un run | `Session::setBenchmarkMode()` / `benchmarkTick()` |
+| Histogramme des présentations | `PresentHistogram` dans `PacingStats` (`histogram()`), alimenté par les deux chemins (classique et VRR) |
+| Réglages d'un run | `StreamingPreferences::createDetached()` |
+
+> ⚠️ **Le calendrier d'un run vit dans la boucle SDL de `Session::exec()`, pas dans un `QTimer`.** Pendant un
+> stream, la boucle d'événements Qt ne tourne pas : un timer du runner ne se déclencherait qu'à la fin.
+> `benchmarkTick()` est appelé à chaque tour (au moins une fois par seconde, le `SDL_WaitEventTimeout` expire),
+> prend les instantanés et pousse `SDL_QUIT` à la fin prévue.
+
+> ⚠️ **Un instantané porte sa propre horloge** (`RawStats::elapsedUs` = l'instant où le décodeur a publié sa
+> fenêtre) : deux instantanés se soustraient exactement, même pris en retard. Ne jamais dater un instantané
+> avec l'heure de la prise.
+
+> ⚠️ **Un décodeur recréé en cours de stream repart de zéro** (changement de fenêtre, reset du device) :
+> `Session::carryBenchmarkStats()` garde les compteurs de l'ancien avant le `delete`. Sans ça, une recréation
+> pendant un run donnerait des différences négatives, ramenées à 0.
+
+> ⚠️ **Les réglages d'un run sont détachés et jamais sauvegardés.** `createDetached()` copie les réglages
+> courants (profil actif compris), ne suit pas les changements de profil, et son `save()` ne fait rien. Le run
+> de référence (« Your settings ») et sa répétition streament les réglages de l'utilisateur sans y toucher.
+
+> ⚠️ **On note la config *effective*, pas la demandée** (`Session::effectiveBenchmarkConfig()`) : AV1 sans
+> décodeur retombe en HEVC, la VRR refusée par l'écran retombe sur le pacing fixe. Un run replié est marqué
+> `fallback` et le planificateur saute les suivants du même genre. Et le plan part de ce que la référence a
+> réellement streamé : en Auto, le codec n'est connu qu'après.
+
+- Le micro n'est jamais envoyé pendant un run (`setBenchmarkMode` → `m_MicRequested` reste faux), et
+  `StreamSegue` en `benchmarkMode` saute les toasts d'avertissement (3,5 s chacun) et la boîte d'erreur : les
+  erreurs vont dans le rapport.
+- Quitter un run (Ctrl+Alt+Shift+Q) avant sa fin arrête tout le benchmark ; une erreur de connexion ne
+  fait qu'échouer ce run.
+- L'app de l'hôte est quittée avant le premier run, entre deux runs dont la demande VRR diffère (l'écran à
+  1000 Hz n'existe qu'au `/launch`) et après le dernier.
+- Rapports dans `AppDataLocation/benchmarks/`, 50 au plus ; « Open a report file… » ouvre aussi ceux de
+  l'Android (même JSON). Les appliquer n'est possible que pour un rapport desktop (noms de pacing différents).
+
 ## ⚠️ Pièges / Gotchas
 
 1. **`ArtemisSettings` ne persiste pas tout seul.** Les setters n'écrivent pas ; `SettingsView.qml`

@@ -4,6 +4,7 @@
 #include "SDL_compat.h"
 #include "settings/streamingpreferences.h"
 #include "ffmpeg-renderers/pacer/vrr/readinesswindow.h"
+#include "backend/benchmark/benchmarktypes.h"
 
 #define SDL_CODE_FRAME_READY 0
 
@@ -145,4 +146,8 @@ public:
     virtual void renderFrameOnMainThread() = 0;
     virtual void setHdrMode(bool enabled) = 0;
     virtual bool notifyWindowChanged(PWINDOW_STATE_CHANGE_INFO info) = 0;
+
+    // Everything measured since this decoder started, as of its last stats window
+    // (about once a second); false before the first one. Any thread.
+    virtual bool getSessionStats(Benchmark::RawStats&) { return false; }
 };

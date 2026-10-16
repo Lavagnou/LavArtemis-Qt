@@ -24,6 +24,7 @@ void PacingStats::recordPresent(uint64_t presentTimeNs)
         uint64_t deltaNs = presentTimeNs - m_LastPresentNs;
         if (deltaNs < k_MaxPlausibleDeltaNs) {
             m_DeltasMs[m_WriteIndex] = deltaNs / 1000000.0f;
+            m_Histogram.record(deltaNs / 1000000.0);
             m_WriteIndex = (m_WriteIndex + 1) % k_WindowSize;
             if (m_Count < k_WindowSize) {
                 m_Count++;
@@ -32,6 +33,12 @@ void PacingStats::recordPresent(uint64_t presentTimeNs)
     }
 
     m_LastPresentNs = presentTimeNs;
+}
+
+PresentHistogram PacingStats::histogram()
+{
+    QMutexLocker locker(&m_Lock);
+    return m_Histogram;
 }
 
 PacingStats::Snapshot PacingStats::snapshot()

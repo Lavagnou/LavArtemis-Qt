@@ -60,6 +60,8 @@ NvComputer::NvComputer(QSettings& settings)
     this->serverCodecModeSupport = 0;
     this->isMultiDisplayCapable = false;
     this->micPassthroughState.clear();
+    this->benchmarkAppId = 0;
+    this->benchmarkAppUuid.clear();
     this->pendingQuit = false;
     this->gpuModel = nullptr;
     this->isSupportedServerVersion = true;
@@ -166,6 +168,10 @@ NvComputer::NvComputer(NvHTTP& http, QString serverInfo)
 
     // Computed by the host for this client (permission, host setting, virtual device)
     this->micPassthroughState = NvHTTP::getXmlString(serverInfo, "MicPassthroughState");
+
+    // The scene LavArtemis' benchmark streams, absent when the host does not offer it
+    this->benchmarkAppId = NvHTTP::getXmlString(serverInfo, "BenchmarkAppId").toInt();
+    this->benchmarkAppUuid = NvHTTP::getXmlString(serverInfo, "BenchmarkAppUuid");
 
     bool validLink = false;
     const auto hostLink = NvHTTP::getXmlString(serverInfo, "PyroWaveHostLinkMbps").toUInt(&validLink);
@@ -604,6 +610,8 @@ bool NvComputer::update(const NvComputer& that)
     // Both change on the host while we keep polling it (an update, a permission ticked)
     ASSIGN_IF_CHANGED(isMultiDisplayCapable);
     ASSIGN_IF_CHANGED(micPassthroughState);
+    ASSIGN_IF_CHANGED(benchmarkAppId);
+    ASSIGN_IF_CHANGED(benchmarkAppUuid);
     ASSIGN_IF_CHANGED(currentGameId);
     ASSIGN_IF_CHANGED(activeAddress);
     ASSIGN_IF_CHANGED(state);

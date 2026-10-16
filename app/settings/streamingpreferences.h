@@ -12,6 +12,11 @@ class StreamingPreferences : public QObject
 public:
     static StreamingPreferences* get(QQmlEngine *qmlEngine = nullptr);
 
+    // A private copy of the current settings (active profile included) that the
+    // caller may change freely: it never follows a profile switch and save() does
+    // nothing. The benchmark streams each run with one, leaving the user's untouched.
+    static StreamingPreferences* createDetached(QObject* parent = nullptr);
+
     Q_INVOKABLE static int
     getDefaultBitrate(int width, int height, int fps, bool yuv444);
 
@@ -326,7 +331,7 @@ signals:
     void useMultiDisplayChanged();
 
 private:
-    explicit StreamingPreferences(QQmlEngine *qmlEngine);
+    explicit StreamingPreferences(QQmlEngine *qmlEngine, bool detached = false);
 
     QString getSuffixFromLanguage(Language lang);
 
@@ -335,6 +340,7 @@ private:
     void notifyAllPropertiesChanged();
 
     QQmlEngine* m_QmlEngine;
+    bool m_Detached;
     bool m_ExportingDiagnostics = false;
     QString m_DiagnosticsStatus;
 };

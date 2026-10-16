@@ -220,6 +220,11 @@ SOURCES += \
     backend/serverpermissions.cpp \
     backend/quickmenumanager.cpp \
     backend/keymacromanager.cpp \
+    backend/benchmark/benchmarktypes.cpp \
+    backend/benchmark/benchmarkscoring.cpp \
+    backend/benchmark/benchmarkplanner.cpp \
+    backend/benchmark/benchmarkreport.cpp \
+    backend/benchmark/benchmarkrunner.cpp \
     backend/otppairingmanager.cpp \
     settings/artemissettings.cpp \
     settings/profilemanager.cpp \
@@ -280,6 +285,12 @@ HEADERS += \
     backend/serverpermissions.h \
     backend/quickmenumanager.h \
     backend/keymacromanager.h \
+    backend/benchmark/presenthistogram.h \
+    backend/benchmark/benchmarktypes.h \
+    backend/benchmark/benchmarkscoring.h \
+    backend/benchmark/benchmarkplanner.h \
+    backend/benchmark/benchmarkreport.h \
+    backend/benchmark/benchmarkrunner.h \
     backend/otppairingmanager.h \
     settings/artemissettings.h \
     settings/profilemanager.h

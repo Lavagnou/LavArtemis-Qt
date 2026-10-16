@@ -156,6 +156,30 @@ public:
 
     void setShouldExit(bool quitHostApp = false);
 
+    // Benchmark (backend/benchmark): a session that measures itself and ends on its own.
+    // It sends no microphone. From the first frame loop, it waits warmupSeconds, then
+    // snapshots its stats every windowSeconds until measureSeconds have passed, and quits.
+    // The schedule runs in exec()'s SDL loop: Qt timers do not fire while streaming.
+    // Call before initialize().
+    void setBenchmarkMode(int warmupSeconds, int measureSeconds, int windowSeconds, const QString& label);
+
+    // [0] is the end of the warm-up, the last one the end of the run.
+    const std::vector<Benchmark::RawStats>& benchmarkSnapshots() const { return m_BenchmarkSnapshots; }
+
+    // The run reached its planned end, rather than being quit or cut off.
+    bool benchmarkCompleted() const { return m_BenchmarkCompleted; }
+
+    // Everything measured since the stream started, as of the decoder's last stats
+    // window (about once a second): two snapshots subtract into the time between them.
+    // False before the first window. Main thread only.
+    bool benchmarkSnapshot(Benchmark::RawStats& stats);
+
+    // The codec, bitrate and pacing this stream really uses, after every fallback
+    // (AV1 without a decoder, VRR refused by the display...). Valid once connected.
+    Benchmark::RunConfig effectiveBenchmarkConfig() const;
+
+    int streamFps() const { return m_StreamConfig.fps; }
+
 signals:
     void stageStarting(QString stage);
 
@@ -357,6 +381,22 @@ private:
     // the streamer lives from a successful LiStartConnection() to just before LiStopConnection().
     bool m_MicRequested;
     MicStreamer* m_MicStreamer;
+
+    // Benchmark: what earlier decoders of this session measured. A decoder recreated
+    // mid-stream starts its stats from zero; this keeps the session's sums whole.
+    void carryBenchmarkStats();
+    void benchmarkTick();
+    bool m_BenchmarkMode;
+    Benchmark::RawStats m_BenchmarkCarry;
+    int m_BenchmarkWarmupMs = 0;
+    int m_BenchmarkMeasureMs = 0;
+    int m_BenchmarkWindowMs = 0;
+    QString m_BenchmarkLabel;
+    uint64_t m_BenchmarkStartMs = 0;
+    uint64_t m_BenchmarkLastOverlaySecond = UINT64_MAX;
+    bool m_BenchmarkStopped = false;
+    bool m_BenchmarkCompleted = false;
+    std::vector<Benchmark::RawStats> m_BenchmarkSnapshots;
 
     static CONNECTION_LISTENER_CALLBACKS k_ConnCallbacks;
     static Session* s_ActiveSession;

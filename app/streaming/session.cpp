@@ -702,7 +702,8 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
     m_ServerCommandManager(new ServerCommandManager()),
     m_ClipboardManager(ClipboardManager::instance()),
     m_MicRequested(false),
-    m_MicStreamer(nullptr)
+    m_MicStreamer(nullptr),
+    m_BenchmarkMode(false)
 {
 }
 
@@ -724,6 +725,118 @@ Session::~Session()
     m_ClipboardManager = nullptr;
 
     SDL_DestroyMutex(m_DecoderLock);
+}
+
+void Session::setBenchmarkMode(int warmupSeconds, int measureSeconds, int windowSeconds, const QString& label)
+{
+    m_BenchmarkMode = true;
+    m_BenchmarkWarmupMs = warmupSeconds * 1000;
+    m_BenchmarkMeasureMs = measureSeconds * 1000;
+    m_BenchmarkWindowMs = windowSeconds * 1000;
+    m_BenchmarkLabel = label;
+}
+
+void Session::benchmarkTick()
+{
+    if (!m_BenchmarkMode || m_BenchmarkStopped) {
+        return;
+    }
+
+    const uint64_t now = SDL_GetTicks64();
+    if (m_BenchmarkStartMs == 0) {
+        m_BenchmarkStartMs = now;
+    }
+    const uint64_t elapsed = now - m_BenchmarkStartMs;
+    const uint64_t endMs = static_cast<uint64_t>(m_BenchmarkWarmupMs + m_BenchmarkMeasureMs);
+    const size_t windows = static_cast<size_t>(m_BenchmarkMeasureMs / m_BenchmarkWindowMs);
+
+    // Snapshot at the end of the warm-up, then at each window boundary. A snapshot is the
+    // decoder's last stats window, with its own clock, so a late one is still exact.
+    const uint64_t due = static_cast<uint64_t>(m_BenchmarkWarmupMs) + m_BenchmarkSnapshots.size() * m_BenchmarkWindowMs;
+    if (elapsed >= due) {
+        Benchmark::RawStats stats;
+        if (benchmarkSnapshot(stats) &&
+                (m_BenchmarkSnapshots.empty() || stats.elapsedUs > m_BenchmarkSnapshots.back().elapsedUs)) {
+            m_BenchmarkSnapshots.push_back(stats);
+        }
+    }
+
+    // Done once every window is in, or given up 10 s past the end if frames stopped coming
+    if (m_BenchmarkSnapshots.size() > windows || elapsed > endMs + 10000) {
+        m_BenchmarkStopped = true;
+        m_BenchmarkCompleted = m_BenchmarkSnapshots.size() > windows;
+        m_OverlayManager.setStatusMessage(Overlay::StatusSource::Benchmark, "");
+        SDL_Event event;
+        event.type = SDL_QUIT;
+        event.quit.timestamp = SDL_GetTicks();
+        SDL_PushEvent(&event);
+        return;
+    }
+
+    const uint64_t second = elapsed / 1000;
+    if (second != m_BenchmarkLastOverlaySecond) {
+        m_BenchmarkLastOverlaySecond = second;
+        const QString phase = elapsed < static_cast<uint64_t>(m_BenchmarkWarmupMs)
+            ? tr("warming up")
+            : tr("%n s left", "", static_cast<int>((endMs - std::min(elapsed, endMs) + 999) / 1000));
+        m_OverlayManager.setStatusMessage(Overlay::StatusSource::Benchmark,
+                                          tr("Benchmark: %1 (%2)").arg(m_BenchmarkLabel, phase).toStdString());
+    }
+}
+
+void Session::carryBenchmarkStats()
+{
+    Benchmark::RawStats stats;
+    if (m_VideoDecoder != nullptr && m_VideoDecoder->getSessionStats(stats)) {
+        // Counters only: elapsedUs is a clock, which the next decoder keeps reading
+        stats.elapsedUs = 0;
+        m_BenchmarkCarry += stats;
+    }
+}
+
+bool Session::benchmarkSnapshot(Benchmark::RawStats& stats)
+{
+    SDL_LockMutex(m_DecoderLock);
+    bool valid = m_VideoDecoder != nullptr && m_VideoDecoder->getSessionStats(stats);
+    SDL_UnlockMutex(m_DecoderLock);
+    if (valid) {
+        const double clock = stats.elapsedUs;
+        stats += m_BenchmarkCarry;
+        stats.elapsedUs = clock;
+    }
+    return valid;
+}
+
+Benchmark::RunConfig Session::effectiveBenchmarkConfig() const
+{
+    Benchmark::RunConfig config;
+    if (m_ActiveVideoFormat & VIDEO_FORMAT_MASK_PYROWAVE) {
+        config.codec = Benchmark::Codec::PyroWave;
+    }
+    else if (m_ActiveVideoFormat & VIDEO_FORMAT_MASK_AV1) {
+        config.codec = Benchmark::Codec::AV1;
+    }
+    else if (m_ActiveVideoFormat & VIDEO_FORMAT_MASK_H265) {
+        config.codec = Benchmark::Codec::HEVC;
+    }
+    else {
+        config.codec = Benchmark::Codec::H264;
+    }
+    config.bitrateKbps = m_StreamConfig.bitrate;
+
+    // Names from docs/benchmark.md; VRR modes follow StreamingPreferences::VrrLatencyMode
+    static const char* const vrrModes[] = { "vrr-smooth", "vrr-balanced", "vrr-low-latency" };
+    const auto& p = m_PresentationSettings;
+    if (p.enableVrr) {
+        config.pacing = vrrModes[qBound(0, p.vrrLatencyMode, 2)];
+    }
+    else if (!p.effectiveVsync) {
+        config.pacing = "vsync-off";
+    }
+    else {
+        config.pacing = p.enableFramePacing ? "vsync-paced" : "vsync";
+    }
+    return config;
 }
 
 void Session::snapshotPresentationSettings(SDL_Window* window)
@@ -1381,7 +1494,7 @@ bool Session::validateLaunch(SDL_Window* testWindow)
     // The host says per client whether its microphone would be heard. Only ask when it would,
     // and otherwise say what to fix: a microphone that silently goes nowhere is the worst case.
     m_MicRequested = false;
-    if (ArtemisSettings::instance()->micPassthroughEnabled()) {
+    if (ArtemisSettings::instance()->micPassthroughEnabled() && !m_BenchmarkMode) {
         const QString& micState = m_Computer->micPassthroughState;
         if (micState == "ready") {
             m_MicRequested = true;
@@ -2649,6 +2762,9 @@ void Session::exec()
     };
 
     for (;;) {
+        // Runs at least once a second (the wait below times out): measures and ends a benchmark run
+        benchmarkTick();
+
 #if SDL_VERSION_ATLEAST(2, 0, 18) && !defined(STEAM_LINK)
         // SDL 2.0.18 has a proper wait event implementation that uses platform
         // support to block on events rather than polling on Windows, macOS, X11,
@@ -2914,7 +3030,8 @@ void Session::exec()
 
             SDL_LockMutex(m_DecoderLock);
 
-            // Destroy the old decoder
+            // Destroy the old decoder, keeping what it measured
+            carryBenchmarkStats();
             delete m_VideoDecoder;
 
             // Insert a barrier to discard any additional window events

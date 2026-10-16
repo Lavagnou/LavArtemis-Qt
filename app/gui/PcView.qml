@@ -235,6 +235,15 @@ CenteredGridView {
                     visible: model.online && !model.paired
                 }
                 NavigableMenuItem {
+                    text: qsTr("Benchmark Testing")
+                    onTriggered: {
+                        var component = Qt.createComponent("BenchmarkView.qml")
+                        var page = component.createObject(stackView, {"hostUuid": model.uuid, "hostName": model.name})
+                        stackView.push(page)
+                    }
+                    visible: model.online && model.paired
+                }
+                NavigableMenuItem {
                     text: qsTr("Test Network")
                     onTriggered: {
                         computerModel.testConnectionForComputer(index)

@@ -39,6 +39,7 @@ public:
     virtual void renderFrameOnMainThread() override;
     virtual void setHdrMode(bool enabled) override;
     virtual bool notifyWindowChanged(PWINDOW_STATE_CHANGE_INFO info) override;
+    virtual bool getSessionStats(Benchmark::RawStats& stats) override;
 
     virtual IFFmpegRenderer* getBackendRenderer();
 
@@ -149,6 +150,16 @@ private:
     VIDEO_STATS m_ActiveWndVideoStats;
     VIDEO_STATS m_LastWndVideoStats;
     VIDEO_STATS m_GlobalVideoStats;
+
+    // Benchmark (LavArtemis): m_GlobalVideoStats as of the last stats window, published
+    // by the decode thread for the main thread to read
+    void publishBenchmarkStats();
+    QMutex m_BenchmarkLock;
+    Benchmark::RawStats m_BenchmarkStats;
+    bool m_BenchmarkPublished = false;
+    double m_BenchmarkRttSumMs = 0;
+    double m_BenchmarkRttVarianceSumMs = 0;
+    uint32_t m_BenchmarkRttSamples = 0;
     PacerTelemetrySnapshot m_LastPacerTelemetry;
     ClientPacingWarning m_ClientPacingWarning;
     int m_VrrLatencyMode = 0;

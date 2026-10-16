@@ -25,5 +25,6 @@
         <file>gui/ServerCommands.qml</file>
         <file>gui/QuickMenu.qml</file>
         <file>gui/Toast.qml</file>
+        <file>gui/BenchmarkView.qml</file>
     </qresource>
 </RCC>

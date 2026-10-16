@@ -1691,6 +1691,53 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
     }
 }
 
+void FFmpegVideoDecoder::publishBenchmarkStats()
+{
+    // One RTT sample per window: the estimate moves slowly, and a run averages them
+    uint32_t rtt, rttVariance;
+    if (LiGetEstimatedRttInfo(&rtt, &rttVariance)) {
+        m_BenchmarkRttSumMs += rtt;
+        m_BenchmarkRttVarianceSumMs += rttVariance;
+        m_BenchmarkRttSamples++;
+    }
+
+    const VIDEO_STATS& g = m_GlobalVideoStats;
+    Benchmark::RawStats stats;
+    stats.elapsedUs = static_cast<double>(LiGetMicroseconds());   // a clock: runs subtract two of them
+    stats.framesTotal = g.totalFrames;
+    stats.framesNetworkLost = g.networkDroppedFrames;
+    stats.framesReceived = g.receivedFrames;
+    stats.framesDecoded = g.decodedFrames;
+    stats.framesRendered = g.renderedFrames;
+    stats.framesPacerDropped = g.pacerDroppedFrames;
+    stats.hostLatencySum = g.totalHostProcessingLatency;
+    stats.hostLatencyFrames = g.framesWithHostProcessingLatency;
+    stats.receiveSumUs = g.totalReassemblyTimeUs;
+    stats.decodeSumUs = g.totalDecodeTimeUs;
+    stats.queueSumUs = g.totalQueuePacingTimeUs;
+    stats.renderSumUs = g.totalRenderingTimeUs;
+    stats.rttSumMs = m_BenchmarkRttSumMs;
+    stats.rttVarianceSumMs = m_BenchmarkRttVarianceSumMs;
+    stats.rttSamples = m_BenchmarkRttSamples;
+    if (m_Pacer != nullptr) {
+        stats.presents = m_Pacer->getPresentHistogram();
+    }
+
+    QMutexLocker locker(&m_BenchmarkLock);
+    m_BenchmarkStats = stats;
+    m_BenchmarkPublished = true;
+}
+
+bool FFmpegVideoDecoder::getSessionStats(Benchmark::RawStats& stats)
+{
+    QMutexLocker locker(&m_BenchmarkLock);
+    if (!m_BenchmarkPublished) {
+        return false;
+    }
+    stats = m_BenchmarkStats;
+    return true;
+}
+
 void FFmpegVideoDecoder::writePerfCsvRow(VIDEO_STATS& stats)
 {
     if (!ArtemisSettings::instance()->perfCsvLoggingEnabled() || m_PerfCsvFailed) {
@@ -3172,6 +3219,7 @@ int FFmpegVideoDecoder::submitDecodeUnit(PDECODE_UNIT du)
 
         // Accumulate these values into the global stats
         addVideoStats(m_ActiveWndVideoStats, m_GlobalVideoStats);
+        publishBenchmarkStats();
 
         // Move this window into the last window slot and clear it for next window
         SDL_memcpy(&m_LastWndVideoStats, &m_ActiveWndVideoStats, sizeof(m_ActiveWndVideoStats));

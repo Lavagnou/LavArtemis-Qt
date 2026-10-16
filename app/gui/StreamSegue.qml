@@ -2,6 +2,7 @@ import QtQuick 2.0
 import QtQuick.Controls 2.2
 import QtQuick.Window 2.2
 
+import BenchmarkRunner 1.0
 import SdlGamepadKeyNavigation 1.0
 import Session 1.0
 import SystemProperties 1.0
@@ -13,6 +14,9 @@ Item {
                                            qsTr("Starting %1...").arg(appName)
     property bool isResume : false
     property bool quitAfter : false
+    // A benchmark run (BenchmarkView): no warning toasts to wait for, and errors go to
+    // the benchmark's report rather than a dialog in the middle of the sequence
+    property bool benchmarkMode : false
 
     function stageStarting(stage)
     {
@@ -85,7 +89,7 @@ Item {
             // the Qt UI is visible again to prevent losing
             // focus on the dialog which would impact gamepad
             // users.
-            if (streamSegueErrorDialog.text) {
+            if (streamSegueErrorDialog.text && !benchmarkMode) {
                 streamSegueErrorDialog.quitAfter = quitAfter
                 streamSegueErrorDialog.open()
             }
@@ -173,6 +177,9 @@ Item {
 
             // Initialize the session and probe for host/client capabilities
             if (!session.initialize(window)) {
+                if (benchmarkMode) {
+                    BenchmarkRunner.abortRun(streamSegueErrorDialog.text)
+                }
                 sessionFinished(0);
                 sessionReadyForDeletion();
                 return;
@@ -183,7 +190,7 @@ Item {
 
             // Display the toasts together in a vertical centered arrangement
             var yOffset = 0
-            for (var i = 0; i < session.launchWarnings.length; i++) {
+            for (var i = 0; i < session.launchWarnings.length && !benchmarkMode; i++) {
                 var text = session.launchWarnings[i]
                 console.warn(text)
 

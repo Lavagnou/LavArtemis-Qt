@@ -75,6 +75,12 @@ public:
         return m_PacingStats.snapshot();
     }
 
+    // Every present-to-present interval of this pacer's life, for the benchmark.
+    PresentHistogram getPresentHistogram()
+    {
+        return m_PacingStats.histogram();
+    }
+
 private:
     static int vsyncThread(void* context);
 

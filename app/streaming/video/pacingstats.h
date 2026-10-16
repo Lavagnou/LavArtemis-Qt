@@ -4,6 +4,8 @@
 
 #include <stdint.h>
 
+#include "backend/benchmark/presenthistogram.h"
+
 // Rolling window of present-to-present intervals, exposing p50/p95/p99.
 //
 // Ported from LavArtemis for Android (binding/video/PacingStats.java). The
@@ -29,6 +31,10 @@ public:
 
     Snapshot snapshot();
 
+    // Every interval since this object was created, for the benchmark. Unlike the
+    // window, reset() leaves it alone: a run subtracts two copies of it.
+    PresentHistogram histogram();
+
     void reset();
 
 private:
@@ -43,4 +49,5 @@ private:
     int m_WriteIndex;
     int m_Count;
     uint64_t m_LastPresentNs;
+    PresentHistogram m_Histogram;
 };

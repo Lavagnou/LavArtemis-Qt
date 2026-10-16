@@ -85,10 +85,15 @@ static StreamingPreferences* s_GlobalPrefs;
 
 Q_GLOBAL_STATIC(QReadWriteLock, s_GlobalPrefsLock)
 
-StreamingPreferences::StreamingPreferences(QQmlEngine *qmlEngine)
-    : m_QmlEngine(qmlEngine)
+StreamingPreferences::StreamingPreferences(QQmlEngine *qmlEngine, bool detached)
+    : m_QmlEngine(qmlEngine),
+      m_Detached(detached)
 {
     reload();
+
+    if (m_Detached) {
+        return;
+    }
 
     // Selecting a different profile changes what every key resolves to, so pull
     // the new values in and let anything bound in QML know.
@@ -134,6 +139,13 @@ StreamingPreferences* StreamingPreferences::get(QQmlEngine *qmlEngine)
 
         return s_GlobalPrefs;
     }
+}
+
+StreamingPreferences* StreamingPreferences::createDetached(QObject* parent)
+{
+    auto prefs = new StreamingPreferences(nullptr, true);
+    prefs->setParent(parent);
+    return prefs;
 }
 
 void StreamingPreferences::reload()
@@ -376,6 +388,11 @@ QString StreamingPreferences::getSuffixFromLanguage(StreamingPreferences::Langua
 
 void StreamingPreferences::save()
 {
+    // A detached copy is somebody's experiment, never the user's settings
+    if (m_Detached) {
+        return;
+    }
+
     ProfileManager* prefs = ProfileManager::instance();
 
     prefs->setValue(SER_WIDTH, width);

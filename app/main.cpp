@@ -62,6 +62,7 @@
 #include "backend/keymacromanager.h"
 #include "settings/artemissettings.h"
 #include "streaming/video/pyrowave/pyrowavecalibrator.h"
+#include "backend/benchmark/benchmarkrunner.h"
 #include "backend/networkbuffers.h"
 #include "settings/profilemanager.h"
 
@@ -1010,6 +1011,11 @@ int main(int argc, char *argv[])
                                                   [](QQmlEngine*, QJSEngine*) -> QObject* {
                                                       return new PyroWaveCalibrator();
                                                   });
+    qmlRegisterSingletonType<BenchmarkRunner>("BenchmarkRunner", 1, 0,
+                                               "BenchmarkRunner",
+                                               [](QQmlEngine*, QJSEngine*) -> QObject* {
+                                                   return new BenchmarkRunner();
+                                               });
     qmlRegisterSingletonType<NetworkBuffers>("NetworkBuffers", 1, 0,
                                              "NetworkBuffers",
                                              [](QQmlEngine*, QJSEngine*) -> QObject* {
