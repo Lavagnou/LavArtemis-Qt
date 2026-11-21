@@ -354,7 +354,7 @@ est présentée **à l'instant que vise sa timestamp RTP** (slot source + délai
 | Demande à l'hôte | `&clientVrrRequested=1` sur `/launch` (`NvHTTP::startApp`) → LavApollo crée l'écran virtuel à 1000 Hz |
 | PyroWave | `holdPyroWaveDecodeForPresent()` retient un décodage qui chevaucherait le Present, et l'échéance de réassemblage passe par `VrrReceiveDeadline` (`LiSetVideoReassemblyDeadlineCallback`) |
 | Diagnostics | `diagnostics/` (traces par stream dans `vrr-diagnostics` sur le Bureau, export ZIP), groupe « VRR diagnostics » des réglages |
-| Tests | `tests/` (opt-in : `qmake tests/tests.pro CONFIG+=tests`), 12 suites portées ; `tst_overlay` se lance avec `app/` en argument (police ModeSeven) |
+| Tests | `tests/` (opt-in : `qmake tests/tests.pro CONFIG+=tests`), 14 suites portées dans `tests/vrr` (+ `compositionprobe` sous Windows), plus `tests/benchmark` ; `tst_overlay` se lance avec `app/` en argument (police ModeSeven) |
 
 > ⚠️ **Le pacer VRR alimente aussi `PacingStats`** (`VrrPacingWorker`, paramètre `pacingStats`) : sans
 > ça, l'overlay et le CSV de perf ne décriraient que le chemin classique et une session VRR paraîtrait
@@ -506,9 +506,11 @@ d'elle-même si le pointeur est en retard.
 ## 🔗 Cœur natif partagé
 
 `moonlight-common-c/moonlight-common-c` → [`Lavagnou/moonlight-common-c`](https://github.com/Lavagnou/moonlight-common-c),
-branche `lavartemis` = `moonlight-stream/master` + `84af637` (`LiSendExecServerCmd`, extension
-Apollo) + `c999436` (`LiSendEmptyPayload`) + les 7 commits PyroWave de Nonary (négociation, frames
-partielles, délai de réassemblage) + l'ID de bitstream v1.
+branche `lavartemis` @ `fc72797` = `moonlight-stream/master` + `ebb15ef` (`LiSendExecServerCmd`,
+extension Apollo) + `0da9626` (`LiSendEmptyPayload`) + les 7 commits PyroWave de Nonary (négociation,
+frames partielles, délai de réassemblage) + l'ID de bitstream v1 (`63c75f1`) + `LiSendMicrophoneData`
+(`fc72797`, passthrough du micro). Les hashes `84af637` / `c999436` sont ceux de la branche `master`
+du fork, pas des ancêtres de `lavartemis`.
 
 **Le client Android pointe le même commit.** `LiSendEmptyPayload` est du code mort ici ; il est sur
 la branche pour que l'Android puisse la partager. Voir `CLAUDE.md` côté LavArtemis pour ce qu'un
