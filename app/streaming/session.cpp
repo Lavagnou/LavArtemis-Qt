@@ -2,6 +2,8 @@
 #include <QSysInfo>
 #include <QDir>
 #include "session.h"
+
+#include <QThreadPool>
 #include "backend/networkbuffers.h"
 #include "settings/streamingpreferences.h"
 #include "settings/mappingmanager.h"
@@ -736,6 +738,94 @@ void Session::setBenchmarkMode(int warmupSeconds, int measureSeconds, int window
     m_BenchmarkLabel = label;
 }
 
+bool Session::isRestartRequested() const
+{
+    return m_RestartRequested;
+}
+
+Session* Session::createRestartSession()
+{
+    return new Session(m_Computer, m_App, m_Preferences);
+}
+
+// Polls the host display's mode every 2.5 s on a worker (Qt timers don't run while we stream; this
+// runs from the SDL loop like benchmarkTick) and, on a confirmed change, ends the stream so that
+// StreamSegue reconnects at the new mode. The protocol fixes the stream size at connection time.
+void Session::hostDisplayWatchTick()
+{
+    if (!m_HostDisplayWatchEnabled || m_RestartRequested) {
+        return;
+    }
+
+    if (!m_HostDisplayWatch) {
+        m_HostDisplayWatch.reset(new HostDisplayWatch(m_HostDisplaySettingW, m_HostDisplaySettingH,
+                                                      m_HostDisplaySettingFps,
+                                                      m_StreamConfig.width, m_StreamConfig.height,
+                                                      m_Preferences->enableFractionalRefreshRate
+                                                          ? (m_StreamConfig.fps + 500) / 1000
+                                                          : m_StreamConfig.fps));
+        m_HostDisplayLastPollMs = SDL_GetTicks64();
+    }
+
+    {
+        std::lock_guard<std::mutex> guard(m_HostDisplayPollLock);
+        if (m_HostDisplayPollReady) {
+            m_HostDisplayPollReady = false;
+            auto target = m_HostDisplayWatch->onPoll(m_HostDisplayPollKnown, m_HostDisplayPollW,
+                                                     m_HostDisplayPollH, m_HostDisplayPollRefresh);
+            if (target) {
+                SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                            "Host display changed: reconnecting at %dx%d@%d",
+                            target->width, target->height, target->fps);
+                // The restarted session reads these before the computer is polled again
+                {
+                    QWriteLocker lock(&m_Computer->lock);
+                    m_Computer->currentDisplayWidth = m_HostDisplayPollW;
+                    m_Computer->currentDisplayHeight = m_HostDisplayPollH;
+                    m_Computer->currentDisplayRefreshRate = m_HostDisplayPollRefresh;
+                }
+                m_RestartRequested = true;
+                SDL_Event event;
+                event.type = SDL_QUIT;
+                event.quit.timestamp = SDL_GetTicks();
+                SDL_PushEvent(&event);
+                return;
+            }
+        }
+    }
+
+    const uint64_t now = SDL_GetTicks64();
+    if (now - m_HostDisplayLastPollMs < 2500 || m_HostDisplayPollInFlight.exchange(true)) {
+        return;
+    }
+    m_HostDisplayLastPollMs = now;
+
+    NvComputer* computer = m_Computer;
+    QThreadPool::globalInstance()->start([this, computer]() {
+        bool known = false;
+        int w = 0, h = 0, refresh = 0;
+        try {
+            NvHTTP http(computer);
+            QString serverInfo = http.getServerInfo(NvHTTP::NvLogLevel::NVLL_NONE, true);
+            w = NvHTTP::getXmlString(serverInfo, "CurrentDisplayWidth").toInt();
+            h = NvHTTP::getXmlString(serverInfo, "CurrentDisplayHeight").toInt();
+            refresh = NvHTTP::getXmlString(serverInfo, "CurrentDisplayRefreshRate").toInt();
+            known = w > 0 && h > 0;
+        } catch (...) {
+            known = false;
+        }
+        {
+            std::lock_guard<std::mutex> guard(m_HostDisplayPollLock);
+            m_HostDisplayPollKnown = known;
+            m_HostDisplayPollW = w;
+            m_HostDisplayPollH = h;
+            m_HostDisplayPollRefresh = refresh;
+            m_HostDisplayPollReady = true;
+        }
+        m_HostDisplayPollInFlight = false;
+    });
+}
+
 void Session::benchmarkTick()
 {
     if (!m_BenchmarkMode || m_BenchmarkStopped) {
@@ -1120,6 +1210,45 @@ bool Session::initialize(QQuickWindow* qtWindow)
                         m_StreamConfig.fps, ceiling);
             m_StreamConfig.fps = ceiling;
         }
+    }
+
+    // LavApollo announces the mode of the display it captures. Joining a session (the host keeps
+    // its display) or launching without a virtual display streams that display: at its aspect,
+    // fitted inside our settings, never above its own mode -- else the host pads the picture with
+    // black bars and we pace frames it never renders (HostDisplayFit, same rule as Android).
+    {
+        const bool fractional = m_Preferences->enableFractionalRefreshRate;
+        m_HostDisplaySettingW = m_StreamConfig.width;
+        m_HostDisplaySettingH = m_StreamConfig.height;
+        m_HostDisplaySettingFps = fractional ? (m_StreamConfig.fps + 500) / 1000 : m_StreamConfig.fps;
+
+        int hostW, hostH, hostRefresh, currentGameId;
+        {
+            QReadLocker lock(&m_Computer->lock);
+            hostW = m_Computer->currentDisplayWidth;
+            hostH = m_Computer->currentDisplayHeight;
+            hostRefresh = m_Computer->currentDisplayRefreshRate;
+            currentGameId = m_Computer->currentGameId;
+        }
+        const bool resuming = currentGameId != 0 && currentGameId == m_App.id;
+        if (!m_MultiDisplayActive && hostW > 0 && hostH > 0 &&
+                HostDisplayFit::applies(resuming, m_Preferences->useVirtualDisplay)) {
+            HostDisplayFit::Mode m = HostDisplayFit::fit(hostW, hostH, hostRefresh,
+                                                         m_HostDisplaySettingW, m_HostDisplaySettingH,
+                                                         m_HostDisplaySettingFps);
+            m_StreamConfig.width = m.width;
+            m_StreamConfig.height = m.height;
+            if (m.fps < m_HostDisplaySettingFps) {
+                m_StreamConfig.fps = m.fps;
+            }
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                        "Streaming at the host display's mode: %dx%d@%d (host %dx%d@%d)",
+                        m.width, m.height, m.fps, hostW, hostH, hostRefresh);
+        }
+
+        // Follow mid-session changes of the host display, outside benchmarks (a reconnect would
+        // spoil the measurement) and the emulated multi-display (its own canvas)
+        m_HostDisplayWatchEnabled = hostW > 0 && !m_BenchmarkMode && !m_MultiDisplayActive;
     }
 
 #ifndef STEAM_LINK
@@ -2764,6 +2893,7 @@ void Session::exec()
     for (;;) {
         // Runs at least once a second (the wait below times out): measures and ends a benchmark run
         benchmarkTick();
+        hostDisplayWatchTick();
 
 #if SDL_VERSION_ATLEAST(2, 0, 18) && !defined(STEAM_LINK)
         // SDL 2.0.18 has a proper wait event implementation that uses platform

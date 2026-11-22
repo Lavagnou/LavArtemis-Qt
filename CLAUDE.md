@@ -445,6 +445,31 @@ deux clients (planification, mesures, formules, JSON) : `LavApollo/docs/benchmar
 - Rapports dans `AppDataLocation/benchmarks/`, 50 au plus ; « Open a report file… » ouvre aussi ceux de
   l'Android (même JSON). Les appliquer n'est possible que pour un rapport desktop (noms de pacing différents).
 
+## 📐 Résolution calée sur l'écran du PC
+
+Rejoindre une session en cours, ou lancer **sans** écran virtuel, streame l'écran que l'hôte affiche :
+au **format de cet écran**, à la plus grande taille qui tient dans nos réglages **et** dans cet écran
+(jamais agrandi), à `min(fréquence réglée, fréquence de l'écran)`. LavApollo annonce le mode dans
+`serverinfo` (`CurrentDisplayWidth/Height/RefreshRate`, lus par `NvComputer`) ; sans eux, rien ne
+change. Règle et valeurs de référence identiques à l'Android : `backend/hostdisplayfit.{h,cpp}`, testés
+par `tests/hostdisplay`.
+
+- Appliquée dans `Session::initialize()` après le calcul de la toile multi-écran, **jamais** pour le
+  multi-écran émulé (il a sa propre toile). En mémoire seulement.
+- **Suivi en cours de session** : `Session::hostDisplayWatchTick()` (appelé dans la boucle SDL comme
+  `benchmarkTick()` : les timers Qt ne tournent pas pendant un stream) relit `serverinfo` toutes les
+  2,5 s sur un worker. Sur un changement confirmé, il recopie le nouveau mode dans `NvComputer`, pousse
+  `SDL_QUIT` et `StreamSegue.qml` démarre `createRestartSession()` à la place du retour à la liste.
+  Le protocole fixe la taille à la connexion : pas de changement à chaud.
+
+> ⚠️ **`HostDisplayWatch` compare la cible au stream en cours**, jamais l'écran au stream : un écran
+> 2400×1080 streamé en 1920×864 est l'état ajusté. Comparer à l'écran reconnecterait en boucle. Deux
+> lectures identiques avant d'agir : Windows passe par des modes intermédiaires.
+
+> ⚠️ **La session relancée lit le mode dans `NvComputer`**, que le `ComputerManager` ne rafraîchit pas
+> pendant un stream : `hostDisplayWatchTick()` y écrit le nouveau mode **avant** de demander la
+> relance, sinon elle repartirait à l'ancien.
+
 ## ⚠️ Pièges / Gotchas
 
 1. **`ArtemisSettings` ne persiste pas tout seul.** Les setters n'écrivent pas ; `SettingsView.qml`

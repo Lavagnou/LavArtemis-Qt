@@ -60,6 +60,9 @@ NvComputer::NvComputer(QSettings& settings)
     this->serverCodecModeSupport = 0;
     this->isMultiDisplayCapable = false;
     this->micPassthroughState.clear();
+    this->currentDisplayWidth = 0;
+    this->currentDisplayHeight = 0;
+    this->currentDisplayRefreshRate = 0;
     this->benchmarkAppId = 0;
     this->benchmarkAppUuid.clear();
     this->pendingQuit = false;
@@ -168,6 +171,11 @@ NvComputer::NvComputer(NvHTTP& http, QString serverInfo)
 
     // Computed by the host for this client (permission, host setting, virtual device)
     this->micPassthroughState = NvHTTP::getXmlString(serverInfo, "MicPassthroughState");
+
+    // Absent on other hosts (0): clients then keep their own mode
+    this->currentDisplayWidth = NvHTTP::getXmlString(serverInfo, "CurrentDisplayWidth").toInt();
+    this->currentDisplayHeight = NvHTTP::getXmlString(serverInfo, "CurrentDisplayHeight").toInt();
+    this->currentDisplayRefreshRate = NvHTTP::getXmlString(serverInfo, "CurrentDisplayRefreshRate").toInt();
 
     // The scene LavArtemis' benchmark streams, absent when the host does not offer it
     this->benchmarkAppId = NvHTTP::getXmlString(serverInfo, "BenchmarkAppId").toInt();
@@ -610,6 +618,9 @@ bool NvComputer::update(const NvComputer& that)
     // Both change on the host while we keep polling it (an update, a permission ticked)
     ASSIGN_IF_CHANGED(isMultiDisplayCapable);
     ASSIGN_IF_CHANGED(micPassthroughState);
+    ASSIGN_IF_CHANGED(currentDisplayWidth);
+    ASSIGN_IF_CHANGED(currentDisplayHeight);
+    ASSIGN_IF_CHANGED(currentDisplayRefreshRate);
     ASSIGN_IF_CHANGED(benchmarkAppId);
     ASSIGN_IF_CHANGED(benchmarkAppUuid);
     ASSIGN_IF_CHANGED(currentGameId);

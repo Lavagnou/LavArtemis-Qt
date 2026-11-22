@@ -1,6 +1,10 @@
 #pragma once
 
 #include <QSemaphore>
+
+#include <atomic>
+#include <memory>
+#include <mutex>
 #include <QQuickWindow>
 
 #include <Limelight.h>
@@ -12,6 +16,7 @@
 #include "audio/micstreamer.h"
 #include "video/overlaymanager.h"
 #include "displaylayout.h"
+#include "backend/hostdisplayfit.h"
 #include "diagnostics/diagnosticcapture.h"
 
 #include "backend/quickmenumanager.h"
@@ -119,6 +124,10 @@ public:
     Q_INVOKABLE bool initialize(QQuickWindow* qtWindow);
     Q_INVOKABLE void start();
     Q_INVOKABLE void interrupt();
+    // Host display mode changed mid-session: StreamSegue starts createRestartSession() instead of
+    // returning to the app list (HostDisplayWatch)
+    Q_INVOKABLE bool isRestartRequested() const;
+    Q_INVOKABLE Session* createRestartSession();
     Q_PROPERTY(QStringList launchWarnings MEMBER m_LaunchWarnings NOTIFY launchWarningsChanged);
 
     static
@@ -387,6 +396,19 @@ private:
     void carryBenchmarkStats();
     void benchmarkTick();
     bool m_BenchmarkMode;
+
+    // Host display mode follow (HostDisplayFit / HostDisplayWatch)
+    void hostDisplayWatchTick();
+    int m_HostDisplaySettingW = 0, m_HostDisplaySettingH = 0, m_HostDisplaySettingFps = 0;
+    bool m_HostDisplayWatchEnabled = false;
+    std::unique_ptr<HostDisplayWatch> m_HostDisplayWatch;
+    uint64_t m_HostDisplayLastPollMs = 0;
+    std::atomic<bool> m_HostDisplayPollInFlight{false};
+    std::mutex m_HostDisplayPollLock;
+    bool m_HostDisplayPollReady = false;
+    bool m_HostDisplayPollKnown = false;
+    int m_HostDisplayPollW = 0, m_HostDisplayPollH = 0, m_HostDisplayPollRefresh = 0;
+    bool m_RestartRequested = false;
     Benchmark::RawStats m_BenchmarkCarry;
     int m_BenchmarkWarmupMs = 0;
     int m_BenchmarkMeasureMs = 0;

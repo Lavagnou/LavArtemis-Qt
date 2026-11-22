@@ -125,6 +125,11 @@ public:
     // LavApollo's verdict on this client's microphone: "ready", "disabled", "no_permission",
     // "no_device", or empty for a host without microphone passthrough.
     QString micPassthroughState;
+    // LavApollo's mode of the display a stream captures (0 = not announced): a client joining
+    // or launching without a virtual display streams at it (HostDisplayFit)
+    int currentDisplayWidth;
+    int currentDisplayHeight;
+    int currentDisplayRefreshRate;
 
     // LavApollo's hidden "Benchmark" app (docs/benchmark.md), 0 / empty when the host
     // does not offer it. Not in appList: it is launched by these.

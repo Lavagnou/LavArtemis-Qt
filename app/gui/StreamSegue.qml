@@ -65,6 +65,20 @@ Item {
 
     function sessionFinished(portTestResult)
     {
+        // The host display changed mode mid-session: reconnect to the same session at the new
+        // mode, without going back to the app list (Session::hostDisplayWatchTick)
+        if (session && session.isRestartRequested() && !streamSegueErrorDialog.text) {
+            var component = Qt.createComponent("StreamSegue.qml")
+            var segue = component.createObject(stackView, {
+                                                   "appName": appName,
+                                                   "session": session.createRestartSession(),
+                                                   "isResume": true,
+                                                   "quitAfter": quitAfter
+                                               })
+            stackView.replace(stackView.currentItem, segue, StackView.Immediate)
+            return
+        }
+
         if (portTestResult !== 0 && portTestResult !== -1 && streamSegueErrorDialog.text) {
             streamSegueErrorDialog.text += "\n\n" + qsTr("This PC's Internet connection is blocking Moonlight. Streaming over the Internet may not work while connected to this network.")
         }
