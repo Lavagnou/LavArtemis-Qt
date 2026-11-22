@@ -403,11 +403,16 @@ private:
     bool m_HostDisplayWatchEnabled = false;
     std::unique_ptr<HostDisplayWatch> m_HostDisplayWatch;
     uint64_t m_HostDisplayLastPollMs = 0;
-    std::atomic<bool> m_HostDisplayPollInFlight{false};
-    std::mutex m_HostDisplayPollLock;
-    bool m_HostDisplayPollReady = false;
-    bool m_HostDisplayPollKnown = false;
-    int m_HostDisplayPollW = 0, m_HostDisplayPollH = 0, m_HostDisplayPollRefresh = 0;
+    // Shared with the worker that polls serverinfo: a poll still in flight when this Session is
+    // deleted must not write into it
+    struct HostDisplayPoll {
+        std::atomic<bool> inFlight{false};
+        std::mutex lock;
+        bool ready = false;
+        bool known = false;
+        int w = 0, h = 0, refresh = 0;
+    };
+    std::shared_ptr<HostDisplayPoll> m_HostDisplayPoll = std::make_shared<HostDisplayPoll>();
     bool m_RestartRequested = false;
     Benchmark::RawStats m_BenchmarkCarry;
     int m_BenchmarkWarmupMs = 0;

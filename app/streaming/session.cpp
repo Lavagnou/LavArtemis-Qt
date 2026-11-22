@@ -767,12 +767,12 @@ void Session::hostDisplayWatchTick()
         m_HostDisplayLastPollMs = SDL_GetTicks64();
     }
 
+    HostDisplayPoll& poll = *m_HostDisplayPoll;
     {
-        std::lock_guard<std::mutex> guard(m_HostDisplayPollLock);
-        if (m_HostDisplayPollReady) {
-            m_HostDisplayPollReady = false;
-            auto target = m_HostDisplayWatch->onPoll(m_HostDisplayPollKnown, m_HostDisplayPollW,
-                                                     m_HostDisplayPollH, m_HostDisplayPollRefresh);
+        std::lock_guard<std::mutex> guard(poll.lock);
+        if (poll.ready) {
+            poll.ready = false;
+            auto target = m_HostDisplayWatch->onPoll(poll.known, poll.w, poll.h, poll.refresh);
             if (target) {
                 SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                             "Host display changed: reconnecting at %dx%d@%d",
@@ -780,9 +780,9 @@ void Session::hostDisplayWatchTick()
                 // The restarted session reads these before the computer is polled again
                 {
                     QWriteLocker lock(&m_Computer->lock);
-                    m_Computer->currentDisplayWidth = m_HostDisplayPollW;
-                    m_Computer->currentDisplayHeight = m_HostDisplayPollH;
-                    m_Computer->currentDisplayRefreshRate = m_HostDisplayPollRefresh;
+                    m_Computer->currentDisplayWidth = poll.w;
+                    m_Computer->currentDisplayHeight = poll.h;
+                    m_Computer->currentDisplayRefreshRate = poll.refresh;
                 }
                 m_RestartRequested = true;
                 SDL_Event event;
@@ -795,13 +795,14 @@ void Session::hostDisplayWatchTick()
     }
 
     const uint64_t now = SDL_GetTicks64();
-    if (now - m_HostDisplayLastPollMs < 2500 || m_HostDisplayPollInFlight.exchange(true)) {
+    if (now - m_HostDisplayLastPollMs < 2500 || poll.inFlight.exchange(true)) {
         return;
     }
     m_HostDisplayLastPollMs = now;
 
     NvComputer* computer = m_Computer;
-    QThreadPool::globalInstance()->start([this, computer]() {
+    std::shared_ptr<HostDisplayPoll> shared = m_HostDisplayPoll;
+    QThreadPool::globalInstance()->start([shared, computer]() {
         bool known = false;
         int w = 0, h = 0, refresh = 0;
         try {
@@ -815,14 +816,14 @@ void Session::hostDisplayWatchTick()
             known = false;
         }
         {
-            std::lock_guard<std::mutex> guard(m_HostDisplayPollLock);
-            m_HostDisplayPollKnown = known;
-            m_HostDisplayPollW = w;
-            m_HostDisplayPollH = h;
-            m_HostDisplayPollRefresh = refresh;
-            m_HostDisplayPollReady = true;
+            std::lock_guard<std::mutex> guard(shared->lock);
+            shared->known = known;
+            shared->w = w;
+            shared->h = h;
+            shared->refresh = refresh;
+            shared->ready = true;
         }
-        m_HostDisplayPollInFlight = false;
+        shared->inFlight = false;
     });
 }
 
