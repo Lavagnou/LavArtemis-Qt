@@ -369,6 +369,11 @@ l'interface d'origine. La Dev l'ouvre au démarrage (`main.cpp`, `initialView`),
   puis « Mise à jour » | boutons, chaque côté aligné sur son bord (`headerBar.twoRows`, calculé sur des
   largeurs qui n'en dépendent pas : pas de boucle). Le logo suit le thème (Braise, Affiche recolorés,
   Ludique d'origine), la **Dev garde toujours son logo**.
+- **Barre de titre aux couleurs du thème** : la vraie barre de Windows (déplacement, ancrage, boutons
+  natifs), recolorée par DWM (`SystemProperties::setWindowFrameColors()`, fond et texte du thème,
+  Windows 11 ; sous Windows 10 elle reste celle du système). `main.qml` la réapplique à chaque
+  changement de thème (`frameKey`) et la rend au système en ancienne interface ; la fenêtre SDL du
+  stream reprend les mêmes couleurs (`applyWindowFrameColors()` dans `Session`).
 - **Mise à jour** : la v2 masque la barre d'outils et son bouton de mise à jour. `main.qml` expose
   `window.updateVersion` et `openUpdateDialog()` ; l'accueil (bouton « Mise à jour ») et Réglages ›
   Avancé (« Installer ») les utilisent. Sans eux, une mise à jour s'annonçait sans pouvoir s'installer.

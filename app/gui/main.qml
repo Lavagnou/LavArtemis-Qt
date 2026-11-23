@@ -9,6 +9,8 @@ import AutoUpdateChecker 1.0
 import StreamingPreferences 1.0
 import SystemProperties 1.0
 import SdlGamepadKeyNavigation 1.0
+import ArtemisSettings 1.0
+import "v2"
 
 ApplicationWindow {
     property bool pollingActive: false
@@ -28,6 +30,15 @@ ApplicationWindow {
 
     function openUpdateDialog() {
         updateDialog.open()
+    }
+
+    // Redesigned interface: the native title bar takes the theme's background and text colours
+    // (Windows 11) instead of the system accent colour; the legacy interface gives it back.
+    readonly property bool themedFrame: SystemProperties.isDevChannel && !ArtemisSettings.uiLegacy
+    readonly property string frameKey: themedFrame ? ("" + Theme.bg + Theme.fg + Theme.dark) : "system"
+    onFrameKeyChanged: applyFrameColors()
+    function applyFrameColors() {
+        SystemProperties.setWindowFrameColors(window, Theme.bg, Theme.fg, Theme.dark, !themedFrame)
     }
 
     id: window
@@ -51,6 +62,8 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
+        applyFrameColors()
+
         // Show the window according to the user's preferences
         if (SystemProperties.hasDesktopEnvironment) {
             if (StreamingPreferences.uiDisplayMode == StreamingPreferences.UI_MAXIMIZED) {

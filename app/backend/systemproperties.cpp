@@ -9,10 +9,68 @@
 #include "streaming/session.h"
 #include "streaming/streamutils.h"
 
+#include <QWindow>
+
 #ifdef Q_OS_WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <dwmapi.h>
 #endif
+
+QColor SystemProperties::s_FrameCaption;
+QColor SystemProperties::s_FrameText;
+bool SystemProperties::s_FrameDark = false;
+bool SystemProperties::s_FrameDefault = true;
+
+static void applyFrameColors(void* handle, const QColor& caption, const QColor& text, bool dark, bool useDefault)
+{
+#ifdef Q_OS_WIN32
+    HWND hwnd = reinterpret_cast<HWND>(handle);
+    if (hwnd == nullptr) {
+        return;
+    }
+
+    // DWMWINDOWATTRIBUTE values, spelled out for SDKs older than Windows 11. On Windows 10 the
+    // colour attributes fail and the bar keeps its system look: nothing else depends on them.
+    const DWORD useImmersiveDarkMode = 20, borderColor = 34, captionColor = 35, textColor = 36;
+    const COLORREF systemDefault = 0xFFFFFFFF; // DWMWA_COLOR_DEFAULT
+
+    if (!useDefault) {
+        BOOL darkMode = dark ? TRUE : FALSE;
+        DwmSetWindowAttribute(hwnd, useImmersiveDarkMode, &darkMode, sizeof(darkMode));
+    }
+    COLORREF cap = useDefault ? systemDefault : RGB(caption.red(), caption.green(), caption.blue());
+    COLORREF txt = useDefault ? systemDefault : RGB(text.red(), text.green(), text.blue());
+    DwmSetWindowAttribute(hwnd, captionColor, &cap, sizeof(cap));
+    DwmSetWindowAttribute(hwnd, borderColor, &cap, sizeof(cap));
+    DwmSetWindowAttribute(hwnd, textColor, &txt, sizeof(txt));
+#else
+    Q_UNUSED(handle);
+    Q_UNUSED(caption);
+    Q_UNUSED(text);
+    Q_UNUSED(dark);
+    Q_UNUSED(useDefault);
+#endif
+}
+
+void SystemProperties::setWindowFrameColors(QWindow* window, const QColor& caption, const QColor& text,
+                                            bool dark, bool useDefault)
+{
+    s_FrameCaption = caption;
+    s_FrameText = text;
+    s_FrameDark = dark;
+    s_FrameDefault = useDefault;
+    if (window != nullptr) {
+        applyFrameColors(reinterpret_cast<void*>(window->winId()), caption, text, dark, useDefault);
+    }
+}
+
+void SystemProperties::applyWindowFrameColors(void* nativeWindowHandle)
+{
+    if (!s_FrameDefault) {
+        applyFrameColors(nativeWindowHandle, s_FrameCaption, s_FrameText, s_FrameDark, false);
+    }
+}
 
 class SystemPropertyQueryThread : public QThread
 {

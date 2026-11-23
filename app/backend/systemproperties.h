@@ -2,6 +2,9 @@
 
 #include <QObject>
 #include <QRect>
+#include <QColor>
+
+class QWindow;
 
 #include "SDL_compat.h"
 
@@ -46,6 +49,15 @@ public:
     Q_INVOKABLE void waitForAsyncLoad();
     Q_INVOKABLE void refreshDisplays();
 
+    // Colours the native title bar of a window (Windows 11, ignored elsewhere): the redesigned
+    // interface gives it the theme's background and text so the system accent bar disappears.
+    // useDefault gives the bar back to Windows (legacy interface).
+    Q_INVOKABLE void setWindowFrameColors(QWindow* window, const QColor& caption, const QColor& text,
+                                          bool dark, bool useDefault);
+
+    // The same colours for a native window created outside Qt (the SDL stream window).
+    static void applyWindowFrameColors(void* nativeWindowHandle);
+
 signals:
     void unmappedGamepadsChanged();
     void hasHardwareAccelerationChanged();
@@ -57,6 +69,12 @@ private slots:
     void updateDecoderProperties(bool hasHardwareAcceleration, bool rendererAlwaysFullScreen, QSize maximumResolution, bool supportsHdr);
 
 private:
+    // Last colours set by setWindowFrameColors(), reused by applyWindowFrameColors()
+    static QColor s_FrameCaption;
+    static QColor s_FrameText;
+    static bool s_FrameDark;
+    static bool s_FrameDefault;
+
     QThread* systemPropertyQueryThread = nullptr;
     SDL_Window* testWindow = nullptr;
 

@@ -16,9 +16,11 @@
 #include "backend/servercommandmanager.h"
 #include "backend/clipboardmanager.h"
 #include "settings/artemissettings.h"
+#include "backend/systemproperties.h"
 
 #include <Limelight.h>
 #include "SDL_compat.h"
+#include <SDL_syswm.h>
 #include "utils.h"
 
 #ifdef HAVE_FFMPEG
@@ -2814,6 +2816,17 @@ void Session::exec()
                                                                   32,
                                                                   4 * svgImage.width(),
                                                                   SDL_PIXELFORMAT_RGBA32);
+#ifdef Q_OS_WIN32
+    // Windowed stream: the same themed title bar as the app window (redesigned interface)
+    {
+        SDL_SysWMinfo wmInfo;
+        SDL_VERSION(&wmInfo.version);
+        if (SDL_GetWindowWMInfo(m_Window, &wmInfo) && wmInfo.subsystem == SDL_SYSWM_WINDOWS) {
+            SystemProperties::applyWindowFrameColors(wmInfo.info.win.window);
+        }
+    }
+#endif
+
 #ifndef Q_OS_DARWIN
     // Other platforms seem to preserve our Qt icon when creating a new window.
     if (iconSurface != nullptr) {
