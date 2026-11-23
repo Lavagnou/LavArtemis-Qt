@@ -15,28 +15,23 @@ import "v2"
 ApplicationWindow {
     property bool pollingActive: false
 
-    // Set by SettingsView to force the back operation to pop all
-    // pages except the initial view. This is required when doing
-    // a retranslate() because AppView breaks for some reason.
+    // Set by the settings when the language changes (retranslate()): going back then pops every
+    // page but the first, built before the change.
     property bool clearOnBack: false
 
-    // The current page belongs to the redesigned interface (gui/v2): hide the legacy toolbar.
-    // Already true before the first page is pushed: the first frames showed the old toolbar and
-    // the Material grey background before the redesigned home.
-    property bool v2Page: initialView.indexOf("/gui/v2/") >= 0
-
-    // Set when a check (at startup or "check now") finds an update. The v2 interface hides the
-    // toolbar and its update button, so it reads this and calls openUpdateDialog() itself
-    // (home pill, settings): without it an update could be announced but never installed.
+    // Set when a check (at startup or "check now") finds an update: the home ("Mise à jour") and
+    // Réglages › Avancé ("Installer") read it and call openUpdateDialog().
     property string updateVersion: ""
+    property string updateBrowserUrl: ""
+    property string updateDownloadUrl: ""
 
     function openUpdateDialog() {
         updateDialog.open()
     }
 
-    // Redesigned interface: the native title bar takes the theme's background and text colours
-    // (Windows 11) instead of the system accent colour; the legacy interface gives it back.
-    readonly property bool themedFrame: SystemProperties.isDevChannel
+    // The native title bar takes the theme's background and text colours (Windows 11) instead of
+    // the system accent colour.
+    readonly property bool themedFrame: true
     readonly property string frameKey: themedFrame ? ("" + Theme.bg + Theme.fg + Theme.dark) : "system"
     onFrameKeyChanged: applyFrameColors()
     function applyFrameColors() {
@@ -44,8 +39,14 @@ ApplicationWindow {
     }
 
     id: window
-    // The theme's background behind the redesigned pages, from the very first frame
-    background: Rectangle { color: window.v2Page ? Theme.bg : window.Material.backgroundColor }
+    // The theme's background from the very first frame, under every page; the Material controls
+    // still used (message dialogs, stream segues, mapper, benchmark) take the theme's colours
+    background: Rectangle { color: Theme.bg }
+    Material.theme: Theme.dark ? Material.Dark : Material.Light
+    Material.background: Theme.surface
+    Material.foreground: Theme.fg
+    Material.accent: Theme.accent
+    Material.primary: Theme.surface
     width: 1280
     height: 600
     // Below this the redesigned pages can only shrink and break (Stage.minLayoutWidth is 1000):
@@ -55,18 +56,20 @@ ApplicationWindow {
 
     // This function runs prior to creation of the initial StackView item
     function doEarlyInit() {
-        // Override the background color to Material 2 colors for Qt 6.5+
-        // in order to improve contrast between GFE's placeholder box art
-        // and the background of the app grid.
-        if (SystemProperties.usesMaterial3Theme) {
-            Material.background = "#303030"
-        }
-
         SdlGamepadKeyNavigation.enable()
+    }
+
+    function updateAvailable(version, url) {
+        window.updateVersion = version
+        window.updateBrowserUrl = url
     }
 
     Component.onCompleted: {
         applyFrameColors()
+
+        AutoUpdateChecker.onUpdateAvailable.connect(updateAvailable)
+        AutoUpdateChecker.onUpdateDownloadUrl.connect(function(url) { window.updateDownloadUrl = url })
+        AutoUpdateChecker.start()
 
         // Show the window according to the user's preferences
         if (SystemProperties.hasDesktopEnvironment) {
@@ -156,7 +159,6 @@ ApplicationWindow {
         }
 
         onCurrentItemChanged: {
-            window.v2Page = currentItem !== null && currentItem.isV2Page === true
             // Ensure focus travels to the next view when going back
             if (currentItem) {
                 currentItem.forceActiveFocus()
@@ -179,17 +181,6 @@ ApplicationWindow {
             else {
                 quitConfirmationDialog.open()
             }
-        }
-
-        Keys.onMenuPressed: {
-            settingsButton.clicked()
-        }
-
-        // This is a keypress we've reserved for letting the
-        // SdlGamepadKeyNavigation object tell us to show settings
-        // when Menu is consumed by a focused control.
-        Keys.onHangupPressed: {
-            settingsButton.clicked()
         }
     }
 
@@ -255,284 +246,6 @@ ApplicationWindow {
         SdlGamepadKeyNavigation.notifyWindowFocus(visible && active)
     }
 
-    function navigateTo(url, objectType)
-    {
-        var existingItem = stackView.find(function(item, index) {
-            return item instanceof objectType
-        })
-
-        if (existingItem !== null) {
-            // Pop to the existing item
-            stackView.pop(existingItem)
-        }
-        else {
-            // Create a new item
-            stackView.push(url)
-        }
-    }
-
-    header: ToolBar {
-        id: toolBar
-        // The redesigned pages (gui/v2) draw their own header. A flag set when the page
-        // changes, not a binding on stackView.currentItem: that one looped the layout.
-        visible: !window.v2Page
-        height: 60
-        anchors.topMargin: 5
-        anchors.bottomMargin: 5
-
-        Label {
-            id: titleLabel
-            visible: toolBar.width > 700
-            anchors.fill: parent
-            text: stackView.currentItem.objectName
-            font.pointSize: 20
-            elide: Label.ElideRight
-            horizontalAlignment: Qt.AlignHCenter
-            verticalAlignment: Qt.AlignVCenter
-        }
-
-        RowLayout {
-            spacing: 10
-            anchors.leftMargin: 10
-            anchors.rightMargin: 10
-            anchors.fill: parent
-
-            NavigableToolButton {
-                // Only make the button visible if the user has navigated somewhere.
-                visible: stackView.depth > 1
-
-                iconSource: "qrc:/res/arrow_left.svg"
-
-                onClicked: goBack()
-
-                Keys.onDownPressed: {
-                    stackView.currentItem.forceActiveFocus(Qt.TabFocus)
-                }
-            }
-
-            // This label will appear when the window gets too small and
-            // we need to ensure the toolbar controls don't collide
-            Label {
-                id: titleRowLabel
-                font.pointSize: titleLabel.font.pointSize
-                elide: Label.ElideRight
-                horizontalAlignment: Qt.AlignHCenter
-                verticalAlignment: Qt.AlignVCenter
-                Layout.fillWidth: true
-
-                // We need this label to always be visible so it can occupy
-                // the remaining space in the RowLayout. To "hide" it, we
-                // just set the text to empty string.
-                text: !titleLabel.visible ? stackView.currentItem.objectName : ""
-            }
-
-            Label {
-                id: versionLabel
-                visible: stackView.currentItem instanceof SettingsView
-                text: qsTr("Version %1").arg(SystemProperties.versionString)
-                font.pointSize: 12
-                horizontalAlignment: Qt.AlignRight
-                verticalAlignment: Qt.AlignVCenter
-            }
-
-            NavigableToolButton {
-                id: discordButton
-                // Hidden in this fork: the link points at Moonlight's Discord, which
-                // isn't where LavArtemis users should be sent for support.
-                visible: false
-
-                iconSource: "qrc:/res/discord.svg"
-
-                ToolTip.delay: 1000
-                ToolTip.timeout: 3000
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Join our community on Discord")
-
-                // TODO need to make sure browser is brought to foreground.
-                onClicked: Qt.openUrlExternally("https://moonlight-stream.org/discord");
-
-                Keys.onDownPressed: {
-                    stackView.currentItem.forceActiveFocus(Qt.TabFocus)
-                }
-            }
-
-            NavigableToolButton {
-                id: multiDisplayButton
-
-                // Also on the app list, not just the host list: this is the setting
-                // you reach for right before launching something, and walking back to
-                // the home page to flip it is the wrong moment to ask for.
-                visible: stackView.currentItem instanceof PcView ||
-                         stackView.currentItem instanceof AppView
-
-                // Same dependency as the settings page: there is nothing to lay out
-                // without virtual displays to lay it out on.
-                enabled: StreamingPreferences.useVirtualDisplay
-
-                iconSource: "qrc:/res/multi_screen-48px.svg"
-
-                checkable: true
-                checked: StreamingPreferences.useMultiDisplay
-
-                // onToggled, not onCheckedChanged: the latter fires when the binding above
-                // re-evaluates too, which would write back values the user never chose.
-                onToggled: {
-                    StreamingPreferences.useMultiDisplay = checked
-
-                    // Nothing else saves on this page -- SettingsView only persists when
-                    // navigating away from itself.
-                    StreamingPreferences.save()
-                }
-
-                ToolTip.delay: 1000
-                ToolTip.timeout: 3000
-                ToolTip.visible: hovered
-                ToolTip.text: !enabled ?
-                                  qsTr("Requires \"Use Virtual Display\" to be enabled.")
-                                : checked ?
-                                  qsTr("Virtual Display Multi-Screen is on: every monitor on this PC will be recreated on the host.")
-                                :
-                                  qsTr("Virtual Display Multi-Screen is off: the host will emulate a single display.")
-
-                Keys.onDownPressed: {
-                    stackView.currentItem.forceActiveFocus(Qt.TabFocus)
-                }
-            }
-
-            NavigableToolButton {
-                id: addPcButton
-                visible: stackView.currentItem instanceof PcView
-
-                iconSource:  "qrc:/res/ic_add_to_queue_white_48px.svg"
-
-                ToolTip.delay: 1000
-                ToolTip.timeout: 3000
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Add PC manually") + (newPcShortcut.nativeText ? (" ("+newPcShortcut.nativeText+")") : "")
-
-                Shortcut {
-                    id: newPcShortcut
-                    sequence: StandardKey.New
-                    onActivated: addPcButton.clicked()
-                }
-
-                onClicked: {
-                    addPcDialog.open()
-                }
-
-                Keys.onDownPressed: {
-                    stackView.currentItem.forceActiveFocus(Qt.TabFocus)
-                }
-            }
-
-            NavigableToolButton {
-                property string browserUrl: ""
-                property string downloadUrl: ""
-                property string newVersion: ""
-
-                id: updateButton
-
-                iconSource: "qrc:/res/update.svg"
-
-                ToolTip.delay: 1000
-                ToolTip.timeout: 3000
-                ToolTip.visible: hovered || visible
-
-                // Invisible until we get a callback notifying us that
-                // an update is available
-                visible: false
-
-                onClicked: {
-                    updateDialog.open()
-                }
-
-                function updateAvailable(version, url)
-                {
-                    ToolTip.text = qsTr("Update available for LavArtemis: Version %1").arg(version)
-                    updateButton.newVersion = version
-                    updateButton.browserUrl = url
-                    updateButton.visible = true
-                    window.updateVersion = version
-                }
-
-                Component.onCompleted: {
-                    AutoUpdateChecker.onUpdateAvailable.connect(updateAvailable)
-                    AutoUpdateChecker.onUpdateDownloadUrl.connect(function(url) {
-                        updateButton.downloadUrl = url
-                    })
-                    AutoUpdateChecker.start()
-                }
-
-                Keys.onDownPressed: {
-                    stackView.currentItem.forceActiveFocus(Qt.TabFocus)
-                }
-            }
-
-            NavigableToolButton {
-                id: helpButton
-                visible: SystemProperties.hasBrowser
-
-                iconSource: "qrc:/res/question_mark.svg"
-
-                ToolTip.delay: 1000
-                ToolTip.timeout: 3000
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Help") + (helpShortcut.nativeText ? (" ("+helpShortcut.nativeText+")") : "")
-
-                Shortcut {
-                    id: helpShortcut
-                    sequence: StandardKey.HelpContents
-                    onActivated: helpButton.clicked()
-                }
-
-                // TODO need to make sure browser is brought to foreground.
-                onClicked: Qt.openUrlExternally("https://github.com/moonlight-stream/moonlight-docs/wiki/Setup-Guide");
-
-                Keys.onDownPressed: {
-                    stackView.currentItem.forceActiveFocus(Qt.TabFocus)
-                }
-            }
-
-            NavigableToolButton {
-                ToolTip.delay: 1000
-                ToolTip.timeout: 3000
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Gamepad Mapper")
-
-                iconSource: "qrc:/res/ic_videogame_asset_white_48px.svg"
-
-                onClicked: navigateTo("qrc:/gui/GamepadMapper.qml", GamepadMapper)
-
-                Keys.onDownPressed: {
-                    stackView.currentItem.forceActiveFocus(Qt.TabFocus)
-                }
-            }
-
-            NavigableToolButton {
-                id: settingsButton
-
-                iconSource:  "qrc:/res/settings.svg"
-
-                onClicked: navigateTo("qrc:/gui/SettingsView.qml", SettingsView)
-
-                Keys.onDownPressed: {
-                    stackView.currentItem.forceActiveFocus(Qt.TabFocus)
-                }
-
-                Shortcut {
-                    id: settingsShortcut
-                    sequence: StandardKey.Preferences
-                    onActivated: settingsButton.clicked()
-                }
-
-                ToolTip.delay: 1000
-                ToolTip.timeout: 3000
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Settings") + (settingsShortcut.nativeText ? (" ("+settingsShortcut.nativeText+")") : "")
-            }
-        }
-    }
-
     ErrorMessageDialog {
         id: noHwDecoderDialog
         text: qsTr("No functioning hardware accelerated video decoder was detected by Artemis. " +
@@ -566,7 +279,7 @@ ApplicationWindow {
         standardButtons: Dialog.Ok | Dialog.Cancel
         text: qsTr("These gamepads have no usable mapping and won't work:") + "\n" + unmappedGamepads +
               "\n\n" + qsTr("Open the gamepad mapper to set one up?")
-        onAccepted: navigateTo("qrc:/gui/GamepadMapper.qml", GamepadMapper)
+        onAccepted: stackView.push("qrc:/gui/GamepadMapper.qml")
     }
 
     // Update dialog: offers an in-app download on Windows, or opens the
@@ -575,10 +288,10 @@ ApplicationWindow {
         id: updateDialog
         standardButtons: Dialog.Ok | Dialog.Cancel
 
-        property bool canDownload: AutoUpdateChecker.canSelfInstall() && updateButton.downloadUrl !== ""
+        property bool canDownload: AutoUpdateChecker.canSelfInstall() && window.updateDownloadUrl !== ""
 
         text: qsTr("LavArtemis %1 is available. You are running version %2.")
-                  .arg(updateButton.newVersion).arg(SystemProperties.versionString) +
+                  .arg(window.updateVersion).arg(SystemProperties.versionString) +
               "\n\n" +
               (canDownload ? qsTr("Press OK to download and install it.")
                            : qsTr("Press OK to open the download page in your browser."))
@@ -587,7 +300,7 @@ ApplicationWindow {
             if (canDownload) {
                 updateDownloadDialog.open()
             } else if (SystemProperties.hasBrowser) {
-                Qt.openUrlExternally(updateButton.browserUrl)
+                Qt.openUrlExternally(window.updateBrowserUrl)
             }
         }
     }
@@ -615,7 +328,7 @@ ApplicationWindow {
             errorText = ""
             updateProgressBar.value = 0
             updateProgressBar.indeterminate = true
-            AutoUpdateChecker.downloadUpdate(updateButton.downloadUrl)
+            AutoUpdateChecker.downloadUpdate(window.updateDownloadUrl)
         }
 
         onAccepted: {
@@ -623,7 +336,7 @@ ApplicationWindow {
                 AutoUpdateChecker.installAndRestart(downloadedPath)
             } else if (errorText !== "" && SystemProperties.hasBrowser) {
                 // The in-app path failed, so hand them the release page instead.
-                Qt.openUrlExternally(updateButton.browserUrl)
+                Qt.openUrlExternally(window.updateBrowserUrl)
             }
         }
 
@@ -654,11 +367,11 @@ ApplicationWindow {
             Label {
                 text: {
                     if (updateDownloadDialog.downloading) {
-                        return qsTr("Downloading LavArtemis %1…").arg(updateButton.newVersion)
+                        return qsTr("Downloading LavArtemis %1…").arg(window.updateVersion)
                     }
                     else if (updateDownloadDialog.downloadedPath !== "") {
                         return qsTr("LavArtemis %1 is ready to install. Press OK to install it and restart.")
-                                  .arg(updateButton.newVersion)
+                                  .arg(window.updateVersion)
                     }
                     else if (SystemProperties.hasBrowser) {
                         return qsTr("Download failed: %1").arg(updateDownloadDialog.errorText) +
@@ -712,49 +425,6 @@ ApplicationWindow {
             // StreamSegue assumes its dialog will be re-created each time we
             // start streaming, so fake it by wiping out the text each time.
             text = ""
-        }
-    }
-
-    NavigableDialog {
-        id: addPcDialog
-        property string label: qsTr("Enter the IP address of your host PC:")
-
-        standardButtons: Dialog.Ok | Dialog.Cancel
-
-        onOpened: {
-            // Force keyboard focus on the textbox so keyboard navigation works
-            editText.forceActiveFocus()
-        }
-
-        onClosed: {
-            editText.clear()
-        }
-
-        onAccepted: {
-            if (editText.text) {
-                ComputerManager.addNewHostManually(editText.text.trim())
-            }
-        }
-
-        ColumnLayout {
-            Label {
-                text: addPcDialog.label
-                font.bold: true
-            }
-
-            TextField {
-                id: editText
-                Layout.fillWidth: true
-                focus: true
-
-                Keys.onReturnPressed: {
-                    addPcDialog.accept()
-                }
-
-                Keys.onEnterPressed: {
-                    addPcDialog.accept()
-                }
-            }
         }
     }
 }

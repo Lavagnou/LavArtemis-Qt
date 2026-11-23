@@ -13,15 +13,14 @@ Rectangle {
     width: 500
     height: 400
     // Don't use anchors with SizeViewToRootObject - position manually
-    // LavArtemis Dev, redesigned interface: the theme's colours and fonts (gui/v2/Theme.qml)
-    readonly property bool v2: SystemProperties.isDevChannel
-    readonly property color fgColor: v2 ? Theme.fg : "white"
-    readonly property color mutedColor: v2 ? Theme.muted : "#cccccc"
-    readonly property color accentColor: v2 ? Theme.accent : "#00cccc"
+    // The theme's colours and fonts (gui/v2/Theme.qml)
+    readonly property color fgColor: Theme.fg
+    readonly property color mutedColor: Theme.muted
+    readonly property color accentColor: Theme.accent
 
-    color: v2 ? Theme.surface : "#2d2d2d"
-    radius: v2 ? Theme.rs : 10
-    border.color: v2 ? Theme.borderColor : "#444"
+    color: Theme.surface
+    radius: Theme.rs
+    border.color: Theme.borderColor
     border.width: 1
     visible: true  // Always visible when created
     opacity: 1.0
@@ -72,7 +71,7 @@ Rectangle {
             }
             font.pointSize: 24
             font.bold: true
-            font.family: quickMenu.v2 ? Theme.displayFont : ""
+            font.family: Theme.displayFont
             color: quickMenu.accentColor
             Layout.alignment: Qt.AlignHCenter
         }
@@ -96,8 +95,7 @@ Rectangle {
                 flat: true
 
                 background: Rectangle {
-                    color: quickMenu.v2 ? (parent.down || parent.hovered ? Theme.sel : "transparent")
-                                        : (parent.down ? "#333" : (parent.hovered ? "#444" : "transparent"))
+                    color: parent.down || parent.hovered ? Theme.sel : "transparent"
                     border.color: parent.hovered ? quickMenu.accentColor : "transparent"
                     border.width: 2
                     radius: 5
@@ -132,14 +130,14 @@ Rectangle {
                             text: model.text
                             font.pointSize: 14
                             font.bold: true
-                            font.family: quickMenu.v2 ? Theme.textFont : ""
+                            font.family: Theme.textFont
                             color: quickMenu.fgColor
                         }
 
                         Text {
                             text: model.description
                             font.pointSize: 10
-                            font.family: quickMenu.v2 ? Theme.textFont : ""
+                            font.family: Theme.textFont
                             color: quickMenu.mutedColor
                         }
                     }

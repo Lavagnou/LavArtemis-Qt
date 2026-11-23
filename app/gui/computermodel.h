@@ -18,7 +18,10 @@ class ComputerModel : public QAbstractListModel
         ServerSupportedRole,
         DetailsRole,
         ApolloVersionRole,
-        UuidRole
+        UuidRole,
+        // Mes PC (gui/v2/HostsView): the address in use, and the name of what runs on the host
+        AddressRole,
+        RunningAppRole
     };
 
 public:

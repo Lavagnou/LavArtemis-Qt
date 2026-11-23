@@ -2,7 +2,9 @@ import QtQuick 2.9
 import QtQuick.Controls 2.2
 import QtQuick.Layouts 1.2
 
+import QtQuick.Controls.Material
 import SdlGamepadMapper 1.0
+import "v2"
 import SdlGamepadKeyNavigation 1.0
 
 Item {
@@ -10,6 +12,24 @@ Item {
     objectName: qsTr("Gamepad Mapping")
 
     focus: true
+
+    // Redesigned interface: its own header instead of the legacy toolbar (gone), Material
+    // controls in the theme's colours
+    readonly property bool isV2Page: true
+    Material.theme: Theme.dark ? Material.Dark : Material.Light
+    Material.background: Theme.bg
+    Material.foreground: Theme.fg
+    Material.accent: Theme.accent
+    Material.primary: Theme.surface
+
+    Rectangle { anchors.fill: parent; color: Theme.bg }
+    PageHeader {
+        id: pageHeader
+        x: 24; y: 12
+        width: parent.width - 48
+        title: qsTr("Configurer une manette")
+        onBack: stackView.pop()
+    }
 
     property var devices: []
     // True while "map everything" is walking the whole controller, so that
@@ -57,6 +77,7 @@ Item {
         id: devicePicker
         anchors.fill: parent
         anchors.margins: 20
+        anchors.topMargin: pageHeader.y + pageHeader.height + 16
         spacing: 12
         visible: !SdlGamepadMapper.mapping
 
@@ -149,6 +170,7 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 20
+        anchors.topMargin: pageHeader.y + pageHeader.height + 16
         spacing: 10
         visible: SdlGamepadMapper.mapping
 

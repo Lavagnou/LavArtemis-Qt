@@ -10,8 +10,11 @@ Popup {
     property url cover: ""
     property bool running: false
     property bool canHide: true
+    property bool hidden: false
     property real atX: 0
     property real atY: 0
+    // Other menus with the same look (Mes PC, Ajouter un PC): [{id, label, icon, main}]
+    property var customEntries: null
 
     signal triggered(string action)
 
@@ -43,6 +46,7 @@ Popup {
     }
 
     readonly property var entries: {
+        if (customEntries !== null) return customEntries
         var list = []
         list.push({id: "launch", label: running ? qsTr("Reprendre") : qsTr("Lancer"), icon: "play", main: true})
         if (running) {
@@ -51,7 +55,8 @@ Popup {
         }
         list.push({id: "art", label: qsTr("Créer un raccourci .art"), icon: "link"})
         if (canHide) {
-            list.push({id: "hide", label: qsTr("Masquer"), icon: "eye-off"})
+            list.push(hidden ? {id: "unhide", label: qsTr("Ne plus masquer"), icon: "eye"}
+                             : {id: "hide", label: qsTr("Masquer"), icon: "eye-off"})
         }
         return list
     }

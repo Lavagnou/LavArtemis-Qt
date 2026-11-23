@@ -62,6 +62,10 @@ public:
 
     Q_INVOKABLE void setAppHidden(int appIndex, bool hidden);
 
+    // The redesigned home: how many apps the user hid on this host, and whether a row is one
+    Q_INVOKABLE int hiddenAppCount();
+    Q_INVOKABLE bool isAppHidden(int appIndex);
+
     Q_INVOKABLE void setAppDirectLaunch(int appIndex, bool directLaunch);
 
     // Filename to offer when saving a .art shortcut for this app, with

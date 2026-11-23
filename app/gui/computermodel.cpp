@@ -48,6 +48,23 @@ QVariant ComputerModel::data(const QModelIndex& index, int role) const
         return computer->apolloVersion;
     case UuidRole:
         return computer->uuid;
+    case AddressRole:
+        return computer->activeAddress.isNull() ? computer->manualAddress.toString()
+                                                : computer->activeAddress.toString();
+    case RunningAppRole: {
+        if (computer->currentGameId == 0) {
+            return QString();
+        }
+        if (!computer->playniteGameName.isEmpty()) {
+            return computer->playniteGameName;
+        }
+        for (const NvApp& app : computer->appList) {
+            if (app.id == computer->currentGameId) {
+                return app.name;
+            }
+        }
+        return QString();
+    }
     case DetailsRole: {
         QString state, pairState;
 
@@ -155,6 +172,8 @@ QHash<int, QByteArray> ComputerModel::roleNames() const
     names[DetailsRole] = "details";
     names[ApolloVersionRole] = "apolloVersion";
     names[UuidRole] = "uuid";
+    names[AddressRole] = "address";
+    names[RunningAppRole] = "runningApp";
 
     return names;
 }

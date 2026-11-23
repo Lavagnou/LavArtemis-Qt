@@ -291,6 +291,23 @@ void AppModel::setAppHidden(int appIndex, bool hidden)
     m_ComputerManager->clientSideAttributeUpdated(m_Computer);
 }
 
+int AppModel::hiddenAppCount()
+{
+    QReadLocker lock(&m_Computer->lock);
+    int count = 0;
+    for (const NvApp& app : m_Computer->appList) {
+        if (app.hidden) {
+            count++;
+        }
+    }
+    return count;
+}
+
+bool AppModel::isAppHidden(int appIndex)
+{
+    return appIndex >= 0 && appIndex < m_VisibleApps.count() && m_VisibleApps.at(appIndex).hidden;
+}
+
 void AppModel::setAppDirectLaunch(int appIndex, bool directLaunch)
 {
     Q_ASSERT(appIndex < m_VisibleApps.count());

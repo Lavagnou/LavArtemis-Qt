@@ -110,6 +110,9 @@ FocusScope {
     // ---- apps of the shown host -----------------------------------------------------------
     property AppModel appModel: null
     property int rev: 0
+    // Games hidden with "Masquer": shown (faded) only on demand
+    property bool showHidden: false
+    readonly property int hiddenCount: { rev; return appModel ? appModel.hiddenAppCount() : 0 }
     readonly property int runningId: { rev; return appModel ? appModel.getRunningAppId() : 0 }
     readonly property int runningRow: { rev; return appModel ? appModel.getRunningAppIndex() : -1 }
     readonly property string runningName: { rev; return appModel && runningId !== 0 ? (appModel.getRunningAppName() || "") : "" }
@@ -131,7 +134,7 @@ FocusScope {
             return
         }
         var model = Qt.createQmlObject('import AppModel 1.0; AppModel {}', home, '')
-        model.initialize(ComputerManager, host.index, false)
+        model.initialize(ComputerManager, host.index, showHidden)
         model.computerLost.connect(onComputerLost)
         appModel = model
         rev++
@@ -204,6 +207,7 @@ FocusScope {
         appMenu.appName = name
         appMenu.cover = cover
         appMenu.running = running
+        appMenu.hidden = appModel ? appModel.isAppHidden(row) : false
         var p = item.mapToItem(home, x, y)
         appMenu.openAt(p.x, p.y)
     }
@@ -223,6 +227,8 @@ FocusScope {
             exportArtDialog.open()
         } else if (action === "hide") {
             appModel.setAppHidden(row, true)
+        } else if (action === "unhide") {
+            appModel.setAppHidden(row, false)
         }
     }
 
@@ -593,11 +599,24 @@ FocusScope {
                             // The game running inside Playnite glows too (matched by name)
                             running: model.running || (home.playniteGame.length > 0 && model.name === home.playniteGame)
                             dimmed: home.sessionRunning && !model.running && model.name !== home.playniteGame
+                            // Shown only with "Afficher les jeux masqués"
+                            opacity: model.hidden ? 0.45 : 1.0
                             onClicked: home.launch(gamesModel.sourceRow(model.index), model.name, model.appid)
                             onMenuRequested: (x, y) => home.openMenu(this, gamesModel.sourceRow(model.index), model.name, model.boxart, model.running, x, y, model.appid)
                             Keys.onMenuPressed: home.openMenu(this, gamesModel.sourceRow(model.index), model.name, model.boxart, model.running, width / 2, height / 2, model.appid)
                         }
                     }
+                }
+
+                // Hidden games ("Masquer" in the menu): shown again on demand, to unhide them
+                LavButton {
+                    visible: home.hiddenCount > 0
+                    primary: false
+                    iconName: home.showHidden ? "eye-off" : "eye"
+                    text: home.showHidden ? qsTr("Cacher les jeux masqués")
+                                          : (home.hiddenCount > 1 ? qsTr("Afficher les %1 jeux masqués").arg(home.hiddenCount)
+                                                                  : qsTr("Afficher le jeu masqué"))
+                    onClicked: { home.showHidden = !home.showHidden; home.reloadApps() }
                 }
             }
         }

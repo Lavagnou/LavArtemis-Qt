@@ -258,8 +258,19 @@ void StreamingPreferences::reload()
     // Fixup VCC value to the new settings format with codec and HDR separate
     if (videoCodecConfig == VCC_FORCE_HEVC_HDR_DEPRECATED) {
         videoCodecConfig = VCC_AUTO;
-        enableHdr = true;
     }
+
+    // Settings removed with the legacy settings screen (the user's triage of 2026-11-23): nothing
+    // can change them any more, so a value saved by an older version must not stick. The command
+    // line (--hdr...) still overrides them for its own stream, after this.
+    enableHdr = false;
+    enableResolutionScaling = false;
+    resolutionScaleFactor = 100;
+    swapMouseButtons = false;
+    reverseScrollDirection = false;
+    gameOptimizations = true; // "Optimize game settings": always sent
+    rendererSelection = RendererSelection::RS_AUTO;
+    rendererBackend = RendererBackend::RB_AUTO;
 }
 
 bool StreamingPreferences::retranslate()

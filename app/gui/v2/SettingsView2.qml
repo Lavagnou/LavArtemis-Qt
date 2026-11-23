@@ -15,9 +15,9 @@ import SdlGamepadKeyNavigation 1.0
 
 // Réglages of the redesigned interface: pages on the left, rows on the right. Every setting the
 // user triaged "Normal" shows; "Expert" rows only in expert mode (ArtemisSettings.uiExpertMode);
-// "Supprimer" rows are not here (the legacy screen still has them). How each preference is read
-// and written -- side effects included -- follows the legacy SettingsView.qml, which stays
-// reachable from Avancé.
+// "Supprimer" settings are gone (StreamingPreferences forces them to their defaults). How each
+// preference is read and written -- side effects included -- follows the legacy SettingsView.qml
+// it replaced.
 //
 // ArtemisSettings and StreamingPreferences setters do not persist by themselves: every change
 // calls persist(), and the page saves again when it leaves the stack.
@@ -129,12 +129,6 @@ FocusScope {
         } else {
             stackView.pop()
         }
-    }
-
-    function openLegacySettings() {
-        saveNow()
-        var component = Qt.createComponent("../SettingsView.qml")
-        stackView.push(component.createObject(stackView, {}))
     }
 
     // ---- keyboard and gamepad ---------------------------------------------------------------
@@ -1247,6 +1241,17 @@ FocusScope {
                         width: parent.width
                         spacing: 12
 
+                        SettingAction {
+                            label: qsTr("Configurer une manette")
+                            description: qsTr("Pour une manette que LavArtemis ne reconnaît pas, ou un bouton mal placé : on clique le contrôle sur le schéma, puis on l'actionne.")
+                            buttonText: qsTr("Ouvrir")
+                            onTriggered: {
+                                settingsPage.saveNow()
+                                var component = Qt.createComponent("../GamepadMapper.qml")
+                                stackView.push(component.createObject(stackView, {}))
+                            }
+                        }
+
                         SettingToggle {
                             label: qsTr("Inverser A/B et X/Y")
                             expert: true
@@ -1606,7 +1611,7 @@ FocusScope {
                             description: settingsPage.updateChecking ? qsTr("Vérification…")
                                          : (updateKnown ? qsTr("LavArtemis %1 est disponible.").arg(window.updateVersion)
                                          : (settingsPage.updateStatus !== "" ? settingsPage.updateStatus
-                                                                             : qsTr("Même si la vérification au démarrage est coupée.")))
+                                                                             : qsTr("Version installée : %1.").arg(SystemProperties.versionString)))
                             buttonText: updateKnown ? qsTr("Installer") : qsTr("Vérifier")
                             primary: updateKnown
                             busy: settingsPage.updateChecking
@@ -1673,13 +1678,6 @@ FocusScope {
                             description: qsTr("Le dossier « vrr-diagnostics » du Bureau.")
                             buttonText: qsTr("Ouvrir")
                             onTriggered: StreamingPreferences.openDiagnosticsFolder()
-                        }
-
-                        SettingAction {
-                            label: qsTr("Écran de réglages complet (ancien)")
-                            description: qsTr("Tous les réglages, y compris ceux retirés d'ici, dans l'écran d'origine.")
-                            buttonText: qsTr("Ouvrir")
-                            onTriggered: settingsPage.openLegacySettings()
                         }
                     }
                 }

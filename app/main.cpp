@@ -1095,12 +1095,8 @@ int main(int argc, char *argv[])
 
     switch (commandLineParserResult) {
     case GlobalCommandLineParser::NormalStartRequested:
-#ifdef LAV_DEV_CHANNEL
-        // LavArtemis Dev opens the redesigned interface (gui/v2)
+        // The redesigned interface (gui/v2); the legacy one was removed
         initialView = "qrc:/gui/v2/HomeView.qml";
-#else
-        initialView = "qrc:/gui/PcView.qml";
-#endif
         break;
     case GlobalCommandLineParser::StreamRequested:
         {

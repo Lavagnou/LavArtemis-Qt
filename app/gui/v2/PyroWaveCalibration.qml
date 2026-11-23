@@ -6,8 +6,8 @@ import PyroWaveCalibrator 1.0
 
 // PyroWave calibration results (Réglages v2, Vidéo): one cell per resolution and chroma, SDR only
 // (HDR is not offered by the redesigned settings). Picking a cell emits applied(option); the page
-// writes the codec, resolution, chroma and bitrate. Same data and wording as the legacy dialog in
-// SettingsView.qml, which still shows the HDR cells.
+// writes the codec, resolution, chroma and bitrate. Same data and wording as the dialog of the
+// legacy settings screen, without its HDR cells (HDR was removed).
 LavPopup {
     id: dialog
 
