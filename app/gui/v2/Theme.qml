@@ -106,4 +106,13 @@ QtObject {
     readonly property var modeNames: [qsTr("Système"), qsTr("Clair"), qsTr("Sombre")]
 
     readonly property int animMs: 160
+
+    // Scale of the 1600-wide Stage of the visible page (set by Stage.qml). Popups live in the window
+    // overlay, outside the scaled stage, and use it to keep the same proportions as the page.
+    property real stageScale: 1.0
+
+    // Status colours of the PyroWave calibration grid (smooth, tight, very tight, too slow, error):
+    // the same in every theme, they carry a meaning.
+    readonly property var tierColors: ({any: "#66BB6A", vrr: "#FFCA28", vrrLarge: "#FF9800",
+                                        slow: "#EF5350", error: "#9E9E9E"})
 }

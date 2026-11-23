@@ -18,6 +18,7 @@ Item {
         "play": "M7 5 L19 12 L7 19 Z",
         "chevron-left": "M15 6 L9 12 L15 18",
         "chevron-right": "M9 6 L15 12 L9 18",
+        "chevron-down": "M6 9 L12 15 L18 9",
         "screens": "M3 5 H14 V13 H3 Z M10 9 H21 V17 H10 Z M7 21 H17",
         "monitor": "M3 4 H21 V16 H3 Z M8 21 H16 M12 16 V21",
         "sun": "M12 8 A4 4 0 1 1 11.99 8 M12 2 V4 M12 20 V22 M4.9 4.9 L6.3 6.3 M17.7 17.7 L19.1 19.1 M2 12 H4 M20 12 H22 M4.9 19.1 L6.3 17.7 M17.7 6.3 L19.1 4.9",

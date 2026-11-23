@@ -12,6 +12,10 @@ Item {
 
     clip: true
 
+    onKChanged: if (visible) Theme.stageScale = k
+    onVisibleChanged: if (visible) Theme.stageScale = k
+    Component.onCompleted: if (visible) Theme.stageScale = k
+
     Item {
         id: inner
         width: stage.designWidth

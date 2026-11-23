@@ -116,6 +116,7 @@ void ArtemisSettings::save()
     m_settings->setValue("uiTheme", m_uiTheme);
     m_settings->setValue("uiThemeMode", m_uiThemeMode);
     m_settings->setValue("uiLegacy", m_uiLegacy);
+    m_settings->setValue("uiExpertMode", m_uiExpertMode);
     m_settings->setValue("autoUpdatePrerelease", m_autoUpdatePrerelease);
     m_settings->endGroup();
 
@@ -190,6 +191,7 @@ void ArtemisSettings::load()
     m_uiTheme = m_settings->value("uiTheme", QStringLiteral("braise")).toString();
     m_uiThemeMode = m_settings->value("uiThemeMode", 0).toInt();
     m_uiLegacy = m_settings->value("uiLegacy", false).toBool();
+    m_uiExpertMode = m_settings->value("uiExpertMode", false).toBool();
     m_autoUpdatePrerelease = m_settings->value("autoUpdatePrerelease", false).toBool();
     m_settings->endGroup();
 }
@@ -222,6 +224,7 @@ void ArtemisSettings::resetToDefaults()
     emit uiThemeChanged();
     emit uiThemeModeChanged();
     emit uiLegacyChanged();
+    emit uiExpertModeChanged();
     emit autoUpdatePrereleaseChanged();
 }
 
@@ -279,6 +282,7 @@ void ArtemisSettings::loadDefaults()
     m_uiTheme = QStringLiteral("braise");
     m_uiThemeMode = 0;
     m_uiLegacy = false;
+    m_uiExpertMode = false;
 }
 
 void ArtemisSettings::setUiTheme(const QString &theme)
@@ -302,6 +306,14 @@ void ArtemisSettings::setUiLegacy(bool legacy)
     if (m_uiLegacy != legacy) {
         m_uiLegacy = legacy;
         emit uiLegacyChanged();
+    }
+}
+
+void ArtemisSettings::setUiExpertMode(bool expert)
+{
+    if (m_uiExpertMode != expert) {
+        m_uiExpertMode = expert;
+        emit uiExpertModeChanged();
     }
 }
 

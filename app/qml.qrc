@@ -40,7 +40,18 @@
         <file>gui/v2/PageHeader.qml</file>
         <file>gui/v2/RoundIconButton.qml</file>
         <file>gui/v2/SectionTitle.qml</file>
-        <file>gui/v2/SettingsHome.qml</file>
         <file>gui/v2/Stage.qml</file>
+        <file>gui/v2/LavDialog.qml</file>
+        <file>gui/v2/LavDropdown.qml</file>
+        <file>gui/v2/LavPopup.qml</file>
+        <file>gui/v2/LavSwitch.qml</file>
+        <file>gui/v2/LavTextField.qml</file>
+        <file>gui/v2/PyroWaveCalibration.qml</file>
+        <file>gui/v2/SettingAction.qml</file>
+        <file>gui/v2/SettingChoice.qml</file>
+        <file>gui/v2/SettingRow.qml</file>
+        <file>gui/v2/SettingSlider.qml</file>
+        <file>gui/v2/SettingToggle.qml</file>
+        <file>gui/v2/SettingsView2.qml</file>
     </qresource>
 </RCC>

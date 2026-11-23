@@ -377,7 +377,7 @@ FocusScope {
                             iconName: "gear"
                             text: qsTr("Réglages")
                             onClicked: {
-                                var component = Qt.createComponent("SettingsHome.qml")
+                                var component = Qt.createComponent("SettingsView2.qml")
                                 stackView.push(component.createObject(stackView, {}))
                             }
                         }

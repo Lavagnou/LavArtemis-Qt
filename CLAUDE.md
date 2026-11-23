@@ -335,8 +335,14 @@ l'interface d'origine. La Dev l'ouvre au démarrage (`main.cpp`, `initialView`),
 - `HomeView.qml` : un hôte à la fois, sections par `AppKindModel` (proxy filtrant
   `AppModel::KindRole` : `desktop`, `playnite`, `app`, `game`), Scène de la session en cours,
   Projecteur (`dimmed`) et halo (`LiveHalo`). `AppMenu.qml` : popover au pointeur à la souris,
-  centré sinon. `HostsView.qml` (Mes PC), `SettingsHome.qml` (Apparence ; le reste ouvre
-  `SettingsView.qml`).
+  centré sinon. `HostsView.qml` (Mes PC).
+- **`SettingsView2.qml`** (Réglages) : pages à gauche, lignes à droite, d'après le tri Normal / Expert
+  / Supprimer des réglages. Les lignes *expert* n'apparaissent qu'avec `ArtemisSettings.uiExpertMode`
+  (bascule en tête de la liste des pages, propre à la machine) ; une page sans ligne visible disparaît
+  (Manettes hors mode expert). Briques : `SettingRow` (+ `SettingToggle`, `SettingChoice` segmenté ou
+  `LavDropdown`, `SettingSlider`, `SettingAction`), popups `LavPopup` / `LavDialog`,
+  `PyroWaveCalibration` (SDR seulement). L'ancien `SettingsView.qml` reste la référence de lecture et
+  d'écriture de chaque préférence et s'ouvre depuis Avancé (« Écran de réglages complet »).
 - **`Stage.qml`** : chaque page est composée sur une scène de **1600 px de large mise à l'échelle**
   de la fenêtre, comme le prototype. Ne pas raisonner en pixels de fenêtre dans `v2/`.
 - Polices OFL embarquées (`res/fonts/`, enregistrées dans `main.cpp`).
@@ -344,6 +350,26 @@ l'interface d'origine. La Dev l'ouvre au démarrage (`main.cpp`, `initialView`),
 > ⚠️ **Jamais de liaison de `header.visible`/`height` sur `stackView.currentItem`** : elle a fait
 > boucler la mise en page au démarrage (appli figée, CPU à 100 %, même en ancienne interface).
 > `main.qml` pose `window.v2Page` dans `onCurrentItemChanged`, et la barre lit ce drapeau.
+
+> ⚠️ **Réglages v2 : une ligne lit la préférence, elle ne la garde jamais.** `checked`, `value` sont
+> des liaisons sur `StreamingPreferences` / `ArtemisSettings` ; un clic émet `toggled` / `chosen` /
+> `moved` et la page écrit, puis `persist()` (sauvegarde différée de 400 ms, refaite en quittant la
+> page) : les setters ne persistent pas seuls. C'est ce qui fait suivre un changement de profil
+> (`notifyAllPropertiesChanged()`) ou un calibrage. D'où aussi un curseur dessiné à la main : le
+> `Slider` de Qt Quick Controls borne sa valeur à l'ancienne plage quand débit et plage changent
+> ensemble (bascule PyroWave) et l'aurait affichée fausse.
+
+> ⚠️ **Popups hors de la scène mise à l'échelle.** Un `Popup` vit dans l'overlay de la fenêtre : son
+> contenu est composé en pixels de maquette et mis à l'échelle par `Theme.stageScale` (posé par
+> `Stage.qml`). La liste de `LavDropdown` a `parent: Overlay.overlay` et se place par `mapToItem(null, …)`.
+
+> 📋 **Clavier / manette dans Réglages** : haut/bas entre les lignes de la page (sans en sortir),
+> gauche/droite règlent un choix ou un curseur, sinon gauche revient aux pages ; Entrée/Espace
+> basculent ; Page préc./suiv. changent de page ; Échap quitte. Une ligne à plusieurs boutons met
+> `focusable: false` et son `Row` porte `hgroup: true` (gauche/droite passent d'un bouton à l'autre).
+
+> 📋 **Session verrouillée** : sans rendu, les positionneurs (`Column`) ne sont plus recalculés ; leurs
+> hauteurs lues dans un test automatisé sont fausses. Ne vérifier la mise en page que session ouverte.
 
 > ⚠️ **Délégués : `model.xxx`, pas `required property`** quand le rôle porte le nom d'une
 > propriété du composant (`running` existe déjà sur `AppCard`/`CoverTile`).
