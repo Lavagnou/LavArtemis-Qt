@@ -82,12 +82,6 @@ Item {
         visible: !SdlGamepadMapper.mapping
 
         Label {
-            text: qsTr("Gamepad Mapper")
-            font.pointSize: 20
-            Layout.fillWidth: true
-        }
-
-        Label {
             text: qsTr("Pick a device to teach LavArtemis its button layout. Controllers already recognized don't need this unless something is misplaced.")
             font.pointSize: 10
             color: "#aaaaaa"

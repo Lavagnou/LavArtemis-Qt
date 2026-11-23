@@ -75,7 +75,6 @@ public:
 
     Q_INVOKABLE void save();
     Q_INVOKABLE void load();
-    Q_INVOKABLE void resetToDefaults();
 
     // Clipboard sync getters/setters
     bool clipboardSyncEnabled() const { return m_clipboardSyncEnabled; }

@@ -214,10 +214,6 @@ public:
     Q_INVOKABLE void exportLatestDiagnostics();
     void setDiagnosticsStatus(const QString& message);
 
-    // Rate choices are advisory; toggling VRR never rewrites the saved FPS
-    // preference.
-    Q_INVOKABLE QVariantList getFpsChoices(const QVariantList& refreshRates) const;
-
     // Directly accessible members for preferences
     int width;
     int height;

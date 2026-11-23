@@ -526,47 +526,6 @@ void StreamingPreferences::exportLatestDiagnostics()
     thread->start();
 }
 
-QVariantList StreamingPreferences::getFpsChoices(const QVariantList& refreshRates) const
-{
-    std::vector<int> rates;
-    rates.reserve(refreshRates.size());
-    for (const QVariant& value : refreshRates) {
-        bool ok = false;
-        const int refreshHz = value.toInt(&ok);
-        if (ok && refreshHz > 0) {
-            rates.push_back(refreshHz);
-        }
-    }
-
-    const std::vector<VrrFpsChoice> choices = VrrRatePolicy::buildChoices(
-        rates, fps, enableVsync && enableVrr);
-    QVariantList result;
-    for (const VrrFpsChoice& choice : choices) {
-        QVariantMap item;
-        item.insert("video_fps", QString::number(choice.fps));
-        item.insert("is_custom", choice.kind == VrrFpsChoiceKind::Custom);
-
-        switch (choice.kind) {
-        case VrrFpsChoiceKind::Fixed:
-            item.insert("kind", "fixed");
-            break;
-        case VrrFpsChoiceKind::Vrr:
-            item.insert("kind", "vrr");
-            break;
-        case VrrFpsChoiceKind::LowLatencyVrr:
-            item.insert("kind", "low-latency-vrr");
-            break;
-        case VrrFpsChoiceKind::Custom:
-            item.insert("kind", "custom");
-            break;
-        }
-
-        result.append(item);
-    }
-
-    return result;
-}
-
 int StreamingPreferences::getDefaultBitrate(int width, int height, int fps, bool yuv444)
 {
     // Don't scale bitrate linearly beyond 60 FPS. It's definitely not a linear

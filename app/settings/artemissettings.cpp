@@ -196,37 +196,6 @@ void ArtemisSettings::load()
     m_settings->endGroup();
 }
 
-void ArtemisSettings::resetToDefaults()
-{
-    qDebug() << "ArtemisSettings: Resetting to defaults";
-    
-    loadDefaults();
-    save();
-    
-    // Emit all change signals
-    emit clipboardSyncEnabledChanged();
-    emit clipboardSyncBidirectionalChanged();
-    emit clipboardSyncMaxSizeChanged();
-    emit serverCommandsEnabledChanged();
-    emit showAdvancedCommandsChanged();
-    emit otpPairingEnabledChanged();
-    emit otpPairingTimeoutChanged();
-    emit fractionalRefreshRateEnabledChanged();
-    emit customRefreshRateChanged();
-    emit resolutionScalingEnabledChanged();
-    emit resolutionScaleFactorChanged();
-    emit virtualDisplayEnabledChanged();
-    emit customAppOrderingEnabledChanged();
-    emit appOrderingModeChanged();
-    emit showServerPermissionsChanged();
-    emit inputOnlyModeEnabledChanged();
-    emit autoUpdateEnabledChanged();
-    emit uiThemeChanged();
-    emit uiThemeModeChanged();
-    emit uiExpertModeChanged();
-    emit autoUpdatePrereleaseChanged();
-}
-
 void ArtemisSettings::loadDefaults()
 {
     // Clipboard sync defaults

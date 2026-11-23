@@ -448,11 +448,11 @@ public:
         info.height = height;
         info.chroma = chroma444 ? PYROWAVE_CHROMA_SUBSAMPLING_444 : PYROWAVE_CHROMA_SUBSAMPLING_420;
         if (pyrowave_encoder_create(&info, &m_Encoder) != PYROWAVE_SUCCESS) {
-            m_Error = QStringLiteral("Could not initialize encoder");
+            m_Error = QCoreApplication::translate("PyroWaveCalibrator", "Could not initialize encoder");
             return;
         }
         if (!renderer.prepare(width, height, chroma444, hdr)) {
-            m_Error = QStringLiteral("Could not create renderer surfaces");
+            m_Error = QCoreApplication::translate("PyroWaveCalibrator", "Could not create renderer surfaces");
             return;
         }
         PyroWaveDecoder::Config config;
@@ -467,7 +467,7 @@ public:
         const bool initialized = m_Decoder.initialize(config, renderer.pool.get());
 #endif
         if (!initialized) {
-            m_Error = QStringLiteral("Could not initialize decoder");
+            m_Error = QCoreApplication::translate("PyroWaveCalibrator", "Could not initialize decoder");
         }
     }
 
@@ -521,13 +521,13 @@ private:
         auto input = m_Source.buffer();
         pyrowave_rate_control rate = { size_t(double(bitrateKbps) * 1000.0 / m_Fps / 8.0) };
         if (pyrowave_encoder_encode_cpu(m_Encoder, &input, &rate) != PYROWAVE_SUCCESS) {
-            m_Error = QStringLiteral("Could not encode test image");
+            m_Error = QCoreApplication::translate("PyroWaveCalibrator", "Could not encode test image");
             return false;
         }
         size_t packetCount = 0;
         const size_t shard = 1392 - 16;
         if (pyrowave_encoder_compute_num_packets_with_padding(m_Encoder, shard, 8, &packetCount) != PYROWAVE_SUCCESS) {
-            m_Error = QStringLiteral("Could not packetize test image");
+            m_Error = QCoreApplication::translate("PyroWaveCalibrator", "Could not packetize test image");
             return false;
         }
         std::vector<pyrowave_packet> packets(packetCount);
@@ -535,14 +535,14 @@ private:
         size_t written = 0;
         if (pyrowave_encoder_packetize_with_padding(m_Encoder, packets.data(), shard, 8, &written,
                                                     bitstream.data(), bitstream.size()) != PYROWAVE_SUCCESS) {
-            m_Error = QStringLiteral("Could not packetize test image");
+            m_Error = QCoreApplication::translate("PyroWaveCalibrator", "Could not packetize test image");
             return false;
         }
         packets.resize(written);
         m_Framed = frameRecords(bitstream, packets, shard,
                                 PyroWaveFraming::coarseBlockCount({m_Width, m_Height, m_Chroma444}));
         if (m_Framed.empty()) {
-            m_Error = QStringLiteral("Could not packetize test image");
+            m_Error = QCoreApplication::translate("PyroWaveCalibrator", "Could not packetize test image");
             return false;
         }
         return true;
@@ -551,7 +551,7 @@ private:
     QString runError() const
     {
         const QString error = QString::fromStdString(m_Decoder.lastError());
-        return error.isEmpty() ? QStringLiteral("Could not draw the decoded frame") : error;
+        return error.isEmpty() ? QCoreApplication::translate("PyroWaveCalibrator", "Could not draw the decoded frame") : error;
     }
 
     // Decodes feed a queue of kQueuedFrames that is drawn in order, on a
@@ -762,7 +762,7 @@ QString runSweep(int fps, int displayWidth, int displayHeight, int linkCapKbps,
     {
         Renderer renderer;
         if (!renderer.create(displayWidth, displayHeight)) {
-            error = QStringLiteral("Could not create a GPU renderer for PyroWave calibration");
+            error = QCoreApplication::translate("PyroWaveCalibrator", "Could not create a GPU renderer for PyroWave calibration");
         }
         else {
             const int resolutions[][2] = {{3840, 2160}, {2560, 1440}, {1920, 1080},

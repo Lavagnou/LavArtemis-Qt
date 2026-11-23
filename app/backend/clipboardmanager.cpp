@@ -131,7 +131,7 @@ bool ClipboardManager::sendClipboard(bool force)
 
     if (!isClipboardSyncSupported()) {
         qWarning() << "ClipboardManager: Clipboard sync not supported (not an Apollo server)";
-        emit clipboardSyncFailed("Clipboard sync only works with Apollo/Sunshine servers");
+        emit clipboardSyncFailed(tr("Clipboard sync only works with Apollo/Sunshine servers"));
         return false;
     }
 
@@ -158,7 +158,7 @@ bool ClipboardManager::getClipboard()
 
     if (!isClipboardSyncSupported()) {
         qWarning() << "ClipboardManager: Clipboard sync not supported (not an Apollo server)";
-        emit clipboardSyncFailed("Clipboard sync only works with Apollo/Sunshine servers");
+        emit clipboardSyncFailed(tr("Clipboard sync only works with Apollo/Sunshine servers"));
         return false;
     }
 
@@ -389,13 +389,13 @@ bool ClipboardManager::sendClipboardToServer(const QString &content)
         emit clipboardSyncCompleted();
         
         if (m_showToast) {
-            emit showToast("Clipboard uploaded to server");
+            emit showToast(tr("Clipboard uploaded to server"));
         }
         
         qDebug() << "ClipboardManager: Successfully sent clipboard to server";
         return true;
     } else {
-        emit clipboardSyncFailed("Failed to send clipboard to server");
+        emit clipboardSyncFailed(tr("Failed to send clipboard to server"));
         qWarning() << "ClipboardManager: Failed to send clipboard to server";
         return false;
     }
@@ -419,13 +419,13 @@ QString ClipboardManager::getClipboardFromServer()
         emit clipboardSyncCompleted();
         
         if (m_showToast) {
-            emit showToast("Clipboard downloaded from server");
+            emit showToast(tr("Clipboard downloaded from server"));
         }
         
         qDebug() << "ClipboardManager: Successfully received clipboard from server";
         return content;
     } else {
-        emit clipboardSyncFailed("Failed to get clipboard from server");
+        emit clipboardSyncFailed(tr("Failed to get clipboard from server"));
         qWarning() << "ClipboardManager: Failed to get clipboard from server";
         return QString();
     }

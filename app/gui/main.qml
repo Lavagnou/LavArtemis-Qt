@@ -47,6 +47,9 @@ ApplicationWindow {
     Material.foreground: Theme.fg
     Material.accent: Theme.accent
     Material.primary: Theme.surface
+    // Controls without a font of their own (mapper, benchmark, message dialogs): the theme's
+    font.family: Theme.textFont
+    font.pixelSize: 16
     width: 1280
     height: 600
     // Below this the redesigned pages can only shrink and break (Stage.minLayoutWidth is 1000):

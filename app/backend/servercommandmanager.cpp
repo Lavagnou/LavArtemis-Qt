@@ -174,17 +174,17 @@ void ServerCommandManager::executeCommand(const QString &commandId)
 void ServerCommandManager::executeCustomCommand(const QString &command)
 {
     if (command.isEmpty()) {
-        emit commandFailed("custom", "Empty command");
+        emit commandFailed("custom", tr("Empty command"));
         return;
     }
 
     if (!m_computer || !m_http || !m_hasPermission) {
-        emit commandFailed("custom", "Server commands not available");
+        emit commandFailed("custom", tr("Server commands not available"));
         return;
     }
 
     if (m_isExecuting) {
-        emit commandFailed("custom", "Another command is already executing");
+        emit commandFailed("custom", tr("Another command is already executing"));
         return;
     }
     

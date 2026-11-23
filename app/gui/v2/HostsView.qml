@@ -49,7 +49,7 @@ FocusScope {
     // Keep this list in step with computermodel.h.
     function roleId(name) {
         var names = ["name", "online", "paired", "busy", "wakeable", "statusUnknown", "serverSupported",
-                     "details", "apolloVersion", "uuid", "address", "runningApp"]
+                     "apolloVersion", "uuid", "address", "runningApp"]
         return 256 + names.indexOf(name) // Qt::UserRole + position in ComputerModel::Roles
     }
 
@@ -323,7 +323,7 @@ FocusScope {
                                 ? address + (apolloVersion.length > 0 ? " · LavApollo " + apolloVersion : "")
                                 : (statusUnknown ? "" : (wakeable ? qsTr("Éteint ou en veille : il peut être réveillé d'ici.")
                                                                   : qsTr("Éteint ou injoignable.")))
-                            readonly property string action: online ? qsTr("Ouvrir") : (statusUnknown ? "" : qsTr("Réveiller"))
+                            readonly property string actionLabel: online ? qsTr("Ouvrir") : (statusUnknown ? "" : qsTr("Réveiller"))
 
                             onClicked: hostsPage.activate(index)
                             Keys.onReturnPressed: hostsPage.activate(index)
@@ -415,7 +415,7 @@ FocusScope {
 
                                 Rectangle {
                                     // Main action, at the bottom
-                                    visible: card.action.length > 0
+                                    visible: card.actionLabel.length > 0
                                     x: 30
                                     anchors.bottom: parent.bottom
                                     anchors.bottomMargin: 30
@@ -426,7 +426,7 @@ FocusScope {
                                     Text {
                                         id: actionText
                                         anchors.centerIn: parent
-                                        text: card.action
+                                        text: card.actionLabel
                                         color: Theme.bg
                                         font.family: Theme.textFont
                                         font.pixelSize: 18
@@ -504,7 +504,8 @@ FocusScope {
                                 }
                             }
                         }
-                        contentItem: Column {
+                        contentItem: Item {
+                          Column {
                             anchors.centerIn: parent
                             spacing: 14
                             LavIcon { anchors.horizontalCenter: parent.horizontalCenter; name: "plus"; size: 48; stroke: 1.8; color: Theme.fg }
@@ -526,6 +527,7 @@ FocusScope {
                                 font.family: Theme.textFont
                                 font.pixelSize: 17
                             }
+                          }
                         }
 
                         Rectangle {
@@ -548,8 +550,8 @@ FocusScope {
                     font.pixelSize: 17
                     text: Theme.input === "pad" ? qsTr("A : ouvrir le PC. Y ou A maintenu : réveiller, benchmark, renommer, oublier.")
                         : Theme.input === "keys" ? qsTr("Entrée : ouvrir le PC. Touche Menu : réveiller, benchmark, renommer, oublier.")
-                        : Theme.input === "touch" ? qsTr("Touche pour ouvrir le PC. Appui long ou ⋯ : réveiller, benchmark, renommer, oublier.")
-                        : qsTr("Clic : ouvrir le PC. Clic droit ou ⋯ : réveiller, benchmark, renommer, oublier.")
+                        : Theme.input === "touch" ? qsTr("Touche pour ouvrir le PC. Appui long ou bouton « … » : réveiller, benchmark, renommer, oublier.")
+                        : qsTr("Clic : ouvrir le PC. Clic droit ou bouton « … » : réveiller, benchmark, renommer, oublier.")
                 }
             }
         }

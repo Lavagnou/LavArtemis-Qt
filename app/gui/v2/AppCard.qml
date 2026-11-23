@@ -46,19 +46,39 @@ AbstractButton {
         layer.smooth: true
         layer.effect: MultiEffect { saturation: -card.dimStyle.gray }
 
-        Image {
-            id: coverImage
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: height * 670 / 900
-            source: card.cover
-            fillMode: Image.PreserveAspectCrop
-            asynchronous: true
+        Item {
+            // The cover, cut to the card's rounded shape: only its right corners touch it.
+            // (Rectangle.clip cuts square.)
+            id: coverArea
+            anchors.fill: parent
+            anchors.margins: Theme.border // inside the card's border
+            layer.enabled: Theme.r > 0
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: coverMask
+            }
+            Image {
+                id: coverImage
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: height * 670 / 900
+                source: card.cover
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+            }
+        }
+        Rectangle {
+            id: coverMask
+            anchors.fill: coverArea
+            radius: Math.max(0, Theme.r - Theme.border)
+            visible: false
+            layer.enabled: true
         }
         Rectangle {
             // separator line between text and cover
-            anchors.right: coverImage.left
+            anchors.right: coverArea.right
+            anchors.rightMargin: coverImage.width
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             width: Theme.border

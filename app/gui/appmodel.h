@@ -19,7 +19,6 @@ public:
         BoxArtRole,
         HiddenRole,
         AppIdRole,
-        DirectLaunchRole,
         AppCollectorGameRole,
         PlayniteGameRole,
         PlayniteHostRole,
@@ -36,7 +35,6 @@ public:
 
     Q_INVOKABLE Session* createSessionForApp(int appIndex);
 
-    Q_INVOKABLE int getDirectLaunchAppIndex();
 
     // LavApollo Link: whether this app starts inside the host's running Playnite front end,
     // keeping the session (no "quit the running app" first).
@@ -66,7 +64,6 @@ public:
     Q_INVOKABLE int hiddenAppCount();
     Q_INVOKABLE bool isAppHidden(int appIndex);
 
-    Q_INVOKABLE void setAppDirectLaunch(int appIndex, bool directLaunch);
 
     // Filename to offer when saving a .art shortcut for this app, with
     // anything a filesystem would reject stripped out.

@@ -41,22 +41,22 @@ OTPPairingManager::~OTPPairingManager()
 void OTPPairingManager::startOTPPairing(NvComputer *computer, const QString &pin, const QString &passphrase)
 {
     if (!computer) {
-        emit pairingFailed("No computer specified");
+        emit pairingFailed(tr("No computer specified"));
         return;
     }
 
     if (!isOTPSupported(computer)) {
-        emit pairingFailed("OTP pairing is only available with Apollo servers");
+        emit pairingFailed(tr("OTP pairing is only available with Apollo servers"));
         return;
     }
 
     if (!validatePinFormat(pin)) {
-        emit pairingFailed("PIN must be exactly 4 digits");
+        emit pairingFailed(tr("PIN must be exactly 4 digits"));
         return;
     }
 
     if (m_pairingInProgress) {
-        emit pairingFailed("Pairing already in progress");
+        emit pairingFailed(tr("Pairing already in progress"));
         return;
     }
 
@@ -202,23 +202,23 @@ void OTPPairingManager::sendOTPPairingRequest(NvComputer *computer, const QStrin
         
         // Parse the XML response
         if (pairingRequest.isEmpty()) {
-            emit pairingFailed("No response from Apollo server. Please check the server is running and OTP is active.");
+            emit pairingFailed(tr("No response from Apollo server. Please check the server is running and OTP is active."));
             return;
         }
         
         // Check for specific error cases
         if (pairingRequest.contains("status_code=\"503\"")) {
-            emit pairingFailed("OTP is not available or has expired. Please generate a new OTP on the Apollo server.");
+            emit pairingFailed(tr("OTP is not available or has expired. Please generate a new OTP on the Apollo server."));
             return;
         } else if (pairingRequest.contains("status_code=\"400\"")) {
             if (pairingRequest.contains("Invalid uniqueid")) {
-                emit pairingFailed("Invalid uniqueid format. This may be a configuration issue.");
+                emit pairingFailed(tr("Invalid uniqueid format. This may be a configuration issue."));
             } else {
-                emit pairingFailed("Invalid OTP hash. Please verify the PIN and passphrase match what you entered in Apollo server.");
+                emit pairingFailed(tr("Invalid OTP hash. Please verify the PIN and passphrase match what you entered in Apollo server."));
             }
             return;
         } else if (pairingRequest.contains("status_message=\"OTP auth not available.\"")) {
-            emit pairingFailed("OTP is not available or has expired. Please generate a new OTP on the Apollo server.");
+            emit pairingFailed(tr("OTP is not available or has expired. Please generate a new OTP on the Apollo server."));
             return;
         }
         
@@ -259,15 +259,15 @@ void OTPPairingManager::sendOTPPairingRequest(NvComputer *computer, const QStrin
                     emit pairingCompleted(true, "Apollo OTP pairing completed successfully");
                     return; // Early return to avoid cleanup at the end
                 } else {
-                    emit pairingFailed("Invalid server certificate received from Apollo server");
+                    emit pairingFailed(tr("Invalid server certificate received from Apollo server"));
                     qWarning() << "OTPPairingManager: Invalid server certificate in OTP response";
                 }
             } else {
-                emit pairingFailed("Server certificate not found in Apollo response");
+                emit pairingFailed(tr("Server certificate not found in Apollo response"));
                 qWarning() << "OTPPairingManager: No server certificate in OTP response";
             }
         } else {
-            emit pairingFailed("Apollo OTP pairing failed: " + pairingRequest);
+            emit pairingFailed(tr("Apollo OTP pairing failed: %1").arg(pairingRequest));
         }
 
     } catch (const GfeHttpResponseException& e) {
@@ -305,7 +305,7 @@ void OTPPairingManager::sendOTPPairingRequest(NvComputer *computer, const QStrin
 
 void OTPPairingManager::onPairingTimeout() 
 {
-    emit pairingFailed("OTP pairing request timed out");
+    emit pairingFailed(tr("OTP pairing request timed out"));
     qDebug() << "OTP pairing request timed out";
     
     // Clean up

@@ -312,7 +312,7 @@ void QuickMenuManager::executeServerCommand(const QString &command)
             if (Session::get()) {
                 auto& overlayManager = Session::get()->getOverlayManager();
                 overlayManager.setOverlayState(Overlay::OverlayServerCommands, true);
-                overlayManager.updateOverlayText(Overlay::OverlayServerCommands, "Server commands not available");
+                overlayManager.updateOverlayText(Overlay::OverlayServerCommands, tr("Server commands not available").toUtf8().constData());
                 
                 QTimer::singleShot(2000, [&overlayManager]() {
                     overlayManager.setOverlayState(Overlay::OverlayServerCommands, false);

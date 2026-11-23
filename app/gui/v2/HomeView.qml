@@ -642,7 +642,7 @@ FocusScope {
 
     NavigableMessageDialog {
         id: multiDialog
-        text: qsTr("Le multi-écran s'appliquera à la prochaine session. Relance la session en cours pour l'appliquer maintenant (menu ⋯ › Relancer la session).")
+        text: qsTr("Le multi-écran s'appliquera à la prochaine session. Relance la session en cours pour l'appliquer maintenant (menu « … » › Relancer la session).")
         standardButtons: Dialog.Ok
     }
 

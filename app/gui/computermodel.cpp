@@ -1,4 +1,5 @@
 #include "computermodel.h"
+#include "appmodel.h"
 #include "backend/serverpermissions.h"
 #include "settings/artemissettings.h"
 
@@ -60,80 +61,18 @@ QVariant ComputerModel::data(const QModelIndex& index, int role) const
         }
         for (const NvApp& app : computer->appList) {
             if (app.id == computer->currentGameId) {
+                // The names the home shows for its two cards
+                QString kind = AppModel::kindOf(app);
+                if (kind == QStringLiteral("desktop")) {
+                    return tr("Bureau");
+                }
+                if (kind == QStringLiteral("playnite")) {
+                    return QStringLiteral("Playnite Fullscreen");
+                }
                 return app.name;
             }
         }
         return QString();
-    }
-    case DetailsRole: {
-        QString state, pairState;
-
-        switch (computer->state) {
-        case NvComputer::CS_ONLINE:
-            state = tr("Online");
-            break;
-        case NvComputer::CS_OFFLINE:
-            state = tr("Offline");
-            break;
-        default:
-            state = tr("Unknown");
-            break;
-        }
-
-        switch (computer->pairState) {
-        case NvComputer::PS_PAIRED:
-            pairState = tr("Paired");
-            break;
-        case NvComputer::PS_NOT_PAIRED:
-            pairState = tr("Unpaired");
-            break;
-        default:
-            pairState = tr("Unknown");
-            break;
-        }
-
-        QString details;
-        
-        // Basic Information Section
-        details += tr("═══ COMPUTER INFORMATION ═══") + '\n';
-        details += tr("Name: %1").arg(computer->name) + '\n';
-        details += tr("Status: %1").arg(state) + '\n';
-        details += tr("Pair State: %1").arg(pairState) + '\n';
-        details += tr("Running Game: %1").arg(computer->state == NvComputer::CS_ONLINE ? 
-                     (computer->currentGameId != 0 ? QString::number(computer->currentGameId) : tr("None")) : 
-                     tr("Unknown")) + '\n';
-        
-        // Network Information Section
-        details += '\n' + tr("═══ NETWORK INFORMATION ═══") + '\n';
-        details += tr("Active Address: %1").arg(computer->activeAddress.toString()) + '\n';
-        details += tr("Local Address: %1").arg(computer->localAddress.toString()) + '\n';
-        details += tr("Remote Address: %1").arg(computer->remoteAddress.toString()) + '\n';
-        details += tr("IPv6 Address: %1").arg(computer->ipv6Address.toString()) + '\n';
-        details += tr("Manual Address: %1").arg(computer->manualAddress.toString()) + '\n';
-        details += tr("HTTPS Port: %1").arg(computer->state == NvComputer::CS_ONLINE ? QString::number(computer->activeHttpsPort) : tr("Unknown")) + '\n';
-        
-        // System Information Section
-        details += '\n' + tr("═══ SYSTEM INFORMATION ═══") + '\n';
-        details += tr("UUID: %1").arg(computer->uuid) + '\n';
-        details += tr("MAC Address: %1").arg(computer->macAddress.isEmpty() ? tr("Unknown") : QString(computer->macAddress.toHex(':'))) + '\n';
-
-        // Server Capabilities Section (Apollo/Sunshine servers only)
-        if (computer->serverPermissions != 0) {
-            details += '\n' + tr("═══ SERVER CAPABILITIES ═══") + '\n';
-            
-            QString detailedPermissions = ServerPermissions::getDetailedPermissions(computer->serverPermissions);
-            if (!detailedPermissions.isEmpty()) {
-                details += detailedPermissions;
-            }
-        }
-        
-        // Server Commands Section
-        if (!computer->serverCommands.isEmpty()) {
-            details += '\n' + tr("═══ SERVER COMMANDS ═══") + '\n';
-            details += tr("Available Commands: %1").arg(computer->serverCommands.join(", "));
-        }
-
-        return details;
     }
     default:
         return QVariant();
@@ -151,13 +90,6 @@ int ComputerModel::rowCount(const QModelIndex& parent) const
     return m_Computers.count();
 }
 
-QString ComputerModel::uuidAt(int computerIndex) const
-{
-    if (computerIndex < 0 || computerIndex >= m_Computers.count()) return {};
-    QReadLocker lock(&m_Computers[computerIndex]->lock);
-    return m_Computers[computerIndex]->uuid;
-}
-
 QHash<int, QByteArray> ComputerModel::roleNames() const
 {
     QHash<int, QByteArray> names;
@@ -169,33 +101,12 @@ QHash<int, QByteArray> ComputerModel::roleNames() const
     names[WakeableRole] = "wakeable";
     names[StatusUnknownRole] = "statusUnknown";
     names[ServerSupportedRole] = "serverSupported";
-    names[DetailsRole] = "details";
     names[ApolloVersionRole] = "apolloVersion";
     names[UuidRole] = "uuid";
     names[AddressRole] = "address";
     names[RunningAppRole] = "runningApp";
 
     return names;
-}
-
-Session* ComputerModel::createSessionForCurrentGame(int computerIndex)
-{
-    Q_ASSERT(computerIndex < m_Computers.count());
-
-    NvComputer* computer = m_Computers[computerIndex];
-
-    // We must currently be streaming a game to use this function
-    Q_ASSERT(computer->currentGameId != 0);
-
-    for (NvApp& app : computer->appList) {
-        if (app.id == computer->currentGameId) {
-            return new Session(computer, app);
-        }
-    }
-
-    // We have a current running app but it's not in our app list
-    Q_ASSERT(false);
-    return nullptr;
 }
 
 void ComputerModel::deleteComputer(int computerIndex)
@@ -248,58 +159,11 @@ QString ComputerModel::generatePinString()
     return m_ComputerManager->generatePinString();
 }
 
-class DeferredTestConnectionTask : public QObject, public QRunnable
-{
-    Q_OBJECT
-public:
-    void run()
-    {
-        unsigned int portTestResult = LiTestClientConnectivity("qt.conntest.moonlight-stream.org", 443, ML_PORT_FLAG_ALL);
-        if (portTestResult == ML_TEST_RESULT_INCONCLUSIVE) {
-            emit connectionTestCompleted(-1, QString());
-        }
-        else {
-            char blockedPorts[512];
-            LiStringifyPortFlags(portTestResult, "\n", blockedPorts, sizeof(blockedPorts));
-            emit connectionTestCompleted(portTestResult, QString(blockedPorts));
-        }
-    }
-
-signals:
-    void connectionTestCompleted(int result, QString blockedPorts);
-};
-
-void ComputerModel::testConnectionForComputer(int)
-{
-    DeferredTestConnectionTask* testConnectionTask = new DeferredTestConnectionTask();
-    QObject::connect(testConnectionTask, &DeferredTestConnectionTask::connectionTestCompleted,
-                     this, &ComputerModel::connectionTestCompleted);
-    QThreadPool::globalInstance()->start(testConnectionTask);
-}
-
 void ComputerModel::pairComputer(int computerIndex, QString pin)
 {
     Q_ASSERT(computerIndex < m_Computers.count());
 
     m_ComputerManager->pairHost(m_Computers[computerIndex], pin);
-}
-
-void ComputerModel::pairComputerWithOTP(int computerIndex, QString pin, QString passphrase)
-{
-    Q_ASSERT(computerIndex < m_Computers.count());
-
-    m_ComputerManager->pairHostWithOTP(m_Computers[computerIndex], pin, passphrase);
-}
-
-bool ComputerModel::isOTPSupported(int computerIndex)
-{
-    Q_ASSERT(computerIndex < m_Computers.count());
-
-    NvComputer* computer = m_Computers[computerIndex];
-    QReadLocker lock(&computer->lock);
-    
-    // OTP pairing is only available with Apollo/Sunshine servers (not Nvidia GeForce Experience)
-    return !computer->isNvidiaServerSoftware;
 }
 
 void ComputerModel::handlePairingCompleted(NvComputer*, QString error)
@@ -326,4 +190,3 @@ void ComputerModel::handleComputerStateChanged(NvComputer* computer)
     }
 }
 
-#include "computermodel.moc"

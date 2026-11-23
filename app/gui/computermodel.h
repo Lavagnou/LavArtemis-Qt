@@ -16,7 +16,6 @@ class ComputerModel : public QAbstractListModel
         WakeableRole,
         StatusUnknownRole,
         ServerSupportedRole,
-        DetailsRole,
         ApolloVersionRole,
         UuidRole,
         // Mes PC (gui/v2/HostsView): the address in use, and the name of what runs on the host
@@ -42,24 +41,13 @@ public:
 
     Q_INVOKABLE void pairComputer(int computerIndex, QString pin);
 
-    Q_INVOKABLE void pairComputerWithOTP(int computerIndex, QString pin, QString passphrase);
-
-    Q_INVOKABLE bool isOTPSupported(int computerIndex);
-
-    Q_INVOKABLE void testConnectionForComputer(int computerIndex);
-
     Q_INVOKABLE void wakeComputer(int computerIndex);
 
     Q_INVOKABLE void renameComputer(int computerIndex, QString name);
 
-    Q_INVOKABLE Session* createSessionForCurrentGame(int computerIndex);
-
-    // Stable identity of a host, for callers that outlive the model's indices
-    Q_INVOKABLE QString uuidAt(int computerIndex) const;
 
 signals:
     void pairingCompleted(QVariant error);
-    void connectionTestCompleted(int result, QString blockedPorts);
 
 private slots:
     void handleComputerStateChanged(NvComputer* computer);
