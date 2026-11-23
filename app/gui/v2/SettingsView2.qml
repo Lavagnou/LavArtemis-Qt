@@ -560,9 +560,6 @@ FocusScope {
     Stage {
         id: stage
         anchors.fill: parent
-        // The settings rows put the label and the control side by side and need room: below 1400
-        // the page is still scaled down as before, until a narrow layout is validated on the prototype.
-        minLayoutWidth: 1400
 
         Item {
             anchors.fill: parent

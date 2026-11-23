@@ -13,6 +13,7 @@ SettingRow {
     property int segmentMax: 4
     property bool dropdown: options.length > segmentMax
     property real dropdownWidth: 380
+    naturalControlWidth: dropdown ? dropdownWidth : segments.width
 
     readonly property int currentIndex: indexOf(value)
 
@@ -48,7 +49,7 @@ SettingRow {
         LavDropdown {
             id: list
             visible: choice.dropdown
-            width: choice.dropdownWidth
+            width: choice.stacked ? choice.stackedControlWidth : choice.dropdownWidth
             focusPolicy: Qt.NoFocus
             options: choice.options
             currentIndex: choice.currentIndex

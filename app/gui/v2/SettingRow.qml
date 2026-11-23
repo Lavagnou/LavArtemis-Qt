@@ -8,6 +8,10 @@ import ArtemisSettings 1.0
 // emit activate(), Left/Right go to stepHandler(delta) when the row has one -- it returns true
 // when it changed something, otherwise the key goes on to the page (Left goes back to the pages).
 // A row whose control holds several buttons sets `focusable: false`: the buttons take the focus.
+// Narrow window (prototype V6, piste A): when the control would leave the text less than
+// minTextWidth, it goes under the label and the description; a control that can stretch (dropdown,
+// slider) then takes the row's width (stackedControlWidth). Such a control declares its width when
+// side by side in naturalControlWidth, so that `stacked` never depends on the stretched width.
 Item {
     id: row
 
@@ -20,6 +24,10 @@ Item {
     property bool clickToActivate: false
     property var stepHandler: null
     default property alias control: slot.data
+    property real naturalControlWidth: slot.width
+    property real minTextWidth: 320
+    readonly property bool stacked: naturalControlWidth > 0 && width - 48 - naturalControlWidth - 28 < minTextWidth
+    readonly property real stackedControlWidth: width - 48
 
     readonly property bool shown: available && (!expert || ArtemisSettings.uiExpertMode)
 
@@ -27,7 +35,8 @@ Item {
 
     visible: shown
     width: parent ? parent.width : 0
-    implicitHeight: Math.max(texts.implicitHeight, slot.height) + 34
+    implicitHeight: stacked ? texts.implicitHeight + 14 + slot.height + 34
+                            : Math.max(texts.implicitHeight, slot.height) + 34
     height: implicitHeight
     activeFocusOnTab: focusable
     opacity: enabled ? 1.0 : 0.45
@@ -74,8 +83,8 @@ Item {
     Column {
         id: texts
         x: 24
-        anchors.verticalCenter: parent.verticalCenter
-        width: Math.max(120, row.width - 48 - (slot.width > 0 ? slot.width + 28 : 0))
+        y: row.stacked ? 17 : (row.height - implicitHeight) / 2
+        width: row.stacked ? row.width - 48 : Math.max(120, row.width - 48 - (slot.width > 0 ? slot.width + 28 : 0))
         spacing: 5
 
         Row {
@@ -130,9 +139,8 @@ Item {
 
     Item {
         id: slot
-        anchors.right: parent.right
-        anchors.rightMargin: 24
-        anchors.verticalCenter: parent.verticalCenter
+        x: row.stacked ? 24 : row.width - 24 - width
+        y: row.stacked ? 17 + texts.implicitHeight + 14 : (row.height - height) / 2
         width: childrenRect.width
         height: childrenRect.height
     }

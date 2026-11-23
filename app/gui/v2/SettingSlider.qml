@@ -13,6 +13,7 @@ SettingRow {
     property real value: 0
     property string valueText: String(value)
     property real sliderWidth: 380
+    naturalControlWidth: sliderWidth + 20 + 150
 
     signal moved(real value)
 
@@ -34,7 +35,7 @@ SettingRow {
 
         Item {
             id: track
-            width: sl.sliderWidth
+            width: sl.stacked ? sl.stackedControlWidth - 20 - 150 : sl.sliderWidth
             height: 40
             anchors.verticalCenter: parent.verticalCenter
             readonly property real position: sl.to > sl.from
