@@ -15,6 +15,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <dwmapi.h>
+#include <uxtheme.h>
 #endif
 
 QColor SystemProperties::s_FrameCaption;
@@ -44,6 +45,13 @@ static void applyFrameColors(void* handle, const QColor& caption, const QColor& 
     DwmSetWindowAttribute(hwnd, captionColor, &cap, sizeof(cap));
     DwmSetWindowAttribute(hwnd, borderColor, &cap, sizeof(cap));
     DwmSetWindowAttribute(hwnd, textColor, &txt, sizeof(txt));
+
+    // The redesigned header already shows the logo and the name: the bar stops drawing them (the
+    // window keeps its title and icon for the taskbar and Alt+Tab). The legacy interface gets them back.
+    WTA_OPTIONS options;
+    options.dwMask = WTNCA_NODRAWCAPTION | WTNCA_NODRAWICON;
+    options.dwFlags = useDefault ? 0 : (WTNCA_NODRAWCAPTION | WTNCA_NODRAWICON);
+    SetWindowThemeAttribute(hwnd, WTA_NONCLIENT, &options, sizeof(options));
 #else
     Q_UNUSED(handle);
     Q_UNUSED(caption);

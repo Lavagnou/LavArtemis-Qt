@@ -265,7 +265,7 @@ FocusScope {
             Column {
                 id: page
                 x: 50
-                y: 24
+                y: 6 // Close under the title bar, which is empty and in the theme's colours (see main.qml themedFrame)
                 width: flick.width - 100
                 spacing: 26
 

@@ -55,7 +55,7 @@ FocusScope {
 
             Column {
                 id: column
-                x: 50; y: 24
+                x: 50; y: 6 // Close under the title bar, which is empty and in the theme's colours (see main.qml themedFrame)
                 width: parent.width - 100
                 spacing: 22
 

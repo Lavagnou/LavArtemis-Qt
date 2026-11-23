@@ -51,7 +51,7 @@ win32 {
 
     INCLUDEPATH += $$PWD/../libs/windows/include
     # dcomp: VRR composition presenter (d3d11composition.cpp)
-    LIBS += dcomp.lib advapi32.lib shell32.lib ws2_32.lib winmm.lib dxva2.lib ole32.lib gdi32.lib user32.lib d3d9.lib dwmapi.lib dbghelp.lib
+    LIBS += dcomp.lib advapi32.lib shell32.lib ws2_32.lib winmm.lib dxva2.lib ole32.lib gdi32.lib user32.lib d3d9.lib dwmapi.lib uxtheme.lib dbghelp.lib
 }
 macx:!disable-prebuilts {
     !exists($$PWD/../libs/mac) {
