@@ -65,7 +65,7 @@ LavPopup {
         if (!option) return PyroWaveCalibrator.running ? qsTr("Test en cours…") : "—"
         if (option.tier === "error") return option.error
         if (option.tier === "slow") return qsTr("Trop lent")
-        var text = option.tier === "any" ? qsTr("Fluide") :
+        var text = option.tier === "any" ? qsTr("Confortable") :
                    option.tier === "vrr" ? qsTr("Juste") : qsTr("Très juste")
         if (option.quality === "reduced") text += " · " + qsTr("qualité réduite")
         else if (option.quality === "low") text += " · " + qsTr("basse qualité")
@@ -121,7 +121,7 @@ LavPopup {
     Text {
         width: dialog.bodyWidth
         text: PyroWaveCalibrator.linkSummary + " " +
-              qsTr("Le test de débit est un transfert en bloc ; un vrai stream peut encore subir des pertes. Choisir un format applique le débit affiché.")
+              qsTr("Le test de débit est un transfert en bloc ; un vrai stream peut encore subir des pertes. Choisir un format applique sa résolution, ses couleurs (4:4:4) et le débit affiché.")
         wrapMode: Text.Wrap
         color: Theme.muted
         font.family: Theme.textFont
@@ -133,7 +133,7 @@ LavPopup {
         spacing: 6
         Repeater {
             model: [
-                { tier: "any", text: qsTr("Fluide : 99 % des images prennent au plus 60 % de leur temps, de la marge pour le travail en plus d'un vrai stream.") },
+                { tier: "any", text: qsTr("Confortable : 99 % des images prennent au plus 60 % de leur temps, de la marge pour le travail en plus d'un vrai stream.") },
                 { tier: "vrr", text: qsTr("Juste : les images lentes prennent jusqu'à 80 % de leur temps. Une image peut sortir en retard ; un écran VRR le cache mieux.") },
                 { tier: "vrrLarge", text: qsTr("Très juste : les images lentes prennent presque tout leur temps. Quelques saccades à prévoir.") },
                 { tier: "slow", text: qsTr("Trop lent : à %1 FPS, plus d'une image sur 100 dépasse son temps. Saccades à prévoir ; reste possible.").arg(dialog.testFps) }

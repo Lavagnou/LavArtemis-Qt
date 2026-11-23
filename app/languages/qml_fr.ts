@@ -539,7 +539,7 @@
         <translation>Une capture de diagnostic est déjà en cours.</translation>
     </message>
     <message>
-        <source>An external tracing launcher is active. Its trace destination was preserved; launch Moonlight normally to use Settings diagnostics.</source>
+        <source>An external tracing launcher is active. Its trace destination was preserved; launch LavArtemis normally to use the diagnostics of Settings.</source>
         <translation>Un lanceur de traçage externe est actif. Sa destination de trace a été conservée ; lance LavArtemis normalement pour utiliser les diagnostics des Réglages.</translation>
     </message>
     <message>
@@ -1099,12 +1099,12 @@
 <context>
     <name>NetworkBuffers</name>
     <message>
-        <source>This PC's network adapter has a small receive buffer, so PyroWave frames may lose detail. Fix it in Settings, below the video codec.</source>
-        <translation>La carte réseau de ce PC a un petit tampon de réception : les images PyroWave peuvent perdre en détail. Corrige-le dans les Réglages, sous le codec vidéo.</translation>
+        <source>This PC's network adapter has a small receive buffer, so PyroWave frames may lose detail. Fix it in Settings, Video (expert mode), under the video codec.</source>
+        <translation>La carte réseau de ce PC a un petit tampon de réception : les images PyroWave peuvent perdre en détail. Corrige-le dans Réglages › Vidéo (mode expert), sous le codec vidéo.</translation>
     </message>
     <message>
-        <source>Linux limits this PC's network receive buffer, so PyroWave frames may lose packets. Fix it in Settings, below the video codec.</source>
-        <translation>Linux limite le tampon de réception réseau de ce PC : les images PyroWave peuvent perdre des paquets. Corrige-le dans les Réglages, sous le codec vidéo.</translation>
+        <source>Linux limits this PC's network receive buffer, so PyroWave frames may lose packets. Fix it in Settings, Video (expert mode), under the video codec.</source>
+        <translation>Linux limite le tampon de réception réseau de ce PC : les images PyroWave peuvent perdre des paquets. Corrige-le dans Réglages › Vidéo (mode expert), sous le codec vidéo.</translation>
     </message>
     <message>
         <source>Raises the adapter's receive buffers to its maximum and restarts it, which briefly drops the network. Asks for administrator permission.</source>
@@ -1252,8 +1252,8 @@
         <translation>Une autre tentative de jumelage est déjà en cours.</translation>
     </message>
     <message>
-        <source>GeForce Experience returned error: %1</source>
-        <translation>GeForce Experience a renvoyé l'erreur : %1</translation>
+        <source>The host returned an error: %1</source>
+        <translation>Le PC hôte a renvoyé une erreur : %1</translation>
     </message>
 </context>
 <context>
@@ -1285,7 +1285,7 @@
         <translation type="unfinished" />
     </message>
     <message>
-        <source>Fluide</source>
+        <source>Confortable</source>
         <translation type="unfinished" />
     </message>
     <message>
@@ -1337,11 +1337,11 @@
         <translation type="unfinished" />
     </message>
     <message>
-        <source>Le test de débit est un transfert en bloc ; un vrai stream peut encore subir des pertes. Choisir un format applique le débit affiché.</source>
+        <source>Le test de débit est un transfert en bloc ; un vrai stream peut encore subir des pertes. Choisir un format applique sa résolution, ses couleurs (4:4:4) et le débit affiché.</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <source>Fluide : 99 % des images prennent au plus 60 % de leur temps, de la marge pour le travail en plus d'un vrai stream.</source>
+        <source>Confortable : 99 % des images prennent au plus 60 % de leur temps, de la marge pour le travail en plus d'un vrai stream.</source>
         <translation type="unfinished" />
     </message>
     <message>
@@ -1664,6 +1664,62 @@
         <source>Custom macro</source>
         <translation>Macro personnalisée</translation>
     </message>
+    <message>
+        <source>Disconnecting from server...</source>
+        <translation>Déconnexion du PC…</translation>
+    </message>
+    <message>
+        <source>Quitting session...</source>
+        <translation>Fin de la session…</translation>
+    </message>
+    <message>
+        <source>Restarting server...</source>
+        <translation>Redémarrage du PC…</translation>
+    </message>
+    <message>
+        <source>Server commands not available</source>
+        <translation>Commandes du PC indisponibles</translation>
+    </message>
+    <message>
+        <source>Shutting down server...</source>
+        <translation>Arrêt du PC…</translation>
+    </message>
+    <message>
+        <source>Suspending server...</source>
+        <translation>Mise en veille du PC…</translation>
+    </message>
+    <message>
+        <source>Uploading clipboard to server...</source>
+        <translation>Envoi du presse-papiers au PC…</translation>
+    </message>
+    <message>
+        <source>Fetching clipboard from server...</source>
+        <translation>Récupération du presse-papiers du PC…</translation>
+    </message>
+    <message>
+        <source>Toggling performance stats...</source>
+        <translation>Statistiques affichées ou masquées…</translation>
+    </message>
+    <message>
+        <source>Toggling mouse capture...</source>
+        <translation>Capture de la souris basculée…</translation>
+    </message>
+    <message>
+        <source>Toggling keyboard capture...</source>
+        <translation>Capture du clavier basculée…</translation>
+    </message>
+    <message>
+        <source>Toggling fullscreen...</source>
+        <translation>Plein écran basculé…</translation>
+    </message>
+    <message>
+        <source>Toggling microphone...</source>
+        <translation>Micro coupé ou rétabli…</translation>
+    </message>
+    <message>
+        <source>Executing action...</source>
+        <translation>Action en cours…</translation>
+    </message>
 </context>
 <context>
     <name>QuickMenuManager</name>
@@ -1971,10 +2027,6 @@
         <translation>Code d'erreur : %1</translation>
     </message>
     <message>
-        <source>The version of GeForce Experience on %1 is not supported by this build of Moonlight. You must update Moonlight to stream from %1.</source>
-        <translation>La version de GeForce Experience sur %1 n'est pas supportée par cette version de Moonlight. Vous devez mettre à jour Moonlight pour streamer depuis %1.</translation>
-    </message>
-    <message>
         <source>Your selection to enable remote desktop mouse mode may cause problems in games.</source>
         <translation>Le mode souris pour bureau à distance que vous avez activé peut causer des problèmes dans les jeux.</translation>
     </message>
@@ -2017,6 +2069,10 @@
     <message>
         <source>Your host PC and client PC don't support the same HDR video codecs.</source>
         <translation>Votre PC hôte et votre PC client ne prennent pas en charge les mêmes codecs vidéo HDR.</translation>
+    </message>
+    <message>
+        <source>An attached gamepad has no mapping and won't be usable. Set it up in Settings, Gamepads, Set up a gamepad.</source>
+        <translation>Une manette branchée n'a pas de disposition et ne sera pas utilisable. Configure-la dans Réglages › Manettes › Configurer une manette.</translation>
     </message>
     <message>
         <source>Video resolutions over 4K are not supported by the H.264 codec.</source>
@@ -2065,6 +2121,10 @@
     <message>
         <source>Multi-display streaming was skipped: only one display was found on this PC.</source>
         <translation>Le stream multi-écran n'a pas été utilisé : un seul écran a été trouvé sur ce PC.</translation>
+    </message>
+    <message>
+        <source>The host software on %1 is not supported by this version of LavArtemis. Update LavArtemis to stream from %1.</source>
+        <translation>Le logiciel hôte de %1 n'est pas pris en charge par cette version de LavArtemis. Mets LavArtemis à jour pour streamer depuis %1.</translation>
     </message>
     <message>
         <source>Your microphone won't be sent: microphone passthrough is turned off on the host (LavApollo, Audio/Video settings).</source>
@@ -2141,10 +2201,6 @@
     <message>
         <source>Failed to open audio device. Audio will be unavailable during this session.</source>
         <translation>L'ouverture de l'appareil audio à échoué. L'audio ne sera pas disponible pendant cette session.</translation>
-    </message>
-    <message>
-        <source>An attached gamepad has no mapping and won't be usable. Visit the Moonlight help to resolve this.</source>
-        <translation>Une manette de jeu attachée n'a pas été configurée et ne sera pas utilisable. Visitez l'aide Moonlight pour résoudre ce problème.</translation>
     </message>
     <message>
         <source>Guessed a button layout for %1. If the controls are wrong, remap it in the gamepad mapper.</source>
@@ -2241,10 +2297,6 @@
         <translation type="unfinished" />
     </message>
     <message>
-        <source>%1 Hz</source>
-        <translation type="unfinished" />
-    </message>
-    <message>
         <source>Autre…</source>
         <translation type="unfinished" />
     </message>
@@ -2298,10 +2350,6 @@
     </message>
     <message>
         <source>Profil actif</source>
-        <translation type="unfinished" />
-    </message>
-    <message>
-        <source>Un jeu de réglages par usage, par exemple à la maison et à distance. La langue et l'apparence restent communes.</source>
         <translation type="unfinished" />
     </message>
     <message>
@@ -2374,6 +2422,10 @@
     </message>
     <message>
         <source>Fréquence variable (VRR, G-Sync / FreeSync)</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Ignorée tant que « Un écran virtuel par moniteur » est actif : le stream couvre plusieurs moniteurs.</source>
         <translation type="unfinished" />
     </message>
     <message>
@@ -2533,7 +2585,43 @@
         <translation type="unfinished" />
     </message>
     <message>
+        <source>Un micro branché après coup apparaît dès que tu rouvres la liste.</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Plus bas, moins de latence ; plus haut, moins de craquements sur un réseau instable. Effet à la prochaine connexion.</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Copier ici, coller là-bas, et inversement, pendant le stream (Apollo / LavApollo). Le menu en jeu envoie ou récupère aussi le presse-papiers à la demande.</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Signale au lancement les réglages que ce PC ou le PC distant ne peut pas appliquer. Micro, multi-écran, VRR, PyroWave et manettes devinées sont toujours signalés.</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Traces dans le dossier « vrr-diagnostics » de l'appli, dès la prochaine connexion. Prend de la place : à couper après.</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Le dossier « vrr-diagnostics » de l'appli.</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Images par seconde personnalisées</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>De 10 à 500, avec deux décimales au plus (59,94 par exemple).</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
         <source>Débloquer la limite de débit</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Un jeu de réglages de stream par usage, par exemple à la maison et à distance. Ce qui tient à ce PC reste commun : langue, apparence, micro et tampon audio, presse-papiers, recherche des PC, mises à jour.</source>
         <translation type="unfinished" />
     </message>
     <message>
@@ -2589,15 +2677,7 @@
         <translation type="unfinished" />
     </message>
     <message>
-        <source>Liste lue à l'ouverture des réglages : branche le micro avant.</source>
-        <translation type="unfinished" />
-    </message>
-    <message>
         <source>Tampon audio</source>
-        <translation type="unfinished" />
-    </message>
-    <message>
-        <source>Plus bas, moins de latence ; plus haut, moins de craquements sur un réseau instable.</source>
         <translation type="unfinished" />
     </message>
     <message>
@@ -2734,10 +2814,6 @@
     </message>
     <message>
         <source>Synchroniser le presse-papiers</source>
-        <translation type="unfinished" />
-    </message>
-    <message>
-        <source>Copier ici, coller là-bas, et inversement, pendant le stream (Apollo / LavApollo).</source>
         <translation type="unfinished" />
     </message>
     <message>
@@ -2945,10 +3021,6 @@
         <translation type="unfinished" />
     </message>
     <message>
-        <source>Signale au lancement ce que ce PC ou le PC distant ne peut pas appliquer.</source>
-        <translation type="unfinished" />
-    </message>
-    <message>
         <source>Enregistrer les performances (CSV)</source>
         <translation type="unfinished" />
     </message>
@@ -2957,11 +3029,15 @@
         <translation type="unfinished" />
     </message>
     <message>
-        <source>Trace détaillée du VRR</source>
+        <source>Ouvrir le dossier des mesures</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <source>Traces dans « vrr-diagnostics » sur le Bureau, dès la prochaine connexion. Prend de la place : à couper après.</source>
+        <source>Les fichiers « stream-perf » des streams enregistrés.</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Trace détaillée du VRR</source>
         <translation type="unfinished" />
     </message>
     <message>
@@ -2982,10 +3058,6 @@
     </message>
     <message>
         <source>Ouvrir le dossier des traces</source>
-        <translation type="unfinished" />
-    </message>
-    <message>
-        <source>Le dossier « vrr-diagnostics » du Bureau.</source>
         <translation type="unfinished" />
     </message>
     <message>
@@ -3028,14 +3100,6 @@
         <source>Appliquer</source>
         <translation type="unfinished" />
     </message>
-    <message>
-        <source>Fréquence personnalisée</source>
-        <translation type="unfinished" />
-    </message>
-    <message>
-        <source>En Hz, de 10 à 500, avec deux décimales au plus (59,94 par exemple).</source>
-        <translation type="unfinished" />
-    </message>
 </context>
 <context>
     <name>StreamSegue</name>
@@ -3056,8 +3120,8 @@
         <translation>Vérifiez votre pare-feu et vos règles de redirection de port pour le(s) port(s) : %1</translation>
     </message>
     <message>
-        <source>This PC's Internet connection is blocking Moonlight. Streaming over the Internet may not work while connected to this network.</source>
-        <translation>La connexion Internet de ce PC bloque Moonlight. Le streaming à travers Internet peut ne pas fonctionner lorsqu'il est connecté à ce réseau.</translation>
+        <source>This PC's Internet connection is blocking LavArtemis. Streaming over the Internet may not work while connected to this network.</source>
+        <translation>La connexion Internet de ce PC bloque LavArtemis. Le stream par Internet risque de ne pas marcher tant qu'il est sur ce réseau.</translation>
     </message>
     <message>
         <source>Tip:</source>
@@ -3077,25 +3141,6 @@
     </message>
 </context>
 <context>
-    <name>StreamingPreferences</name>
-    <message>
-        <source>Unable to open the diagnostics folder: %1</source>
-        <translation>Impossible d'ouvrir le dossier de diagnostic : %1</translation>
-    </message>
-    <message>
-        <source>Diagnostics folder: %1</source>
-        <translation>Dossier de diagnostic : %1</translation>
-    </message>
-    <message>
-        <source>Exporting the latest diagnostic recording...</source>
-        <translation>Export du dernier enregistrement de diagnostic...</translation>
-    </message>
-    <message>
-        <source>Exported: %1</source>
-        <translation>Exporté : %1</translation>
-    </message>
-</context>
-<context>
     <name>Theme</name>
     <message>
         <source>Système</source>
@@ -3111,14 +3156,29 @@
     </message>
 </context>
 <context>
+    <name>VrrDiagnostics</name>
+    <message>
+        <source>Unable to open the diagnostics folder: %1</source>
+        <translation>Impossible d'ouvrir le dossier de diagnostic : %1</translation>
+    </message>
+    <message>
+        <source>Diagnostics folder: %1</source>
+        <translation>Dossier de diagnostic : %1</translation>
+    </message>
+    <message>
+        <source>Exporting the latest diagnostic recording...</source>
+        <translation>Export du dernier enregistrement de diagnostic…</translation>
+    </message>
+    <message>
+        <source>Exported: %1</source>
+        <translation>Exporté : %1</translation>
+    </message>
+</context>
+<context>
     <name>main</name>
     <message>
         <source>Hardware acceleration doesn't work on XWayland. Continuing on XWayland may result in poor streaming performance. Try running with QT_QPA_PLATFORM=wayland or switch to X11.</source>
         <translation>L'accélération matérielle ne fonctionne pas sur XWayland. Continuer sur XWayland peut entraîner de mauvaises performances de streaming. Essayez de lancer Moonlight avec QT_QPA_PLATFORM=wayland ou passez à X11.</translation>
-    </message>
-    <message>
-        <source>No functioning hardware accelerated video decoder was detected by Artemis. Your streaming performance may be severely degraded in this configuration.</source>
-        <translation>Aucun décodeur vidéo matériel fonctionnel n'a été détecté par LavArtemis. Les performances du stream peuvent être fortement dégradées dans cette configuration.</translation>
     </message>
     <message>
         <source>Click the Help button for more information on solving this problem.</source>
@@ -3129,7 +3189,11 @@
         <translation>Cliquez sur le bouton Aide pour plus d'informations.</translation>
     </message>
     <message>
-        <source>This version of Artemis isn't optimized for your PC. Please download the '%1' version of Artemis for the best streaming performance.</source>
+        <source>No functioning hardware accelerated video decoder was detected by LavArtemis. Your streaming performance may be severely degraded in this configuration.</source>
+        <translation>Aucun décodeur vidéo matériel fonctionnel n'a été détecté par LavArtemis. Les performances du stream peuvent être fortement dégradées dans cette configuration.</translation>
+    </message>
+    <message>
+        <source>This version of LavArtemis isn't optimized for your PC. Please download the '%1' version of LavArtemis for the best streaming performance.</source>
         <translation>Cette version de LavArtemis n'est pas optimisée pour ton PC. Télécharge la version '%1' de LavArtemis pour de meilleures performances de stream.</translation>
     </message>
     <message>

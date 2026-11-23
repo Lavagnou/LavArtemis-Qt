@@ -67,6 +67,7 @@
 #include "streaming/video/pyrowave/pyrowavecalibrator.h"
 #include "backend/benchmark/benchmarkrunner.h"
 #include "backend/networkbuffers.h"
+#include "diagnostics/vrrdiagnostics.h"
 #include "settings/profilemanager.h"
 
 #if defined(Q_OS_WIN32)
@@ -1043,6 +1044,13 @@ int main(int argc, char *argv[])
                                              "NetworkBuffers",
                                              [](QQmlEngine*, QJSEngine*) -> QObject* {
                                                  return new NetworkBuffers();
+                                             });
+    qmlRegisterSingletonType<VrrDiagnostics>("VrrDiagnostics", 1, 0,
+                                             "VrrDiagnostics",
+                                             [](QQmlEngine*, QJSEngine*) -> QObject* {
+                                                 // Shared with the session that records: C++ owns it
+                                                 QQmlEngine::setObjectOwnership(VrrDiagnostics::instance(), QQmlEngine::CppOwnership);
+                                                 return VrrDiagnostics::instance();
                                              });
     qmlRegisterSingletonType<ArtemisSettings>("ArtemisSettings", 1, 0,
                                               "ArtemisSettings",

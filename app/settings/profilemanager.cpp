@@ -51,13 +51,56 @@ ProfileManager* ProfileManager::create(QQmlEngine* qmlEngine, QJSEngine* jsEngin
     return manager;
 }
 
+// Keys that describe this PC or the app rather than a stream: a profile never carries them.
+// They were profile-scoped before the settings triage of 2026-11-23, so load() moves them out
+// of existing profiles (see migrateAppWideKeys()).
+static const char* const k_AppWideKeys[] = {
+    "mdns",              // finding PCs on the network: a profile switch must not turn it off
+    "detectnetblocking", // the same network check, whatever the stream settings
+    "uidisplaymode",     // the app window at startup, read before any profile matters
+    "tracevrrframes",    // a debug trace of this PC
+};
+
 bool ProfileManager::isGlobalKey(const QString& key)
 {
     // The UI language and the defaults version describe the installation, not a
     // stream. Letting a profile carry them would change the app's language as a
     // side effect of switching profiles.
-    return key == QLatin1String("language") ||
-           key == QLatin1String("defaultver");
+    if (key == QLatin1String("language") || key == QLatin1String("defaultver")) {
+        return true;
+    }
+    for (const char* appWide : k_AppWideKeys) {
+        if (key == QLatin1String(appWide)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void ProfileManager::migrateAppWideKeys()
+{
+    // What the user sees now is the active profile's value, if it has one: keep that one.
+    // The other profiles' copies would never be read again.
+    bool changed = false;
+    for (Profile& profile : m_Profiles) {
+        for (const char* appWide : k_AppWideKeys) {
+            const QString key = QLatin1String(appWide);
+            auto it = profile.options.find(key);
+            if (it == profile.options.end()) {
+                continue;
+            }
+            if (profile.id == m_ActiveProfileId) {
+                settings()->setValue(key, it.value());
+            }
+            profile.options.erase(it);
+            changed = true;
+        }
+    }
+
+    if (changed) {
+        qInfo() << "ProfileManager: moved app-wide settings out of the profiles";
+        save();
+    }
 }
 
 QString ProfileManager::filePath() const
@@ -264,6 +307,8 @@ void ProfileManager::load()
     if (!activeId.isEmpty() && findProfile(activeId) != nullptr) {
         m_ActiveProfileId = activeId;
     }
+
+    migrateAppWideKeys();
 }
 
 void ProfileManager::save()

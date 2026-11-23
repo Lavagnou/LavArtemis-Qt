@@ -160,7 +160,7 @@ l'on décide de streamer sur un ou plusieurs écrans est celui juste avant de la
 
 | Feature | Où | Note |
 |---|---|---|
-| **Profils de réglages** | `settings/profilemanager.{h,cpp}` | `profiles.json` dans `AppConfigLocation`. Un profil est un **snapshot complet**, pas un patch épars. `language` et `defaultver` **bypassent** les profils. |
+| **Profils de réglages** | `settings/profilemanager.{h,cpp}` | `profiles.json` dans `AppConfigLocation`. Un profil est un **snapshot complet**, pas un patch épars. `language`, `defaultver` et les clés propres à la machine (`mdns`, `detectnetblocking`, `uidisplaymode`, `tracevrrframes`) **bypassent** les profils (`isGlobalKey()`). |
 | **Send keys + macros** | `backend/keymacromanager.{h,cpp}` | 16 presets + `keyboard-macros.json`. **Même format et mêmes noms `VK_` que l'Android** → un fichier marche sur les deux. Table des 174 noms extraite de `KeyMapper.java`, pas retapée. |
 | **Liens `art://` + `.art`** | `cli/artlink.{h,cpp}` | `rewriteArguments()` **traduit le lien en ligne de commande existante** au lieu d'ajouter un chemin de lancement parallèle → hérite du host seeking, du wake-on-LAN et de l'UI de segue. Export via `AppModel::exportArtFile()`. |
 | **Pan & zoom** | `streaming/panzoom.{h,cpp}` | Combos Ctrl+Alt+Shift (`+`/`-`/`0`, flèches). |
@@ -170,6 +170,12 @@ l'on décide de streamer sur un ou plusieurs écrans est celui juste avant de la
 > écritures s'échappent du profil vers les prefs globales. Ici, `reload()` **et** `save()` passent
 > tous deux par `ProfileManager::value()`/`setValue()` — lecture et écriture ne peuvent pas diverger
 > par construction.
+
+> ⚠️ **Sortir une clé des profils = la migrer.** Ajoutée à `k_AppWideKeys` (`profilemanager.cpp`),
+> une clé n'est plus lue dans le profil actif : sans `migrateAppWideKeys()` (appelé par `load()`), la
+> valeur en vigueur (celle du profil actif) serait remplacée en silence par la globale. Il copie celle
+> du profil actif dans les réglages globaux et retire la clé de tous les profils. Un changement de
+> profil ne peut plus couper la découverte des PC.
 
 ## 🎮 Mapper de manettes
 
@@ -377,7 +383,22 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   `PyroWaveCalibration` (SDR seulement). Les réglages retirés par le tri sont **forcés à leur valeur
   par défaut** dans `StreamingPreferences::reload()` (HDR, mise à l'échelle, boutons de souris inversés,
   défilement inversé, choix de rendu ; optimisations de jeu toujours actives) : plus rien ne pourrait
-  les remettre à zéro.
+  les remettre à zéro. La taille de paquet (`--packet-size`) n'est plus enregistrée non plus : elle
+  ne vaut que pour le stream lancé en ligne de commande. Les propriétés `ArtemisSettings` que rien ne
+  lisait (commandes serveur, OTP, doublons d'affichage, tri des applis, permissions, input-only,
+  prereleases CI) ont été retirées ; leurs groupes sont effacés d'`artemis-settings.ini` au
+  `save()` suivant.
+- **Avertissements au lancement : deux fonctions.** `Session::emitLaunchWarning()` obéit à
+  « Avertissements de configuration » (`configurationWarnings`) et sert aux messages hérités de
+  Moonlight ; `emitLavArtemisWarning()` passe **toujours** : micro refusé, multi-écran ou VRR
+  ignorés, repli PyroWave, disposition de manette devinée. Ces fonctions ne s'expliquent que par là :
+  un nouvel avertissement LavArtemis prend la seconde.
+- Une ligne qui dépend du matériel ou de la plateforme se masque quand elle ne ferait rien (VRR hors
+  Windows, pavé tactile sans écran tactile — `SystemProperties.hasTouchScreen` —, limite de débit avec
+  PyroWave, où la préférence est gardée pour les autres codecs). Un réglage qui agit encore **reste
+  visible tant qu'il est actif** (le pavé tactile) : on ne retire pas un réglage allumé de sous les
+  yeux de l'utilisateur. La liste des micros se relit à l'ouverture de la page Audio et de la
+  liste (`LavDropdown.opening`).
 - **`Stage.qml`** : composée sur 1600 px de maquette, agrandie au-delà ; en dessous, la page rétrécit
   avec la fenêtre **mais jamais sous `minScale` (0,8)** et se compose alors sur une scène plus large
   que la fenêtre réduite. Tout réduire rendait les boutons trop petits, la taille réelle trop gros :
@@ -508,7 +529,7 @@ est présentée **à l'instant que vise sa timestamp RTP** (slot source + délai
 | Activation | `Session::snapshotPresentationSettings()` : V-Sync effective, fréquence d'écran connue, marge (`VrrRatePolicy`), puis plein écran **sans bordure** forcé pour la session (la préférence enregistrée n'est pas touchée) |
 | Demande à l'hôte | `&clientVrrRequested=1` sur `/launch` (`NvHTTP::startApp`) → LavApollo crée l'écran virtuel à 1000 Hz |
 | PyroWave | `holdPyroWaveDecodeForPresent()` retient un décodage qui chevaucherait le Present, et l'échéance de réassemblage passe par `VrrReceiveDeadline` (`LiSetVideoReassemblyDeadlineCallback`) |
-| Diagnostics | `diagnostics/` (traces par stream dans `vrr-diagnostics` sur le Bureau, export ZIP), groupe « VRR diagnostics » des réglages |
+| Diagnostics | `diagnostics/` (traces par stream dans `vrr-diagnostics` du dossier de données de l'appli, `AppDataLocation`, à côté des CSV de perf ; plus sur le Bureau), export ZIP et ouverture du dossier par le singleton QML `VrrDiagnostics` (Réglages › Avancé, mode expert) |
 | Tests | `tests/` (opt-in : `qmake tests/tests.pro CONFIG+=tests`), 14 suites portées dans `tests/vrr` (+ `compositionprobe` sous Windows), plus `tests/benchmark` ; `tst_overlay` se lance avec `app/` en argument (police ModeSeven) |
 
 > ⚠️ **Le pacer VRR alimente aussi `PacingStats`** (`VrrPacingWorker`, paramètre `pacingStats`) : sans
@@ -527,6 +548,8 @@ est présentée **à l'instant que vise sa timestamp RTP** (slot source + délai
 
 > 📋 **Linux : pas encore.** Le présentateur Vulkan (`plvk`) de Nonary n'est pas porté. Le code compile
 > sur Linux et une demande VRR y retombe proprement sur le pacing fixe (« unsupported renderer »).
+> D'où : hors Windows, `StreamingPreferences::reload()` force `enableVrr` à faux (une demande forçait
+> quand même le plein écran sans bordure) et Réglages n'offre pas l'option.
 
 ## 🎤 Passthrough du micro
 

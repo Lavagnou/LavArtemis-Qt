@@ -213,6 +213,7 @@ SOURCES += \
     streaming/vrrratepolicy.cpp \
     diagnostics/diagnosticcapture.cpp \
     diagnostics/diagnosticzip.cpp \
+    diagnostics/vrrdiagnostics.cpp \
     diagnostics/gputrace.cpp \
     backend/systemproperties.cpp \
     backend/clipboardmanager.cpp \
@@ -281,6 +282,7 @@ HEADERS += \
     windowsvblankvirtualization.h \
     diagnostics/diagnosticcapture.h \
     diagnostics/diagnosticzip.h \
+    diagnostics/vrrdiagnostics.h \
     diagnostics/gputrace.h \
     backend/systemproperties.h \
     backend/clipboardmanager.h \

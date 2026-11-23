@@ -381,9 +381,9 @@ QString NetworkBuffers::launchWarning()
         return {};
     }
 #ifdef Q_OS_WIN
-    return tr("This PC's network adapter has a small receive buffer, so PyroWave frames may lose detail. Fix it in Settings, below the video codec.");
+    return tr("This PC's network adapter has a small receive buffer, so PyroWave frames may lose detail. Fix it in Settings, Video (expert mode), under the video codec.");
 #else
-    return tr("Linux limits this PC's network receive buffer, so PyroWave frames may lose packets. Fix it in Settings, below the video codec.");
+    return tr("Linux limits this PC's network receive buffer, so PyroWave frames may lose packets. Fix it in Settings, Video (expert mode), under the video codec.");
 #endif
 }
 

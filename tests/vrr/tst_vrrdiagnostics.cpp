@@ -43,11 +43,11 @@ void VrrDiagnosticsTest::init()
 
 void VrrDiagnosticsTest::desktopDirectory()
 {
-    // Resolve the platform's actual Desktop (including localized/redirected
-    // Windows desktops), without writing anything into the user's profile.
-    const auto desktop = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
-    QCOMPARE(DiagnosticCapture::rootDirectory(), desktop.isEmpty() ? QString() :
-        QDir(desktop).filePath("vrr-diagnostics"));
+    // Traces go to the app's data folder, not the user's Desktop, without
+    // writing anything into the user's profile.
+    const auto data = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QCOMPARE(DiagnosticCapture::rootDirectory(), data.isEmpty() ? QString() :
+        QDir(data).filePath("vrr-diagnostics"));
 }
 
 void VrrDiagnosticsTest::scopedCaptureAndExport()

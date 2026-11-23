@@ -18,6 +18,8 @@ SettingRow {
     readonly property int currentIndex: indexOf(value)
 
     signal chosen(var value)
+    // A dropdown is about to open (LavDropdown.opening)
+    signal listOpening()
 
     function indexOf(v) {
         for (var i = 0; i < options.length; i++) {
@@ -55,6 +57,7 @@ SettingRow {
             currentIndex: choice.currentIndex
             onClicked: choice.forceActiveFocus(Qt.MouseFocusReason)
             onChosen: (index) => choice.chosen(choice.options[index].value)
+            onOpening: choice.listOpening()
         }
 
         Rectangle {

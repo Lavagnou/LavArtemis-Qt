@@ -84,6 +84,8 @@ private:
     // Settings that describe the application rather than a stream, and so must
     // not follow the active profile.
     static bool isGlobalKey(const QString& key);
+    // Moves the keys that became app-wide out of the saved profiles (called by load())
+    void migrateAppWideKeys();
 
     QString filePath() const;
     Profile* findProfile(const QString& id);

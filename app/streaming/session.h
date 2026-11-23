@@ -215,6 +215,7 @@ private:
     bool validateLaunch(SDL_Window* testWindow);
 
     void emitLaunchWarning(QString text);
+    void emitLavArtemisWarning(QString text);
 
     bool populateDecoderProperties(SDL_Window* window);
 

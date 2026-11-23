@@ -3,7 +3,6 @@
 #include "profilemanager.h"
 #include "utils.h"
 #include "streaming/vrrratepolicy.h"
-#include "diagnostics/diagnosticcapture.h"
 
 #include <QMetaProperty>
 #include <QSettings>
@@ -13,10 +12,6 @@
 #include <QReadWriteLock>
 #include <QVariantMap>
 #include <QtMath>
-#include <QDesktopServices>
-#include <QDir>
-#include <QThread>
-#include <QUrl>
 
 #include <QtDebug>
 
@@ -57,7 +52,6 @@
 #define SER_RICHPRESENCE "richpresence"
 #define SER_GAMEPADMOUSE "gamepadmouse"
 #define SER_DEFAULTVER "defaultver"
-#define SER_PACKETSIZE "packetsize"
 #define SER_DETECTNETBLOCKING "detectnetblocking"
 #define SER_SHOWPERFOVERLAY "showperfoverlay"
 #define SER_SWAPMOUSEBUTTONS "swapmousebuttons"
@@ -201,7 +195,6 @@ void StreamingPreferences::reload()
     gamepadMouse = prefs->value(SER_GAMEPADMOUSE, true).toBool();
     detectNetworkBlocking = prefs->value(SER_DETECTNETBLOCKING, true).toBool();
     showPerformanceOverlay = prefs->value(SER_SHOWPERFOVERLAY, false).toBool();
-    packetSize = prefs->value(SER_PACKETSIZE, 0).toInt();
     swapMouseButtons = prefs->value(SER_SWAPMOUSEBUTTONS, false).toBool();
     muteOnFocusLoss = prefs->value(SER_MUTEONFOCUSLOSS, false).toBool();
     backgroundGamepad = prefs->value(SER_BACKGROUNDGAMEPAD, false).toBool();
@@ -271,6 +264,16 @@ void StreamingPreferences::reload()
     gameOptimizations = true; // "Optimize game settings": always sent
     rendererSelection = RendererSelection::RS_AUTO;
     rendererBackend = RendererBackend::RB_AUTO;
+
+    // The packet size is a command-line option (--packet-size) for its own stream only, set
+    // after this: never saved, and a value an older version saved must not stick
+    packetSize = 0;
+
+#ifndef Q_OS_WIN
+    // Adaptive presentation exists only on Windows (D3D11); elsewhere a VRR request falls back
+    // to fixed pacing, yet still forced borderless. Réglages hides the option there.
+    enableVrr = false;
+#endif
 }
 
 bool StreamingPreferences::retranslate()
@@ -429,7 +432,6 @@ void StreamingPreferences::save()
     prefs->setValue(SER_CONFWARNINGS, configurationWarnings);
     prefs->setValue(SER_RICHPRESENCE, richPresence);
     prefs->setValue(SER_GAMEPADMOUSE, gamepadMouse);
-    prefs->setValue(SER_PACKETSIZE, packetSize);
     prefs->setValue(SER_DETECTNETBLOCKING, detectNetworkBlocking);
     prefs->setValue(SER_SHOWPERFOVERLAY, showPerformanceOverlay);
     prefs->setValue(SER_AUDIOCFG, static_cast<int>(audioConfig));
@@ -484,46 +486,6 @@ int StreamingPreferences::getDefaultPyroWaveBitrate(int width, int height, int f
     // Themaister's objective bitrate regression at "good quality" (35 dB
     // PSNR-HVS-M-H), the same figure calibration recommends without running it.
     return pyroWaveRecommendedKbps(width, height, fps, yuv444, hdr);
-}
-
-void StreamingPreferences::setDiagnosticsStatus(const QString& message)
-{
-    m_DiagnosticsStatus = message;
-    emit diagnosticsChanged();
-}
-
-void StreamingPreferences::openDiagnosticsFolder()
-{
-    const auto root = DiagnosticCapture::rootDirectory();
-    if (root.isEmpty() || !QDir().mkpath(root) || !QDesktopServices::openUrl(QUrl::fromLocalFile(root)))
-        setDiagnosticsStatus(tr("Unable to open the diagnostics folder: %1").arg(root));
-    else
-        setDiagnosticsStatus(tr("Diagnostics folder: %1").arg(QDir::toNativeSeparators(root)));
-}
-
-void StreamingPreferences::exportLatestDiagnostics()
-{
-    if (m_ExportingDiagnostics) return;
-    m_ExportingDiagnostics = true;
-    setDiagnosticsStatus(tr("Exporting the latest diagnostic recording..."));
-    const auto root = DiagnosticCapture::rootDirectory();
-    // Trace ZIPs can be large. Keep export I/O out of both the GUI and pacing.
-    struct ExportResult { QString destination, error; };
-    const auto result = std::make_shared<ExportResult>();
-    auto thread = QThread::create([root, result] {
-        result->destination = DiagnosticCapture::exportLatest(root, result->error);
-    });
-    connect(thread, &QThread::finished, this, [this, root, result] {
-        m_ExportingDiagnostics = false;
-        setDiagnosticsStatus(result->destination.isEmpty() ? result->error :
-            tr("Exported: %1").arg(QDir::toNativeSeparators(result->destination)));
-        if (!result->destination.isEmpty()) QDesktopServices::openUrl(QUrl::fromLocalFile(root));
-    });
-    connect(thread, &QThread::finished, thread, &QObject::deleteLater);
-    // Finish the atomic export on normal application exit. The worker never
-    // dereferences preferences; Qt discards the UI callback if they are gone.
-    connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, thread, [thread] { thread->wait(); });
-    thread->start();
 }
 
 int StreamingPreferences::getDefaultBitrate(int width, int height, int fps, bool yuv444)

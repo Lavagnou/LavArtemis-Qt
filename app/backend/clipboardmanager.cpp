@@ -28,7 +28,6 @@ ClipboardManager::ClipboardManager(QObject *parent)
     , m_maxClipboardSize(DEFAULT_MAX_SIZE)
     , m_enabled(false)
     , m_connected(false)
-    , m_textOnlyMode(true)
     , m_maxContentSizeMB(1)
     , m_showNotifications(true)
     , m_syncInProgress(false)
@@ -50,6 +49,8 @@ void ClipboardManager::loadSettings()
     m_bidirectionalSync = settings->clipboardSyncBidirectional();
     m_maxClipboardSize = settings->clipboardSyncMaxSize();
     m_maxContentSizeMB = m_maxClipboardSize / (1024 * 1024); // Convert bytes to MB
+    m_showNotifications = settings->clipboardSyncNotifications();
+    m_showToast = m_showNotifications;
     
     qDebug() << "ClipboardManager: Loaded settings - enabled:" << m_enabled 
              << "bidirectional:" << m_bidirectionalSync 
@@ -450,15 +451,6 @@ void ClipboardManager::setEnabled(bool enabled)
     }
 }
 
-void ClipboardManager::setTextOnlyMode(bool textOnly)
-{
-    if (m_textOnlyMode != textOnly) {
-        m_textOnlyMode = textOnly;
-        emit textOnlyModeChanged();
-        qDebug() << "ClipboardManager: Text-only mode changed to" << textOnly;
-    }
-}
-
 void ClipboardManager::setMaxContentSizeMB(int sizeMB)
 {
     if (m_maxContentSizeMB != sizeMB) {
@@ -480,6 +472,12 @@ void ClipboardManager::setShowNotifications(bool show)
     if (m_showNotifications != show) {
         m_showNotifications = show;
         m_showToast = show; // Sync with internal setting
+
+        // Save to persistent settings, like the other clipboard options
+        auto settings = ArtemisSettings::instance();
+        settings->setClipboardSyncNotifications(show);
+        settings->save();
+
         emit showNotificationsChanged();
         qDebug() << "ClipboardManager: Show notifications changed to" << show;
     }

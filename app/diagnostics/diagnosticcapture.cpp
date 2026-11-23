@@ -53,8 +53,10 @@ bool localDirectory(const QString& path)
 
 QString DiagnosticCapture::rootDirectory()
 {
-    const QString desktop = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
-    return desktop.isEmpty() ? QString() : QDir(desktop).filePath("vrr-diagnostics");
+    // The app's data folder (next to the performance CSV files), not the user's Desktop:
+    // Réglages › Avancé opens it and exports from it
+    const QString data = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    return data.isEmpty() ? QString() : QDir(data).filePath("vrr-diagnostics");
 }
 
 std::unique_ptr<DiagnosticCapture> DiagnosticCapture::begin(const QString& root,
@@ -69,7 +71,7 @@ std::unique_ptr<DiagnosticCapture> DiagnosticCapture::begin(const QString& root,
     // Existing launchers remain authoritative. Never silently redirect their trace.
     if (!qEnvironmentVariableIsEmpty("MOONLIGHT_VRR_TRACE")) {
         error = QCoreApplication::translate("DiagnosticCapture",
-            "An external tracing launcher is active. Its trace destination was preserved; launch Moonlight normally to use Settings diagnostics.");
+            "An external tracing launcher is active. Its trace destination was preserved; launch LavArtemis normally to use the diagnostics of Settings.");
         return {};
     }
     if (root.isEmpty() || !QFileInfo(root).isAbsolute() || !localDirectory(root) || !QDir().mkpath(root) ||

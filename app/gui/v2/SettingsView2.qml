@@ -11,6 +11,7 @@ import ProfileManager 1.0
 import AutoUpdateChecker 1.0
 import PyroWaveCalibrator 1.0
 import NetworkBuffers 1.0
+import VrrDiagnostics 1.0
 import SdlGamepadKeyNavigation 1.0
 
 // Réglages of the redesigned interface: pages on the left, rows on the right. Every setting the
@@ -90,7 +91,10 @@ FocusScope {
         if (visiblePages.length > 0) currentPage = visiblePages[0].id
     }
 
-    onCurrentPageChanged: rowsFlick.contentY = 0
+    onCurrentPageChanged: {
+        rowsFlick.contentY = 0
+        if (currentPage === "audio") refreshMicDevices()
+    }
 
     // ---- persistence ------------------------------------------------------------------------
     Timer {
@@ -117,6 +121,7 @@ FocusScope {
 
     Component.onCompleted: {
         detectDisplays()
+        refreshMicDevices()
         NetworkBuffers.refresh()
     }
 
@@ -368,8 +373,9 @@ FocusScope {
             var screen = SystemProperties.getNativeResolution(i)
             if (screen.width === 0) break
             res.push({text: qsTr("Natif"), w: screen.width, h: screen.height})
+            // The notch is a macOS thing: elsewhere the safe area is the whole screen
             var safe = SystemProperties.getSafeAreaResolution(i)
-            if (safe.width > 0) res.push({text: qsTr("Natif sans encoche"), w: safe.width, h: safe.height})
+            if (Qt.platform.os === "osx" && safe.width > 0) res.push({text: qsTr("Natif sans encoche"), w: safe.width, h: safe.height})
         }
         for (var j = 0; j < 16; j++) {
             var rate = SystemProperties.getRefreshRate(j)
@@ -416,7 +422,7 @@ FocusScope {
         rates.sort(function(a, b) { return a - b })
         var out = rates.map(function(r) { return {text: String(r), value: r} })
         if (fractionalRate) {
-            out.push({text: qsTr("%1 Hz").arg(StreamingPreferences.customRefreshRate.toFixed(2).replace(".", ",")), value: "current"})
+            out.push({text: StreamingPreferences.customRefreshRate.toFixed(2).replace(".", ","), value: "current"})
         }
         out.push({text: qsTr("Autre…"), value: "custom", ask: true})
         return out
@@ -481,8 +487,9 @@ FocusScope {
         return entries
     }
 
-    // Read when the page opens: plug a microphone in later and reopen the settings to see it
-    readonly property var micDevices: ArtemisSettings.microphoneDevices()
+    // Read again each time the Audio page or the list opens: a microphone plugged in meanwhile shows
+    property var micDevices: []
+    function refreshMicDevices() { micDevices = ArtemisSettings.microphoneDevices() }
     readonly property var micOptions: {
         var list = [{text: qsTr("Micro par défaut du système"), value: ""}]
         for (var i = 0; i < micDevices.length; i++) list.push({text: micDevices[i], value: micDevices[i]})
@@ -767,7 +774,9 @@ FocusScope {
 
                         SettingChoice {
                             label: qsTr("Profil actif")
-                            description: qsTr("Un jeu de réglages par usage, par exemple à la maison et à distance. La langue et l'apparence restent communes.")
+                            // What stays common: ArtemisSettings, plus ProfileManager::isGlobalKey()
+                            description: qsTr("Un jeu de réglages de stream par usage, par exemple à la maison et à distance. Ce qui tient à ce PC reste commun : langue, apparence, micro et tampon audio, presse-papiers, recherche des PC, mises à jour.")
+                            descriptionLines: 3
                             dropdown: true
                             options: settingsPage.profileOptions
                             value: ProfileManager.activeProfileId
@@ -894,9 +903,13 @@ FocusScope {
                         SettingToggle {
                             label: qsTr("Fréquence variable (VRR, G-Sync / FreeSync)")
                             expert: true
-                            description: StreamingPreferences.enableVsync
-                                         ? qsTr("Affiche chaque image dès son arrivée, en plein écran sans bordure. L'hôte capture à l'instant près.")
-                                         : qsTr("Nécessite la V-Sync.")
+                            // Windows only: elsewhere a request falls back to fixed pacing, and
+                            // StreamingPreferences::reload() keeps it off
+                            available: Qt.platform.os === "windows"
+                            description: !StreamingPreferences.enableVsync ? qsTr("Nécessite la V-Sync.")
+                                         : (StreamingPreferences.useVirtualDisplay && StreamingPreferences.useMultiDisplay)
+                                           ? qsTr("Ignorée tant que « Un écran virtuel par moniteur » est actif : le stream couvre plusieurs moniteurs.")
+                                           : qsTr("Affiche chaque image dès son arrivée, en plein écran sans bordure. L'hôte capture à l'instant près.")
                             enabled: StreamingPreferences.enableVsync
                             checked: StreamingPreferences.enableVrr
                             onToggled: (v) => { StreamingPreferences.enableVrr = v; settingsPage.persist() }
@@ -991,6 +1004,20 @@ FocusScope {
                             onTriggered: {
                                 StreamingPreferences.bitrateKbps = settingsPage.defaultBitrate()
                                 StreamingPreferences.autoAdjustBitrate = true
+                                settingsPage.persist()
+                            }
+                        }
+
+                        SettingToggle {
+                            label: qsTr("Débloquer la limite de débit")
+                            expert: true
+                            // PyroWave has its own range (bitrateMax): the limit does not apply
+                            available: !settingsPage.pyroWave
+                            description: qsTr("Jusqu'à 500 Mbit/s, à réserver au réseau filaire.")
+                            checked: StreamingPreferences.unlockBitrate
+                            onToggled: (v) => {
+                                StreamingPreferences.unlockBitrate = v
+                                StreamingPreferences.bitrateKbps = Math.min(StreamingPreferences.bitrateKbps, settingsPage.bitrateMax)
                                 settingsPage.persist()
                             }
                         }
@@ -1113,18 +1140,6 @@ FocusScope {
                         }
 
                         SettingToggle {
-                            label: qsTr("Débloquer la limite de débit")
-                            expert: true
-                            description: qsTr("Jusqu'à 500 Mbit/s, à réserver au réseau filaire.")
-                            checked: StreamingPreferences.unlockBitrate
-                            onToggled: (v) => {
-                                StreamingPreferences.unlockBitrate = v
-                                StreamingPreferences.bitrateKbps = Math.min(StreamingPreferences.bitrateKbps, settingsPage.bitrateMax)
-                                settingsPage.persist()
-                            }
-                        }
-
-                        SettingToggle {
                             label: qsTr("Statistiques à l'écran pendant le stream")
                             description: qsTr("FPS, latence et décodage en surimpression. Ctrl+Alt+Maj+S les affiche ou les masque en jeu.")
                             checked: StreamingPreferences.showPerformanceOverlay
@@ -1178,8 +1193,9 @@ FocusScope {
                             label: qsTr("Micro utilisé")
                             expert: true
                             enabled: ArtemisSettings.micPassthroughEnabled
-                            description: qsTr("Liste lue à l'ouverture des réglages : branche le micro avant.")
+                            description: qsTr("Un micro branché après coup apparaît dès que tu rouvres la liste.")
                             dropdown: true
+                            onListOpening: settingsPage.refreshMicDevices()
                             options: settingsPage.micOptions
                             value: settingsPage.micDevices.indexOf(ArtemisSettings.micDeviceName) < 0 ? "" : ArtemisSettings.micDeviceName
                             onChosen: (v) => { ArtemisSettings.micDeviceName = v; settingsPage.persist() }
@@ -1188,7 +1204,8 @@ FocusScope {
                         SettingSlider {
                             label: qsTr("Tampon audio")
                             expert: true
-                            description: qsTr("Plus bas, moins de latence ; plus haut, moins de craquements sur un réseau instable.")
+                            description: qsTr("Plus bas, moins de latence ; plus haut, moins de craquements sur un réseau instable. Effet à la prochaine connexion.")
+                            descriptionLines: 3
                             from: 10
                             to: 100
                             stepSize: 5
@@ -1228,6 +1245,8 @@ FocusScope {
                         SettingToggle {
                             label: qsTr("Écran tactile en pavé tactile")
                             expert: true
+                            // Only with a touchscreen, or when already on (it never vanishes from under the user)
+                            available: SystemProperties.hasTouchScreen || !StreamingPreferences.absoluteTouchMode
                             description: qsTr("Le doigt déplace le curseur comme sur un trackpad, au lieu de pointer directement.")
                             checked: !StreamingPreferences.absoluteTouchMode
                             onToggled: (v) => { StreamingPreferences.absoluteTouchMode = !v; settingsPage.persist() }
@@ -1419,7 +1438,8 @@ FocusScope {
                         SettingToggle {
                             label: qsTr("Synchroniser le presse-papiers")
                             expert: true
-                            description: qsTr("Copier ici, coller là-bas, et inversement, pendant le stream (Apollo / LavApollo).")
+                            description: qsTr("Copier ici, coller là-bas, et inversement, pendant le stream (Apollo / LavApollo). Le menu en jeu envoie ou récupère aussi le presse-papiers à la demande.")
+                            descriptionLines: 3
                             checked: ClipboardManager.isEnabled
                             onToggled: (v) => { ClipboardManager.isEnabled = v; settingsPage.persist() }
                         }
@@ -1638,7 +1658,9 @@ FocusScope {
                         SettingToggle {
                             label: qsTr("Avertissements de configuration")
                             expert: true
-                            description: qsTr("Signale au lancement ce que ce PC ou le PC distant ne peut pas appliquer.")
+                            // Session::emitLaunchWarning() obeys it, emitLavArtemisWarning() does not
+                            description: qsTr("Signale au lancement les réglages que ce PC ou le PC distant ne peut pas appliquer. Micro, multi-écran, VRR, PyroWave et manettes devinées sont toujours signalés.")
+                            descriptionLines: 3
                             checked: StreamingPreferences.configurationWarnings
                             onToggled: (v) => { StreamingPreferences.configurationWarnings = v; settingsPage.persist() }
                         }
@@ -1651,11 +1673,20 @@ FocusScope {
                             onToggled: (v) => { ArtemisSettings.perfCsvLoggingEnabled = v; settingsPage.persist() }
                         }
 
+                        SettingAction {
+                            label: qsTr("Ouvrir le dossier des mesures")
+                            expert: true
+                            available: ArtemisSettings.perfCsvLoggingEnabled
+                            description: qsTr("Les fichiers « stream-perf » des streams enregistrés.")
+                            buttonText: qsTr("Ouvrir")
+                            onTriggered: ArtemisSettings.openPerfCsvFolder()
+                        }
+
                         SettingToggle {
                             label: qsTr("Trace détaillée du VRR")
                             expert: true
                             available: StreamingPreferences.enableVrr || StreamingPreferences.traceVrrFrames
-                            description: qsTr("Traces dans « vrr-diagnostics » sur le Bureau, dès la prochaine connexion. Prend de la place : à couper après.")
+                            description: qsTr("Traces dans le dossier « vrr-diagnostics » de l'appli, dès la prochaine connexion. Prend de la place : à couper après.")
                             checked: StreamingPreferences.traceVrrFrames
                             onToggled: (v) => { StreamingPreferences.traceVrrFrames = v; settingsPage.persist() }
                         }
@@ -1664,20 +1695,20 @@ FocusScope {
                             label: qsTr("Exporter la dernière trace VRR (ZIP)")
                             expert: true
                             available: StreamingPreferences.enableVrr || StreamingPreferences.traceVrrFrames
-                            description: StreamingPreferences.diagnosticsStatus !== "" ? StreamingPreferences.diagnosticsStatus
+                            description: VrrDiagnostics.status !== "" ? VrrDiagnostics.status
                                          : qsTr("Un ZIP de la dernière session tracée, à joindre à un rapport.")
-                            buttonText: StreamingPreferences.exportingDiagnostics ? qsTr("Export…") : qsTr("Exporter")
-                            busy: StreamingPreferences.exportingDiagnostics
-                            onTriggered: StreamingPreferences.exportLatestDiagnostics()
+                            buttonText: VrrDiagnostics.exporting ? qsTr("Export…") : qsTr("Exporter")
+                            busy: VrrDiagnostics.exporting
+                            onTriggered: VrrDiagnostics.exportLatest()
                         }
 
                         SettingAction {
                             label: qsTr("Ouvrir le dossier des traces")
                             expert: true
                             available: StreamingPreferences.enableVrr || StreamingPreferences.traceVrrFrames
-                            description: qsTr("Le dossier « vrr-diagnostics » du Bureau.")
+                            description: qsTr("Le dossier « vrr-diagnostics » de l'appli.")
                             buttonText: qsTr("Ouvrir")
-                            onTriggered: StreamingPreferences.openDiagnosticsFolder()
+                            onTriggered: VrrDiagnostics.openFolder()
                         }
                     }
                 }
@@ -1776,8 +1807,8 @@ FocusScope {
 
     LavDialog {
         id: customFpsDialog
-        title: qsTr("Fréquence personnalisée")
-        text: qsTr("En Hz, de 10 à 500, avec deux décimales au plus (59,94 par exemple).")
+        title: qsTr("Images par seconde personnalisées")
+        text: qsTr("De 10 à 500, avec deux décimales au plus (59,94 par exemple).")
         acceptText: qsTr("Appliquer")
         initialFocus: fpsField.input
         function rate() {

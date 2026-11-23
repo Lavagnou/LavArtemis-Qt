@@ -2,6 +2,7 @@
 #include <QSysInfo>
 #include <QDir>
 #include "session.h"
+#include "diagnostics/vrrdiagnostics.h"
 
 #include <QThreadPool>
 #include "backend/networkbuffers.h"
@@ -970,7 +971,7 @@ void Session::snapshotPresentationSettings(SDL_Window* window)
     if (requestedVrr && m_MultiDisplayActive) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
                     "VRR disabled: the stream spans several monitors (multi-display)");
-        emitLaunchWarning(tr("VRR was skipped because the stream spans several monitors."));
+        emitLavArtemisWarning(tr("VRR was skipped because the stream spans several monitors."));
     }
 
     if (requestedVrr && !m_MultiDisplayActive) {
@@ -1109,7 +1110,7 @@ bool Session::initialize(QQuickWindow* qtWindow)
             // Scaling changes every display's size and therefore every origin in the
             // layout, so the host refuses the combination. Say so here rather than let it
             // be dropped silently on the far side.
-            emitLaunchWarning(tr("Multi-display streaming was skipped because resolution scaling is enabled."));
+            emitLavArtemisWarning(tr("Multi-display streaming was skipped because resolution scaling is enabled."));
         }
         else {
             m_DisplayLayout = DisplayLayout::detect();
@@ -1130,7 +1131,7 @@ bool Session::initialize(QQuickWindow* qtWindow)
                 // size of the whole canvas. That works, so we still send it -- but without
                 // saying so the user would just wonder where their second screen went.
                 if (!m_Computer->isMultiDisplayCapable) {
-                    emitLaunchWarning(tr("This host doesn't support separate displays, so all your monitors will appear as one large display."));
+                    emitLavArtemisWarning(tr("This host doesn't support separate displays, so all your monitors will appear as one large display."));
                 }
 
                 SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
@@ -1144,18 +1145,18 @@ bool Session::initialize(QQuickWindow* qtWindow)
                 // others get bitmap scaled, which is exactly the pixel-exact mapping this
                 // feature is for. Nothing here can prevent it, so say so.
                 if (m_DisplayLayout.hasMixedScaling()) {
-                    emitLaunchWarning(tr("Your displays use different scaling levels, so the picture may be resampled on some of them. Setting them all to the same scaling gives a sharper result."));
+                    emitLavArtemisWarning(tr("Your displays use different scaling levels, so the picture may be resampled on some of them. Setting them all to the same scaling gives a sharper result."));
                 }
             }
             else if (!m_DisplayLayout.problem().isEmpty()) {
-                emitLaunchWarning(tr("Multi-display streaming was skipped: %1").arg(m_DisplayLayout.problem()));
+                emitLavArtemisWarning(tr("Multi-display streaming was skipped: %1").arg(m_DisplayLayout.problem()));
             }
             else {
                 // One display, and nothing wrong with it. Not an error, but the user did ask
                 // for their whole layout to be mirrored, and saying nothing here is what makes
                 // an unplugged or folded-away second screen indistinguishable from a broken
                 // feature.
-                emitLaunchWarning(tr("Multi-display streaming was skipped: only one display was found on this PC."));
+                emitLavArtemisWarning(tr("Multi-display streaming was skipped: only one display was found on this PC."));
             }
         }
     }
@@ -1603,17 +1604,25 @@ bool Session::initialize(QQuickWindow* qtWindow)
 
 void Session::emitLaunchWarning(QString text)
 {
+    // "Avertissements de configuration" hides the warnings inherited from Moonlight only
     if (m_Preferences->configurationWarnings) {
-        // Queue this launch warning to be displayed after validation
-        m_LaunchWarnings.append(text);
-        emit launchWarningsChanged();
+        emitLavArtemisWarning(text);
     }
+}
+
+void Session::emitLavArtemisWarning(QString text)
+{
+    // Always shown: microphone refused, multi-display or VRR skipped, PyroWave fallback,
+    // guessed gamepad layout. These features tell the user only this way.
+    // Queue this launch warning to be displayed after validation
+    m_LaunchWarnings.append(text);
+    emit launchWarningsChanged();
 }
 
 bool Session::validateLaunch(SDL_Window* testWindow)
 {
     if (!m_Computer->isSupportedServerVersion) {
-        emit displayLaunchError(tr("The version of GeForce Experience on %1 is not supported by this build of Moonlight. You must update Moonlight to stream from %1.").arg(m_Computer->name));
+        emit displayLaunchError(tr("The host software on %1 is not supported by this version of LavArtemis. Update LavArtemis to stream from %1.").arg(m_Computer->name));
         return false;
     }
 
@@ -1634,22 +1643,22 @@ bool Session::validateLaunch(SDL_Window* testWindow)
             m_MicRequested = true;
         }
         else if (micState == "disabled") {
-            emitLaunchWarning(tr("Your microphone won't be sent: microphone passthrough is turned off on the host (LavApollo, Audio/Video settings)."));
+            emitLavArtemisWarning(tr("Your microphone won't be sent: microphone passthrough is turned off on the host (LavApollo, Audio/Video settings)."));
         }
         else if (micState == "no_permission") {
-            emitLaunchWarning(tr("Your microphone won't be sent: the host hasn't given this device the Microphone permission (LavApollo, Clients)."));
+            emitLavArtemisWarning(tr("Your microphone won't be sent: the host hasn't given this device the Microphone permission (LavApollo, Clients)."));
         }
         else if (micState == "no_device") {
-            emitLaunchWarning(tr("Your microphone won't be sent: the host has no virtual microphone. Installing Steam on the host provides one, or pick another in LavApollo's Audio/Video settings."));
+            emitLavArtemisWarning(tr("Your microphone won't be sent: the host has no virtual microphone. Installing Steam on the host provides one, or pick another in LavApollo's Audio/Video settings."));
         }
         else {
-            emitLaunchWarning(tr("Your microphone won't be sent: this host doesn't support microphone passthrough. It needs LavApollo 2.2 or later."));
+            emitLavArtemisWarning(tr("Your microphone won't be sent: this host doesn't support microphone passthrough. It needs LavApollo 2.2 or later."));
         }
     }
 
     if (m_SupportedVideoFormats & VIDEO_FORMAT_MASK_PYROWAVE) {
         if (!(m_Computer->serverCodecModeSupport & SCM_PYROWAVE)) {
-            emitLaunchWarning(tr("Your host PC doesn't support PyroWave. Using H.264 instead."));
+            emitLavArtemisWarning(tr("Your host PC doesn't support PyroWave. Using H.264 instead."));
             m_SupportedVideoFormats.removeByMask(VIDEO_FORMAT_MASK_PYROWAVE);
         }
         else if (getDecoderAvailability(testWindow,
@@ -1658,25 +1667,25 @@ bool Session::validateLaunch(SDL_Window* testWindow)
                                         m_StreamConfig.width,
                                         m_StreamConfig.height,
                                         m_StreamConfig.fps) == DecoderAvailability::None) {
-            emitLaunchWarning(tr("This PC's GPU driver can't decode PyroWave. Using H.264 instead."));
+            emitLavArtemisWarning(tr("This PC's GPU driver can't decode PyroWave. Using H.264 instead."));
             m_SupportedVideoFormats.removeByMask(VIDEO_FORMAT_MASK_PYROWAVE);
         }
         else {
             // Leave ~20% of either wired link for protocol overhead and contention
             const int hostLinkMbps = int(m_Computer->pyrowaveHostLinkMbps);
             if (hostLinkMbps > 0 && m_StreamConfig.bitrate > hostLinkMbps * 800) {
-                emitLaunchWarning(tr("PyroWave is set to %1 Mbps, but the host's %2 Mbps wired link leaves room for only about %3 Mbps of video. Lower the bitrate or run calibration.")
+                emitLavArtemisWarning(tr("PyroWave is set to %1 Mbps, but the host's %2 Mbps wired link leaves room for only about %3 Mbps of video. Lower the bitrate or run calibration.")
                                   .arg(m_StreamConfig.bitrate / 1000).arg(hostLinkMbps).arg(hostLinkMbps * 8 / 10));
             }
             const int clientLinkMbps = NetworkBuffers::routedWiredLinkMbps(
                 QHostAddress(m_Computer->activeAddress.address()));
             if (clientLinkMbps > 0 && m_StreamConfig.bitrate > clientLinkMbps * 800) {
-                emitLaunchWarning(tr("PyroWave is set to %1 Mbps, but this PC's %2 Mbps wired link leaves room for only about %3 Mbps of video. Lower the bitrate or run calibration.")
+                emitLavArtemisWarning(tr("PyroWave is set to %1 Mbps, but this PC's %2 Mbps wired link leaves room for only about %3 Mbps of video. Lower the bitrate or run calibration.")
                                   .arg(m_StreamConfig.bitrate / 1000).arg(clientLinkMbps).arg(clientLinkMbps * 8 / 10));
             }
             const QString bufferWarning = NetworkBuffers::launchWarning();
             if (!bufferWarning.isEmpty()) {
-                emitLaunchWarning(bufferWarning);
+                emitLavArtemisWarning(bufferWarning);
             }
         }
     }
@@ -1915,14 +1924,14 @@ bool Session::validateLaunch(SDL_Window* testWindow)
     // applied mappings, so anything the fallback could rescue is already a
     // game controller by now and won't be reported here.
     if (!SdlInputHandler::getUnmappedGamepads().isEmpty()) {
-        emitLaunchWarning(tr("An attached gamepad has no mapping and won't be usable. Visit the Moonlight help to resolve this."));
+        emitLaunchWarning(tr("An attached gamepad has no mapping and won't be usable. Set it up in Settings, Gamepads, Set up a gamepad."));
     }
 
     // A guessed layout is usable but not necessarily right, and the user has
     // no other way to find out that we guessed.
     QStringList guessedGamepads = MappingManager::getGuessedDeviceNames();
     if (!guessedGamepads.isEmpty()) {
-        emitLaunchWarning(tr("Guessed a button layout for %1. If the controls are wrong, remap it in the gamepad mapper.")
+        emitLavArtemisWarning(tr("Guessed a button layout for %1. If the controls are wrong, remap it in the gamepad mapper.")
                           .arg(guessedGamepads.join(QLatin1String(", "))));
     }
 
@@ -2624,12 +2633,12 @@ void Session::start()
         QString error;
         m_DiagnosticCapture = DiagnosticCapture::begin(DiagnosticCapture::rootDirectory(), metadata, error);
         if (m_DiagnosticCapture) {
-            m_Preferences->setDiagnosticsStatus(tr("Recording folder: %1. Disconnect before exporting.")
+            VrrDiagnostics::instance()->setStatus(tr("Recording folder: %1. Disconnect before exporting.")
                 .arg(QDir::toNativeSeparators(m_DiagnosticCapture->directory())));
             qInfo() << "VRR diagnostic capture:" << m_DiagnosticCapture->directory();
         }
         else {
-            m_Preferences->setDiagnosticsStatus(error);
+            VrrDiagnostics::instance()->setStatus(error);
             qWarning() << "Settings diagnostics not enabled:" << error;
         }
     }

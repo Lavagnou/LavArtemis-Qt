@@ -412,43 +412,43 @@ Rectangle {
         var message = ""
         switch(action) {
             case "disconnect":
-                message = "Disconnecting from server..."
+                message = qsTr("Disconnecting from server...")
                 break
             case "quit":
-                message = "Quitting session..."
+                message = qsTr("Quitting session...")
                 break
             case "server_restart":
-                message = ServerCommandManager.hasServerCommands ? "Restarting server..." : "Server commands not available"
+                message = ServerCommandManager.hasServerCommands ? qsTr("Restarting server...") : qsTr("Server commands not available")
                 break
             case "server_shutdown":
-                message = ServerCommandManager.hasServerCommands ? "Shutting down server..." : "Server commands not available"
+                message = ServerCommandManager.hasServerCommands ? qsTr("Shutting down server...") : qsTr("Server commands not available")
                 break
             case "server_suspend":
-                message = ServerCommandManager.hasServerCommands ? "Suspending server..." : "Server commands not available"
+                message = ServerCommandManager.hasServerCommands ? qsTr("Suspending server...") : qsTr("Server commands not available")
                 break
             case "clipboard_upload":
-                message = "Uploading clipboard to server..."
+                message = qsTr("Uploading clipboard to server...")
                 break
             case "clipboard_fetch":
-                message = "Fetching clipboard from server..."
+                message = qsTr("Fetching clipboard from server...")
                 break
             case "toggle_stats":
-                message = "Toggling performance stats..."
+                message = qsTr("Toggling performance stats...")
                 break
             case "toggle_mouse":
-                message = "Toggling mouse capture..."
+                message = qsTr("Toggling mouse capture...")
                 break
             case "toggle_keyboard":
-                message = "Toggling keyboard capture..."
+                message = qsTr("Toggling keyboard capture...")
                 break
             case "toggle_fullscreen":
-                message = "Toggling fullscreen..."
+                message = qsTr("Toggling fullscreen...")
                 break
             case "toggle_microphone":
-                message = "Toggling microphone..."
+                message = qsTr("Toggling microphone...")
                 break
             default:
-                message = "Executing action..."
+                message = qsTr("Executing action...")
         }
         
         if (message) {

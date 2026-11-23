@@ -31,7 +31,6 @@ class ClipboardManager : public QObject
     Q_OBJECT
     Q_PROPERTY(bool isEnabled READ isEnabled WRITE setEnabled NOTIFY enabledChanged)
     Q_PROPERTY(bool isConnected READ isConnected NOTIFY connectionChanged)
-    Q_PROPERTY(bool textOnlyMode READ textOnlyMode WRITE setTextOnlyMode NOTIFY textOnlyModeChanged)
     Q_PROPERTY(int maxContentSizeMB READ maxContentSizeMB WRITE setMaxContentSizeMB NOTIFY maxContentSizeMBChanged)
     Q_PROPERTY(bool showNotifications READ showNotifications WRITE setShowNotifications NOTIFY showNotificationsChanged)
     Q_PROPERTY(bool bidirectionalSync READ isBidirectionalSyncEnabled WRITE setBidirectionalSync NOTIFY bidirectionalSyncChanged)
@@ -48,13 +47,11 @@ public:
     // Property getters
     bool isEnabled() const { return m_enabled; }
     bool isConnected() const { return m_connected; }
-    bool textOnlyMode() const { return m_textOnlyMode; }
     int maxContentSizeMB() const { return m_maxContentSizeMB; }
     bool showNotifications() const { return m_showNotifications; }
 
     // Property setters
     void setEnabled(bool enabled);
-    void setTextOnlyMode(bool textOnly);
     void setMaxContentSizeMB(int sizeMB);
     void setShowNotifications(bool show);
 
@@ -102,7 +99,6 @@ signals:
     // Property change signals
     void enabledChanged();
     void connectionChanged();
-    void textOnlyModeChanged();
     void maxContentSizeMBChanged();
     void showNotificationsChanged();
     void bidirectionalSyncChanged();
@@ -146,7 +142,6 @@ private:
     // New property backing variables
     bool m_enabled;
     bool m_connected;
-    bool m_textOnlyMode;
     int m_maxContentSizeMB;
     bool m_showNotifications;
     

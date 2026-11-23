@@ -12,8 +12,11 @@ AbstractButton {
     property real listMaxHeight: 460
 
     signal chosen(int index)
+    // Just before the list opens: a handler may refresh `options` (the microphone list)
+    signal opening()
 
     function openList() {
+        opening()
         if (options.length === 0) return
         // The list lives in the window overlay (unscaled), right under the button
         var p = dd.mapToItem(null, 0, dd.height + 6)

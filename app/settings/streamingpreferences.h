@@ -166,8 +166,6 @@ public:
     Q_PROPERTY(int vrrLatencyMode MEMBER vrrLatencyMode NOTIFY vrrLatencyModeChanged)
     Q_PROPERTY(bool smoothVrrFrameTiming MEMBER smoothVrrFrameTiming NOTIFY smoothVrrFrameTimingChanged)
     Q_PROPERTY(bool traceVrrFrames MEMBER traceVrrFrames NOTIFY traceVrrFramesChanged)
-    Q_PROPERTY(bool exportingDiagnostics MEMBER m_ExportingDiagnostics NOTIFY diagnosticsChanged)
-    Q_PROPERTY(QString diagnosticsStatus MEMBER m_DiagnosticsStatus NOTIFY diagnosticsChanged)
     Q_PROPERTY(bool gameOptimizations MEMBER gameOptimizations NOTIFY gameOptimizationsChanged)
     Q_PROPERTY(bool playAudioOnHost MEMBER playAudioOnHost NOTIFY playAudioOnHostChanged)
     Q_PROPERTY(bool multiController MEMBER multiController NOTIFY multiControllerChanged)
@@ -210,9 +208,6 @@ public:
     Q_PROPERTY(bool useMultiDisplay MEMBER useMultiDisplay NOTIFY useMultiDisplayChanged)
 
     Q_INVOKABLE bool retranslate();
-    Q_INVOKABLE void openDiagnosticsFolder();
-    Q_INVOKABLE void exportLatestDiagnostics();
-    void setDiagnosticsStatus(const QString& message);
 
     // Directly accessible members for preferences
     int width;
@@ -284,7 +279,6 @@ signals:
     void vrrLatencyModeChanged();
     void smoothVrrFrameTimingChanged();
     void traceVrrFramesChanged();
-    void diagnosticsChanged();
     void gameOptimizationsChanged();
     void playAudioOnHostChanged();
     void multiControllerChanged();
@@ -337,6 +331,4 @@ private:
 
     QQmlEngine* m_QmlEngine;
     bool m_Detached;
-    bool m_ExportingDiagnostics = false;
-    QString m_DiagnosticsStatus;
 };

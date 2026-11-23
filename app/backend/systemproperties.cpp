@@ -2,6 +2,7 @@
 #include "utils.h"
 
 #include <QGuiApplication>
+#include <QInputDevice>
 #include <QLibraryInfo>
 #include <QFile>
 #include <QProcess>
@@ -116,6 +117,17 @@ SystemProperties::SystemProperties()
 {
     versionString = QString(VERSION_STR);
     hasDesktopEnvironment = WMUtils::isRunningDesktopEnvironment();
+
+    hasTouchScreen = false;
+#ifdef Q_OS_WIN32
+    // Digitizer touch points, the way Qt itself decides to register a touch device
+    hasTouchScreen = GetSystemMetrics(SM_MAXIMUMTOUCHES) > 0;
+#endif
+    for (const QInputDevice* device : QInputDevice::devices()) {
+        if (device->type() == QInputDevice::DeviceType::TouchScreen) {
+            hasTouchScreen = true;
+        }
+    }
     isRunningWayland = WMUtils::isRunningWayland();
     isRunningXWayland = isRunningWayland && QGuiApplication::platformName() == "xcb";
     usesMaterial3Theme = QLibraryInfo::version() >= QVersionNumber(6, 5, 0);
