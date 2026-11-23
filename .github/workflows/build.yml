@@ -9,11 +9,9 @@ name: Build
 permissions:
   contents: read
 
+# Manual only (2026-11-23): the client is compiled on the maintainer's PC before every push, to
+# spare the Actions quota.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
