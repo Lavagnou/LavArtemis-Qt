@@ -560,6 +560,9 @@ FocusScope {
     Stage {
         id: stage
         anchors.fill: parent
+        // The settings rows put the label and the control side by side and need room: below 1400
+        // the page is still scaled down as before, until a narrow layout is validated on the prototype.
+        minLayoutWidth: 1400
 
         Item {
             anchors.fill: parent
@@ -568,7 +571,7 @@ FocusScope {
                 id: header
                 x: 50
                 y: 24
-                width: 1500
+                width: parent.width - 100
                 title: qsTr("Réglages")
                 onBack: settingsPage.goBack()
             }
@@ -741,7 +744,7 @@ FocusScope {
                 id: rowsFlick
                 x: navFlick.x + navFlick.width + 30
                 y: navFlick.y
-                width: 1600 - x - 40
+                width: parent.width - x - 40
                 height: parent.height - y - 20
                 contentHeight: rowsColumn.implicitHeight + 40
                 boundsBehavior: Flickable.StopAtBounds
@@ -1605,13 +1608,23 @@ FocusScope {
                         }
 
                         SettingAction {
-                            label: qsTr("Chercher une mise à jour maintenant")
+                            // Once an update is known (here or by the startup check), the same row
+                            // installs it: the v2 interface has no toolbar update button.
+                            readonly property bool updateKnown: !settingsPage.updateChecking && window.updateVersion !== ""
+                            label: updateKnown ? qsTr("Installer la mise à jour")
+                                               : qsTr("Chercher une mise à jour maintenant")
                             description: settingsPage.updateChecking ? qsTr("Vérification…")
+                                         : (updateKnown ? qsTr("LavArtemis %1 est disponible.").arg(window.updateVersion)
                                          : (settingsPage.updateStatus !== "" ? settingsPage.updateStatus
-                                                                             : qsTr("Même si la vérification au démarrage est coupée."))
-                            buttonText: qsTr("Vérifier")
+                                                                             : qsTr("Même si la vérification au démarrage est coupée.")))
+                            buttonText: updateKnown ? qsTr("Installer") : qsTr("Vérifier")
+                            primary: updateKnown
                             busy: settingsPage.updateChecking
                             onTriggered: {
+                                if (updateKnown) {
+                                    window.openUpdateDialog()
+                                    return
+                                }
                                 settingsPage.updateChecking = true
                                 settingsPage.updateStatus = ""
                                 // checkNow(), not start(): start() honours the startup preference above

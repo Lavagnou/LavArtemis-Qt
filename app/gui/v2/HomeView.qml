@@ -9,6 +9,7 @@ import AppKindModel 1.0
 import ComputerModel 1.0
 import ComputerManager 1.0
 import StreamingPreferences 1.0
+import SystemProperties 1.0
 import SdlGamepadKeyNavigation 1.0
 
 // Home of the redesigned interface: one host at a time. The running session is staged at the top
@@ -268,23 +269,49 @@ FocusScope {
                 width: flick.width - 100
                 spacing: 26
 
-                // Header: brand, host switcher, pills
+                // Header (prototype V5, piste A, as validated). One row when everything fits: brand
+                // and update on the left, host switcher centred, pills on the right. Otherwise a
+                // two-row grid: brand | host switcher on the first row, update | pills on the second.
+                // Buttons keep their size, only the layout changes (shrinking them was rejected).
                 Item {
+                    id: headerBar
                     width: parent.width
-                    height: 60
+                    readonly property real updateWidth: updatePill.visible ? updatePill.width + 12 : 0
+                    // What the single row needs: both side groups plus the switcher at full width.
+                    // None of these widths depends on twoRows, so this cannot loop.
+                    readonly property real switcherWidth: 2 * 40 + 2 * 22 + Math.min(hostNameMetrics.width, 240)
+                    readonly property bool twoRows: brandRow.width + updateWidth + switcherWidth + rightRow.width + 2 * 24 > width
+                    readonly property real row2: twoRows ? 74 : 0
+                    height: twoRows ? 2 * 60 + 14 + 14 : 60
+
+                    TextMetrics {
+                        id: hostNameMetrics
+                        font.family: Theme.textFont
+                        font.pixelSize: 19
+                        font.weight: Font.Bold
+                        text: home.host ? home.host.name.toUpperCase() : ""
+                    }
 
                     Row {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
+                        id: brandRow
+                        y: (60 - height) / 2
                         spacing: 12
-                        Rectangle {
-                            width: 16; height: 16
-                            radius: Theme.id === "affiche" ? 0 : 5
-                            color: Theme.id === "affiche" ? Theme.fg : (Theme.id === "ludique" ? Theme.tk.coral : Theme.accent)
+                        // The app logo, recoloured for the theme when the original would clash
+                        // (LavArtemis docs/branding: Ludique keeps the original night blue).
+                        // LavArtemis Dev always shows its own logo, whatever the theme.
+                        Image {
+                            width: 36; height: 36
+                            sourceSize.width: 72; sourceSize.height: 72
                             anchors.verticalCenter: parent.verticalCenter
+                            source: SystemProperties.isDevChannel ? "qrc:/res/lavartemis-dev.svg"
+                                  : Theme.id === "braise" ? "qrc:/res/lavartemis-braise.svg"
+                                  : Theme.id === "affiche" ? (Theme.dark ? "qrc:/res/lavartemis-affiche-dark.svg"
+                                                                         : "qrc:/res/lavartemis-affiche-light.svg")
+                                  : "qrc:/res/lavartemis.svg"
                         }
                         Text {
                             text: Theme.displayText("LavArtemis")
+                            anchors.verticalCenter: parent.verticalCenter
                             color: Theme.fg
                             font.family: Theme.displayFont
                             font.pixelSize: 26
@@ -299,9 +326,28 @@ FocusScope {
                         }
                     }
 
+                    // The legacy toolbar's update button, which v2 hides (see main.qml updateVersion):
+                    // after the brand on one row, under it (start of the pills' row) on two.
+                    LavPill {
+                        id: updatePill
+                        x: headerBar.twoRows ? 0 : brandRow.width + 12
+                        y: headerBar.row2 + (60 - height) / 2
+                        iconName: "refresh"
+                        text: qsTr("Mise à jour")
+                        visible: window.updateVersion !== ""
+                        onClicked: window.openUpdateDialog()
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("LavArtemis %1 est disponible").arg(window.updateVersion)
+                    }
+
                     Row {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.verticalCenter: parent.verticalCenter
+                        id: centerRow
+                        // One row: centred, but never over the side groups. Two rows: at the right
+                        // end of the brand's row.
+                        x: headerBar.twoRows ? parent.width - width
+                           : Math.max(brandRow.width + headerBar.updateWidth + 24,
+                                      Math.min((parent.width - width) / 2, rightRow.x - width - 24))
+                        y: (60 - height) / 2
                         spacing: 22
                         visible: home.host !== null
 
@@ -315,7 +361,7 @@ FocusScope {
                             anchors.verticalCenter: parent.verticalCenter
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                text: home.host ? home.host.name.toUpperCase() : ""
+                                text: hostNameMetrics.text
                                 width: Math.min(implicitWidth, 240)
                                 elide: Text.ElideRight
                                 color: Theme.fg
@@ -341,8 +387,9 @@ FocusScope {
                     }
 
                     Row {
+                        id: rightRow
                         anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
+                        y: headerBar.row2 + (60 - height) / 2
                         spacing: 12
 
                         LavPill {
@@ -381,6 +428,15 @@ FocusScope {
                                 stackView.push(component.createObject(stackView, {}))
                             }
                         }
+                    }
+
+                    // Two rows: a rule under the grid, as on the prototype
+                    Rectangle {
+                        visible: headerBar.twoRows
+                        y: parent.height - 1
+                        width: parent.width
+                        height: 1
+                        color: Theme.borderColor
                     }
                 }
 

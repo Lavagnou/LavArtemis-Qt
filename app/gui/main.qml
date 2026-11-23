@@ -21,6 +21,15 @@ ApplicationWindow {
     // The current page belongs to the redesigned interface (gui/v2): hide the legacy toolbar
     property bool v2Page: false
 
+    // Set when a check (at startup or "check now") finds an update. The v2 interface hides the
+    // toolbar and its update button, so it reads this and calls openUpdateDialog() itself
+    // (home pill, settings): without it an update could be announced but never installed.
+    property string updateVersion: ""
+
+    function openUpdateDialog() {
+        updateDialog.open()
+    }
+
     id: window
     width: 1280
     height: 600
@@ -422,6 +431,7 @@ ApplicationWindow {
                     updateButton.newVersion = version
                     updateButton.browserUrl = url
                     updateButton.visible = true
+                    window.updateVersion = version
                 }
 
                 Component.onCompleted: {

@@ -357,8 +357,21 @@ l'interface d'origine. La Dev l'ouvre au démarrage (`main.cpp`, `initialView`),
   `LavDropdown`, `SettingSlider`, `SettingAction`), popups `LavPopup` / `LavDialog`,
   `PyroWaveCalibration` (SDR seulement). L'ancien `SettingsView.qml` reste la référence de lecture et
   d'écriture de chaque préférence et s'ouvre depuis Avancé (« Écran de réglages complet »).
-- **`Stage.qml`** : chaque page est composée sur une scène de **1600 px de large mise à l'échelle**
-  de la fenêtre, comme le prototype. Ne pas raisonner en pixels de fenêtre dans `v2/`.
+- **`Stage.qml`** : au-delà de 1600 px, la page est composée sur 1600 px et agrandie ; **entre 1000 et
+  1600 px elle garde sa taille réelle** (boutons compris) et se compose sur la largeur de la fenêtre ;
+  sous 1000 px seulement, elle est réduite (`minLayoutWidth`). Une page ne doit donc jamais supposer
+  1600 de large : largeurs en `parent.width`, pas en constantes (prototype V5 : rétrécir les boutons a
+  été refusé).
+- **En-tête de l'accueil** (prototype V5, piste A validée) : une ligne si tout tient (logo + « Mise à
+  jour » | sélecteur de PC centré | boutons) ; sinon une grille de deux lignes : logo | sélecteur de PC,
+  puis « Mise à jour » | boutons, chaque côté aligné sur son bord (`headerBar.twoRows`, calculé sur des
+  largeurs qui n'en dépendent pas : pas de boucle). Le logo suit le thème (Braise, Affiche recolorés,
+  Ludique d'origine), la **Dev garde toujours son logo**.
+- **Mise à jour** : la v2 masque la barre d'outils et son bouton de mise à jour. `main.qml` expose
+  `window.updateVersion` et `openUpdateDialog()` ; l'accueil (bouton « Mise à jour ») et Réglages ›
+  Avancé (« Installer ») les utilisent. Sans eux, une mise à jour s'annonçait sans pouvoir s'installer.
+- **Tout changement de design passe d'abord par le prototype** (canvas « LavArtemis — 4 directions »)
+  et n'est codé qu'une fois validé.
 - Polices OFL embarquées (`res/fonts/`, enregistrées dans `main.cpp`).
 
 > ⚠️ **Jamais de liaison de `header.visible`/`height` sur `stackView.currentItem`** : elle a fait
