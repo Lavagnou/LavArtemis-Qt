@@ -132,7 +132,7 @@ Trois choses qui ne se devinent pas :
 > `onToggled` ne réagit qu'à une action utilisateur. La case reste cochée en grisé, ce qui est la
 > lecture honnête — `Session::initialize()` exige les deux préférences de toute façon.
 
-Un bouton de bascule est aussi posé dans la barre d'outils (`gui/main.qml`), parce que c'est le
+Une pastille de bascule est aussi posée dans l'en-tête de l'accueil (`gui/v2/HomeView.qml`), parce que c'est le
 réglage qu'on change selon l'endroit où l'on est assis. Il **persiste lui-même**
 (`StreamingPreferences.save()`) : contrairement aux Réglages, l'accueil n'a pas d'événement de
 navigation sur lequel sauvegarder.
