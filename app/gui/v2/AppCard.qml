@@ -98,11 +98,15 @@ AbstractButton {
             }
             Text {
                 visible: !card.running
+                width: parent.width
                 text: card.subtitle
                 color: Theme.muted
                 font.family: Theme.textFont
                 font.pixelSize: 17
+                elide: Text.ElideRight
             }
+            // A narrow card (small window) wraps the title on two lines instead of cutting it
+            // ("Playnite / Fullscreen"); only a word longer than the card is still elided.
             Text {
                 width: parent.width
                 text: Theme.displayText(card.title)
@@ -111,6 +115,9 @@ AbstractButton {
                 font.pixelSize: 42
                 font.weight: Theme.displayWeight
                 font.letterSpacing: Theme.tracking * 42
+                wrapMode: Text.WordWrap
+                maximumLineCount: 2
+                lineHeight: 0.95
                 elide: Text.ElideRight
             }
             Row {

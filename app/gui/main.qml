@@ -33,6 +33,10 @@ ApplicationWindow {
     id: window
     width: 1280
     height: 600
+    // Below this the redesigned pages can only shrink and break (Stage.minLayoutWidth is 1000):
+    // the window stops there, unless the screen itself is smaller.
+    minimumWidth: Math.min(1000, Screen.desktopAvailableWidth)
+    minimumHeight: Math.min(600, Screen.desktopAvailableHeight)
 
     // This function runs prior to creation of the initial StackView item
     function doEarlyInit() {
