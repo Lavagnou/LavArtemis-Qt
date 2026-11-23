@@ -67,6 +67,11 @@ public:
 
     // "Quitter le jeu": closes the game inside Playnite, the stream goes back to Playnite
     Q_INVOKABLE void quitPlayniteGame();
+
+    // State the menu reads each time it opens (main thread, like the session)
+    Q_INVOKABLE bool microphoneActive() const;
+    Q_INVOKABLE bool microphoneMuted() const;
+    Q_INVOKABLE bool trackpadTouchMode() const;
     QString playniteGameName() const { return m_playniteGameName; }
     void setComputer(NvComputer *computer) { m_computer = computer; }
 

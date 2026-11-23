@@ -612,6 +612,7 @@ FocusScope {
         id: renameDialog
         property int hostIndex: -1
         title: qsTr("Renommer")
+        text: qsTr("Le nom de ce PC dans LavArtemis. Le PC lui-même garde le sien.")
         acceptText: qsTr("Renommer")
         acceptEnabled: renameField.text.trim().length > 0
         initialFocus: renameField.input

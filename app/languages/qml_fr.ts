@@ -766,6 +766,14 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Ajoute ton PC pour lancer ton bureau et tes jeux d&apos;ici.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Allume-le ou réveille-le, il apparaîtra ici dès qu&apos;il répond.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Ajouter un PC</source>
         <translation type="unfinished"></translation>
     </message>
@@ -827,6 +835,14 @@
     </message>
     <message>
         <source>%1 est en cours. Le quitter pour lancer %2 ? Ce qui n&apos;est pas sauvegardé sera perdu.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Quitter %1 puis le relancer ? Ce qui n&apos;est pas sauvegardé sera perdu.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Quitter %1 ? Ce qui n&apos;est pas sauvegardé sera perdu.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1001,6 +1017,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Le nom de ce PC dans LavArtemis. Le PC lui-même garde le sien.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Oublier %1 ?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1025,19 +1045,19 @@
     </message>
     <message>
         <source>F11</source>
-        <translation type="unfinished"></translation>
+        <translation>F11</translation>
     </message>
     <message>
         <source>Alt+F4</source>
-        <translation type="unfinished"></translation>
+        <translation>Alt+F4</translation>
     </message>
     <message>
         <source>Alt+Enter</source>
-        <translation type="unfinished"></translation>
+        <translation>Alt+Entrée</translation>
     </message>
     <message>
         <source>Ctrl+V</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+V</translation>
     </message>
     <message>
         <source>Windows key</source>
@@ -1053,31 +1073,31 @@
     </message>
     <message>
         <source>Ctrl+Alt+Del</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+Alt+Suppr</translation>
     </message>
     <message>
         <source>Ctrl+Shift+Esc (task manager)</source>
-        <translation>Ctrl+Shift+Esc (gestionnaire des tâches)</translation>
+        <translation>Ctrl+Maj+Échap (gestionnaire des tâches)</translation>
     </message>
     <message>
         <source>Ctrl+Alt+Tab</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+Alt+Tab</translation>
     </message>
     <message>
         <source>Shift+Tab</source>
-        <translation type="unfinished"></translation>
+        <translation>Maj+Tab (overlay Steam)</translation>
     </message>
     <message>
         <source>Win+Shift+Left</source>
-        <translation type="unfinished"></translation>
+        <translation>Win+Maj+Gauche (fenêtre sur l&apos;autre écran)</translation>
     </message>
     <message>
         <source>Ctrl+Alt+Shift+F1</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+Alt+Maj+F1 (changer d&apos;écran)</translation>
     </message>
     <message>
         <source>Ctrl+Alt+Shift+F12</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+Alt+Maj+F12 (changer d&apos;écran)</translation>
     </message>
     <message>
         <source>Win+Alt+B (HDR toggle)</source>
@@ -1248,19 +1268,19 @@
     <name>PendingPairingTask</name>
     <message>
         <source>The PIN from the PC didn&apos;t match. Please try again.</source>
-        <translation>Le code PIN du PC hôte ne correspond pas. Veuillez réessayer.</translation>
+        <translation>Le code entré sur le PC n&apos;est pas le bon. Recommence : un nouveau code s&apos;affichera.</translation>
     </message>
     <message>
         <source>You cannot pair while a previous session is still running on the host PC. Quit any running games or reboot the host PC, then try pairing again.</source>
-        <translation>Vous ne pouvez pas effectuer de jumelage alors qu&apos;une session précédente est encore en cours sur le PC hôte. Fermez les jeux en cours ou redémarrez le PC hôte, puis essayez à nouveau d&apos;effectuer le jumelage.</translation>
+        <translation>L&apos;appairage a échoué : une session est en cours sur ce PC. Quitte-la, puis recommence.</translation>
     </message>
     <message>
         <source>Pairing failed. Please try again.</source>
-        <translation>Le jumelage a échoué. Veuillez réessayer.</translation>
+        <translation>L&apos;appairage a échoué. Vérifie que LavApollo tourne sur ce PC, puis recommence.</translation>
     </message>
     <message>
         <source>Another pairing attempt is already in progress.</source>
-        <translation>Une autre tentative de jumelage est déjà en cours.</translation>
+        <translation>Un appairage est déjà en cours sur ce PC. Termine-le ou annule-le dans LavApollo, puis recommence.</translation>
     </message>
     <message>
         <source>The host returned an error: %1</source>
@@ -1592,10 +1612,6 @@
         <translation>Se déconnecter du PC hôte</translation>
     </message>
     <message>
-        <source>Quit</source>
-        <translation>Quitter</translation>
-    </message>
-    <message>
         <source>Quit streaming session</source>
         <translation>Quitter la session de stream</translation>
     </message>
@@ -1632,36 +1648,8 @@
         <translation>Afficher/masquer les statistiques de performance</translation>
     </message>
     <message>
-        <source>Toggle Mouse Capture</source>
-        <translation>Capture de la souris</translation>
-    </message>
-    <message>
-        <source>Toggle mouse capture mode</source>
-        <translation>Activer/désactiver la capture de la souris</translation>
-    </message>
-    <message>
-        <source>Toggle Keyboard Capture</source>
-        <translation>Capture du clavier</translation>
-    </message>
-    <message>
-        <source>Toggle keyboard capture mode</source>
-        <translation>Activer/désactiver la capture du clavier</translation>
-    </message>
-    <message>
-        <source>Mute / Unmute Microphone</source>
-        <translation>Couper / rétablir le micro</translation>
-    </message>
-    <message>
         <source>Stop or resume sending your microphone (Ctrl+Alt+Shift+U)</source>
-        <translation>Arrêter ou reprendre l&apos;envoi de ton micro (Ctrl+Alt+Shift+U)</translation>
-    </message>
-    <message>
-        <source>Toggle Fullscreen</source>
-        <translation>Plein écran</translation>
-    </message>
-    <message>
-        <source>Toggle fullscreen mode</source>
-        <translation>Activer/désactiver le plein écran</translation>
+        <translation>Arrêter ou reprendre l&apos;envoi de ton micro (Ctrl+Alt+Maj+U)</translation>
     </message>
     <message>
         <source>Built-in shortcut</source>
@@ -1685,7 +1673,79 @@
     </message>
     <message>
         <source>Server commands not available</source>
-        <translation>Commandes du PC indisponibles</translation>
+        <translation>Commandes du PC hôte indisponibles</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to quit?</source>
+        <translation>Voulez-vous vraiment quitter ?</translation>
+    </message>
+    <message>
+        <source>No server commands</source>
+        <translation>Aucune commande</translation>
+    </message>
+    <message>
+        <source>Make sure the host runs Apollo / LavApollo and this client has the &quot;Server Command&quot; permission.</source>
+        <translation>Vérifie que le PC hôte utilise Apollo / LavApollo et que ce client a l&apos;autorisation « Commandes serveur ».</translation>
+    </message>
+    <message>
+        <source>Command &quot;%1&quot; sent</source>
+        <translation>Commande « %1 » envoyée</translation>
+    </message>
+    <message>
+        <source>Command &quot;%1&quot; failed: %2</source>
+        <translation>La commande « %1 » a échoué : %2</translation>
+    </message>
+    <message>
+        <source>Quit Session</source>
+        <translation>Quitter la session</translation>
+    </message>
+    <message>
+        <source>Make sure your progress is saved: quitting the session closes the app running on the PC.</source>
+        <translation>Vérifiez que votre progression est enregistrée : quitter la session ferme l&apos;application qui tourne sur le PC.</translation>
+    </message>
+    <message>
+        <source>Unmute Microphone</source>
+        <translation>Réactiver le micro</translation>
+    </message>
+    <message>
+        <source>Mute Microphone</source>
+        <translation>Couper le micro</translation>
+    </message>
+    <message>
+        <source>Switch to Multitouch</source>
+        <translation>Passer en multitouch</translation>
+    </message>
+    <message>
+        <source>Switch to Trackpad</source>
+        <translation>Passer en trackpad</translation>
+    </message>
+    <message>
+        <source>For this stream only</source>
+        <translation>Pour ce stream seulement</translation>
+    </message>
+    <message>
+        <source>Release Mouse and Keyboard</source>
+        <translation>Libérer la souris et le clavier</translation>
+    </message>
+    <message>
+        <source>Gives the pointer back to your PC.</source>
+        <translation>Rend le pointeur à ton PC.</translation>
+    </message>
+    <message>
+        <source>Capture Keyboard</source>
+        <translation>Capturer le clavier</translation>
+    </message>
+    <message>
+        <source>Sends the system shortcuts to the host PC, or not.</source>
+        <translation>Envoie ou non les raccourcis système au PC distant.</translation>
+    </message>
+    <message>
+        <source>Full Screen / Window</source>
+        <translation>Plein écran / fenêtre</translation>
+    </message>
+    <message>
+        <source>Switches how the stream is displayed.</source>
+        <translation>Bascule l&apos;affichage du stream.</translation>
     </message>
     <message>
         <source>Shutting down server...</source>
@@ -1722,6 +1782,14 @@
     <message>
         <source>Toggling microphone...</source>
         <translation>Micro coupé ou rétabli…</translation>
+    </message>
+    <message>
+        <source>Multitouch mode</source>
+        <translation>Mode multitouch</translation>
+    </message>
+    <message>
+        <source>Trackpad mode: long press to drag, two-finger tap for right click, two fingers to scroll</source>
+        <translation>Mode trackpad : appui long pour faire glisser, appui à deux doigts pour le clic droit, deux doigts pour défiler</translation>
     </message>
     <message>
         <source>Executing action...</source>
@@ -1955,6 +2023,10 @@
 </context>
 <context>
     <name>ServerCommandManager</name>
+    <message>
+        <source>Command of the host PC</source>
+        <translation>Commande du PC hôte</translation>
+    </message>
     <message>
         <source>Empty command</source>
         <translation>Commande vide</translation>
@@ -2607,10 +2679,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Multitouch : les doigts touchent directement l&apos;écran du PC. Trackpad : le doigt déplace le curseur, appui long pour faire glisser, appui à deux doigts pour le clic droit.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Multitouch</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2708,6 +2776,10 @@
     </message>
     <message>
         <source>%1 ms</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Multitouch : les doigts touchent directement l&apos;écran du PC. Trackpad : le doigt déplace le curseur, appui long pour faire glisser, appui à deux doigts pour le clic droit, deux doigts pour défiler.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

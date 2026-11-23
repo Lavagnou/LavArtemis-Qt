@@ -36,7 +36,9 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
       m_RightButtonReleaseTimer(0),
       m_DragTimer(0),
       m_DragButton(0),
-      m_NumFingersDown(0)
+      m_NumFingersDown(0),
+      m_PrimaryFingerMoved(false),
+      m_PendingTouchScroll(0)
 {
     // System keys are always captured when running without a DE
     if (!WMUtils::isRunningDesktopEnvironment()) {
@@ -270,6 +272,31 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
     SDL_zero(m_LastTouchDownEvent);
     SDL_zero(m_LastTouchUpEvent);
     SDL_zero(m_TouchDownEvent);
+}
+
+void SdlInputHandler::setAbsoluteTouchMode(bool absolute)
+{
+    if (m_AbsoluteTouchMode == absolute) {
+        return;
+    }
+
+    // End any gesture of the old mode: a held drag button would stay pressed on the host
+    SDL_RemoveTimer(m_LongPressTimer);
+    m_LongPressTimer = 0;
+    SDL_RemoveTimer(m_DragTimer);
+    m_DragTimer = 0;
+    if (m_DragButton != 0) {
+        LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, m_DragButton);
+        m_DragButton = 0;
+    }
+    SDL_zero(m_TouchDownEvent);
+    SDL_zero(m_LastTouchDownEvent);
+    SDL_zero(m_LastTouchUpEvent);
+    m_NumFingersDown = 0;
+    m_PrimaryFingerMoved = false;
+    m_PendingTouchScroll = 0;
+
+    m_AbsoluteTouchMode = absolute;
 }
 
 SdlInputHandler::~SdlInputHandler()

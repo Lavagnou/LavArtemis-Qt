@@ -14,6 +14,11 @@
 // How far the finger can move before it cancels a drag or tap
 #define DEAD_ZONE_DELTA 0.01f
 
+// Two-finger scroll, as the Android trackpad (RelativeTouchContext): the primary finger's
+// vertical motion, in pixels of a 720-line reference screen, times 5, in high-res scroll units
+#define SCROLL_REFERENCE_HEIGHT 720
+#define SCROLL_SPEED_FACTOR 5
+
 Uint32 SdlInputHandler::releaseLeftButtonTimerCallback(Uint32, void*)
 {
     LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_LEFT);
@@ -88,9 +93,36 @@ void SdlInputHandler::handleRelativeFingerEvent(SDL_TouchFingerEvent* event)
         return;
     }
 
+    if (event->type == SDL_FINGERDOWN && fingerIndex == 0) {
+        // A new gesture
+        m_PrimaryFingerMoved = false;
+        m_PendingTouchScroll = 0;
+    }
+
+    // Two fingers on screen: the primary finger scrolls once it has left the tap zone, and never
+    // moves the cursor (Android trackpad). Natural direction: the content follows the fingers.
+    if (fingerIndex == 0 && event->type == SDL_FINGERMOTION && SDL_GetNumTouchFingers(event->touchId) == 2) {
+        if (!m_PrimaryFingerMoved &&
+                qSqrt(qPow(event->x - m_TouchDownEvent[0].x, 2) +
+                      qPow(event->y - m_TouchDownEvent[0].y, 2)) > DEAD_ZONE_DELTA) {
+            m_PrimaryFingerMoved = true;
+        }
+        if (m_PrimaryFingerMoved) {
+            // A scroll is neither a tap nor a two-finger tap
+            m_TouchDownEvent[0].timestamp = 0;
+            m_TouchDownEvent[1].timestamp = 0;
+
+            m_PendingTouchScroll += event->dy * SCROLL_REFERENCE_HEIGHT * SCROLL_SPEED_FACTOR;
+            short amount = static_cast<short>(m_PendingTouchScroll);
+            if (amount != 0) {
+                LiSendHighResScrollEvent(amount);
+                m_PendingTouchScroll -= amount;
+            }
+        }
+    }
     // Handle cursor motion based on the position of the
     // primary finger on screen
-    if (fingerIndex == 0) {
+    else if (fingerIndex == 0) {
         // The event x and y values are relative to our window width
         // and height. However, we want to scale them to be relative
         // to the host resolution. Fortunately this is easy since we

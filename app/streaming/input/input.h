@@ -130,6 +130,17 @@ public:
 
     void handleTouchFingerEvent(SDL_TouchFingerEvent* event);
 
+    // Touchscreen mode of this session: true = Multitouch (abstouch.cpp), false = Trackpad
+    // (reltouch.cpp). The in-game menu switches it for this stream only, like Android's
+    // « Passer en trackpad » (the saved preference is not changed). Main thread.
+    bool isAbsoluteTouchMode() const { return m_AbsoluteTouchMode; }
+    void setAbsoluteTouchMode(bool absolute);
+
+    // In-game menu: the same actions as the Ctrl+Alt+Shift shortcuts Z, K and X. Main thread.
+    void toggleInputCapture() { performSpecialKeyCombo(KeyComboUngrabInput); }
+    void toggleSystemKeyCapture() { performSpecialKeyCombo(KeyComboToggleKeyboardGrab); }
+    void toggleFullScreenMode() { performSpecialKeyCombo(KeyComboToggleFullScreen); }
+
     int getAttachedGamepadMask();
 
     void raiseAllKeys();
@@ -271,6 +282,10 @@ private:
     SDL_TimerID m_DragTimer;
     char m_DragButton;
     int m_NumFingersDown;
+    // Trackpad: the primary finger left the tap zone during this gesture (Android's confirmedMove),
+    // and the high-res scroll not yet sent by a two-finger scroll
+    bool m_PrimaryFingerMoved;
+    float m_PendingTouchScroll;
 
     static const int k_ButtonMap[];
 };

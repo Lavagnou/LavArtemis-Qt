@@ -1229,7 +1229,7 @@ FocusScope {
                             // Only with a touchscreen, or when the trackpad is on (a setting that acts
                             // never vanishes from under the user)
                             available: SystemProperties.hasTouchScreen || !StreamingPreferences.absoluteTouchMode
-                            description: qsTr("Multitouch : les doigts touchent directement l'écran du PC. Trackpad : le doigt déplace le curseur, appui long pour faire glisser, appui à deux doigts pour le clic droit.")
+                            description: qsTr("Multitouch : les doigts touchent directement l'écran du PC. Trackpad : le doigt déplace le curseur, appui long pour faire glisser, appui à deux doigts pour le clic droit, deux doigts pour défiler.")
                             descriptionLines: 3
                             options: [
                                 {text: qsTr("Multitouch"), value: true},

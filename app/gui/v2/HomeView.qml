@@ -174,7 +174,7 @@ FocusScope {
         if (!appModel || row < 0) return
         var inside = appModel.startsInsidePlaynite(row)
         if (runningId !== 0 && runningId !== appid && !inside) {
-            quitDialog.appName = runningName
+            quitDialog.appName = runningTitle
             quitDialog.nextAppName = name
             quitDialog.nextRow = row
             quitDialog.open()
@@ -190,7 +190,7 @@ FocusScope {
 
     function quitRunning(thenRow, thenName) {
         var component = Qt.createComponent("../QuitSegue.qml")
-        var params = {"appName": runningName, "quitRunningAppFn": function() { appModel.quitRunningApp() }}
+        var params = {"appName": runningTitle, "quitRunningAppFn": function() { appModel.quitRunningApp() }}
         if (thenRow !== undefined && thenRow >= 0) {
             params.nextAppName = thenName
             params.nextSession = appModel.createSessionForApp(thenRow)
@@ -199,6 +199,14 @@ FocusScope {
             params.nextSession = null
         }
         stackView.push(component.createObject(stackView, params))
+    }
+
+    // Quitting loses what the game did not save: asked first, as on Android
+    function confirmQuit() {
+        confirmQuitDialog.relaunch = false
+        confirmQuitDialog.nextRow = -1
+        confirmQuitDialog.nextAppName = ""
+        confirmQuitDialog.open()
     }
 
     function openMenu(item, row, name, cover, running, x, y, appid) {
@@ -217,10 +225,13 @@ FocusScope {
         if (action === "launch") {
             launch(row, appMenu.appName, appMenu.appid)
         } else if (action === "quit") {
-            quitRunning()
+            confirmQuit()
         } else if (action === "relaunch") {
             // Quits and starts again, so the host recreates its virtual display for this device
-            quitRunning(row, appMenu.appName)
+            confirmQuitDialog.relaunch = true
+            confirmQuitDialog.nextRow = row
+            confirmQuitDialog.nextAppName = appMenu.appName
+            confirmQuitDialog.open()
         } else if (action === "art") {
             exportArtDialog.row = row
             exportArtDialog.currentFile = "file:///" + appModel.suggestedArtFileName(row)
@@ -472,6 +483,17 @@ FocusScope {
                         font.pixelSize: 40
                         font.weight: Theme.displayWeight
                     }
+                    // The line under the title, Android's (HomeScreen: v2_no_pc_text / v2_pc_offline_text)
+                    Text {
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.WordWrap
+                        text: !home.host ? qsTr("Ajoute ton PC pour lancer ton bureau et tes jeux d'ici.")
+                                         : qsTr("Allume-le ou réveille-le, il apparaîtra ici dès qu'il répond.")
+                        color: Theme.muted
+                        font.family: Theme.textFont
+                        font.pixelSize: 20
+                    }
                     LavButton {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: !home.host ? qsTr("Ajouter un PC") : qsTr("Mes PC")
@@ -519,13 +541,13 @@ FocusScope {
                             iconName: "play"
                             hint: Theme.input === "pad" ? "A" : qsTr("Entrée")
                             focus: home.sessionRunning
-                            onClicked: home.launch(home.runningRow, home.runningName, home.runningId)
+                            onClicked: home.launch(home.runningRow, home.runningTitle, home.runningId)
                         }
                         LavButton {
                             primary: false
                             text: qsTr("Quitter")
                             iconName: "stop"
-                            onClicked: home.quitRunning()
+                            onClicked: home.confirmQuit()
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
@@ -561,9 +583,9 @@ FocusScope {
                             running: model.running
                             dimmed: home.sessionRunning && !model.running
                             liveLine: qsTr("EN COURS")
-                            onClicked: home.launch(desktopModel.sourceRow(model.index), model.name, model.appid)
-                            onMenuRequested: (x, y) => home.openMenu(this, desktopModel.sourceRow(model.index), model.name, model.boxart, model.running, x, y, model.appid)
-                            Keys.onMenuPressed: home.openMenu(this, desktopModel.sourceRow(model.index), model.name, model.boxart, model.running, width / 2, height / 2, model.appid)
+                            onClicked: home.launch(desktopModel.sourceRow(model.index), qsTr("Bureau"), model.appid)
+                            onMenuRequested: (x, y) => home.openMenu(this, desktopModel.sourceRow(model.index), qsTr("Bureau"), model.boxart, model.running, x, y, model.appid)
+                            Keys.onMenuPressed: home.openMenu(this, desktopModel.sourceRow(model.index), qsTr("Bureau"), model.boxart, model.running, width / 2, height / 2, model.appid)
                         }
                     }
                     Repeater {
@@ -576,9 +598,9 @@ FocusScope {
                             running: model.running
                             dimmed: home.sessionRunning && !model.running
                             liveLine: home.playniteGame.length > 0 ? qsTr("EN COURS · %1").arg(home.playniteGame) : qsTr("EN COURS")
-                            onClicked: home.launch(playniteModel.sourceRow(model.index), model.name, model.appid)
-                            onMenuRequested: (x, y) => home.openMenu(this, playniteModel.sourceRow(model.index), model.name, model.boxart, model.running, x, y, model.appid)
-                            Keys.onMenuPressed: home.openMenu(this, playniteModel.sourceRow(model.index), model.name, model.boxart, model.running, width / 2, height / 2, model.appid)
+                            onClicked: home.launch(playniteModel.sourceRow(model.index), qsTr("Playnite Fullscreen"), model.appid)
+                            onMenuRequested: (x, y) => home.openMenu(this, playniteModel.sourceRow(model.index), qsTr("Playnite Fullscreen"), model.boxart, model.running, x, y, model.appid)
+                            Keys.onMenuPressed: home.openMenu(this, playniteModel.sourceRow(model.index), qsTr("Playnite Fullscreen"), model.boxart, model.running, width / 2, height / 2, model.appid)
                         }
                     }
                 }
@@ -638,6 +660,17 @@ FocusScope {
         text: qsTr("%1 est en cours. Le quitter pour lancer %2 ? Ce qui n'est pas sauvegardé sera perdu.").arg(appName).arg(nextAppName)
         standardButtons: Dialog.Yes | Dialog.No
         onAccepted: home.quitRunning(nextRow, nextAppName)
+    }
+
+    NavigableMessageDialog {
+        id: confirmQuitDialog
+        property bool relaunch: false
+        property string nextAppName: ""
+        property int nextRow: -1
+        text: relaunch ? qsTr("Quitter %1 puis le relancer ? Ce qui n'est pas sauvegardé sera perdu.").arg(home.runningTitle)
+                       : qsTr("Quitter %1 ? Ce qui n'est pas sauvegardé sera perdu.").arg(home.runningTitle)
+        standardButtons: Dialog.Yes | Dialog.No
+        onAccepted: relaunch ? home.quitRunning(nextRow, nextAppName) : home.quitRunning()
     }
 
     NavigableMessageDialog {

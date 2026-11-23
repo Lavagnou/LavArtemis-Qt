@@ -218,6 +218,12 @@ void QuickMenuManager::executeAction(const QString &action)
         if (Session::get()) {
             Session::get()->toggleMicrophoneMute();
         }
+    } else if (action == "toggle_touch_mode") {
+        // For this stream only, like Android's « Passer en trackpad / multitouch »
+        if (Session::get() && Session::get()->getInputHandler()) {
+            SdlInputHandler* input = Session::get()->getInputHandler();
+            input->setAbsoluteTouchMode(!input->isAbsoluteTouchMode());
+        }
     }
 }
 
@@ -360,31 +366,52 @@ void QuickMenuManager::toggleStats()
     }
 }
 
+// The three entries below did nothing until 21.8.0-dev (sendKeyCombo() is an empty placeholder):
+// they now run the same code as the Ctrl+Alt+Shift shortcuts Z, K and X.
 void QuickMenuManager::toggleMouseCapture()
 {
     qDebug() << "QuickMenuManager: Mouse capture toggle requested";
     emit mouseCaptureToggleRequested();
-    
-    // Send the mouse capture toggle key combo
-    sendKeyCombo(KeyComboToggleMouseMode);
+
+    if (Session::get() && Session::get()->getInputHandler()) {
+        Session::get()->getInputHandler()->toggleInputCapture();
+    }
 }
 
 void QuickMenuManager::toggleKeyboardCapture()
 {
     qDebug() << "QuickMenuManager: Keyboard capture toggle requested";
     emit keyboardCaptureToggleRequested();
-    
-    // For keyboard capture, we'll simulate the capture toggle
-    // This would need to be implemented in the input handler
+
+    if (Session::get() && Session::get()->getInputHandler()) {
+        Session::get()->getInputHandler()->toggleSystemKeyCapture();
+    }
 }
 
 void QuickMenuManager::toggleFullscreen()
 {
     qDebug() << "QuickMenuManager: Fullscreen toggle requested";
     emit fullscreenToggleRequested();
-    
-    // Send the fullscreen toggle key combo
-    sendKeyCombo(KeyComboToggleFullScreen);
+
+    if (Session::get() && Session::get()->getInputHandler()) {
+        Session::get()->getInputHandler()->toggleFullScreenMode();
+    }
+}
+
+bool QuickMenuManager::microphoneActive() const
+{
+    return Session::get() && Session::get()->isMicrophoneActive();
+}
+
+bool QuickMenuManager::microphoneMuted() const
+{
+    return Session::get() && Session::get()->isMicrophoneMuted();
+}
+
+bool QuickMenuManager::trackpadTouchMode() const
+{
+    return Session::get() && Session::get()->getInputHandler() &&
+           !Session::get()->getInputHandler()->isAbsoluteTouchMode();
 }
 
 void QuickMenuManager::setServerCommandManager(ServerCommandManager *manager)

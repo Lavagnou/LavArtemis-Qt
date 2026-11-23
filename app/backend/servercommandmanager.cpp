@@ -11,15 +11,6 @@
 #include <QTimer>
 #include <Limelight.h>
 
-// Define static member
-const QList<ServerCommandManager::ServerCommand> ServerCommandManager::BUILTIN_COMMANDS = {
-    {"restart", "Restart Computer", "Restart the host computer", {}},
-    {"shutdown", "Shutdown Computer", "Shutdown the host computer", {}},
-    {"sleep", "Sleep Computer", "Put the host computer to sleep", {}},
-    {"hibernate", "Hibernate Computer", "Hibernate the host computer", {}},
-    {"lock", "Lock Computer", "Lock the host computer", {}}
-};
-
 ServerCommandManager::ServerCommandManager(QObject *parent)
     : QObject(parent)
     , m_computer(nullptr)
@@ -102,7 +93,7 @@ void ServerCommandManager::refreshCommands()
         for (const QString &cmd : m_computer->serverCommands) {
             m_availableCommands.append(cmd);
             m_commandNames[cmd] = cmd; // Use command ID as display name for now
-            m_commandDescriptions[cmd] = "Server command: " + cmd;
+            m_commandDescriptions[cmd] = tr("Command of the host PC");
         }
         
         qDebug() << "ServerCommandManager::refreshCommands: Loaded commands from serverinfo:" << m_availableCommands;
@@ -112,20 +103,14 @@ void ServerCommandManager::refreshCommands()
         // Try to fetch server commands from a separate endpoint (Apollo extension)
         fetchAvailableCommands();
         
-        // For now, assume Apollo server and populate with builtin commands as fallback
+        // No command listed by the host: an empty list, which the in-game menu explains (as
+        // Android does). The built-in names that used to fill it were not commands of the host:
+        // they were English placeholders that ran nothing.
         if (isApolloServer()) {
             m_hasPermission = true;
             m_availableCommands.clear();
             m_commandNames.clear();
             m_commandDescriptions.clear();
-            
-            for (const auto &cmd : BUILTIN_COMMANDS) {
-                m_availableCommands.append(cmd.id);
-                m_commandNames[cmd.id] = cmd.name;
-                m_commandDescriptions[cmd.id] = cmd.description;
-            }
-            
-            qDebug() << "ServerCommandManager::refreshCommands: Apollo server detected, using builtin commands:" << m_availableCommands;
         } else {
             m_hasPermission = false;
             m_availableCommands.clear();
@@ -216,7 +201,7 @@ QString ServerCommandManager::getCommandName(const QString &commandId) const
 
 QString ServerCommandManager::getCommandDescription(const QString &commandId) const
 {
-    return m_commandDescriptions.value(commandId, "No description available");
+    return m_commandDescriptions.value(commandId, tr("Command of the host PC"));
 }
 
 bool ServerCommandManager::isApolloServer() const

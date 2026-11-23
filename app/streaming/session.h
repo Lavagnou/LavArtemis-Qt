@@ -148,6 +148,8 @@ public:
     // Microphone passthrough: whether this PC's microphone is being sent, and muting it.
     // Main thread only.
     bool isMicrophoneActive() const { return m_MicStreamer != nullptr; }
+    // The in-game menu drives the input handler (touch mode, capture, full screen). Main thread.
+    SdlInputHandler* getInputHandler() const { return m_InputHandler; }
     bool isMicrophoneMuted() const { return m_MicStreamer != nullptr && m_MicStreamer->isMuted(); }
     void toggleMicrophoneMute();
 

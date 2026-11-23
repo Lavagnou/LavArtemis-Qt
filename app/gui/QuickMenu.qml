@@ -67,6 +67,7 @@ Rectangle {
             text: {
                 if (currentMenu === "server_commands") return qsTr("Server Commands")
                 if (currentMenu === "send_keys") return qsTr("Send Keys")
+                if (currentMenu === "confirm_quit") return qsTr("Are you sure you want to quit?")
                 return qsTr("Quick Menu")
             }
             font.pointSize: 24
@@ -86,6 +87,7 @@ Rectangle {
             model: {
                 if (currentMenu === "server_commands") return serverCommandsModel
                 if (currentMenu === "send_keys") return sendKeysModel
+                if (currentMenu === "confirm_quit") return confirmQuitModel
                 return mainMenuModel
             }
             
@@ -205,21 +207,15 @@ Rectangle {
         }
     }
 
-    // ServerCommandManager connection
-    // LavApollo Link: a game runs inside the host's Playnite -> "Quitter <jeu>", first entry
+    // The menu is rebuilt each time it opens and when the host reports a Playnite game: the
+    // microphone and touch-mode entries depend on the session's state.
     Connections {
         target: quickMenuManager
-        function onPlayniteGameChanged() {
-            if (mainMenuModel.count > 0 && mainMenuModel.get(0).action === "quit_playnite_game") {
-                mainMenuModel.remove(0)
-            }
-            if (quickMenuManager.playniteGameName !== "") {
-                mainMenuModel.insert(0, {
-                    icon: "⏏",
-                    text: qsTr("Quitter %1").arg(quickMenuManager.playniteGameName),
-                    action: "quit_playnite_game",
-                    description: qsTr("Retour à Playnite, le stream continue")
-                })
+        function onPlayniteGameChanged() { rebuildMainMenu() }
+        function onVisibilityChanged() {
+            if (quickMenuManager.isVisible) {
+                currentMenu = "main"
+                rebuildMainMenu()
             }
         }
     }
@@ -245,84 +241,85 @@ Rectangle {
                     description: quickMenuManager.serverCommandManager.getCommandDescription(commandId)
                 });
             }
+            if (serverCommandsModel.count === 0) {
+                // As on Android: say why the list is empty instead of showing nothing
+                serverCommandsModel.append({
+                    icon: "ℹ",
+                    text: qsTr("No server commands"),
+                    action: "no_server_command",
+                    description: qsTr("Make sure the host runs Apollo / LavApollo and this client has the \"Server Command\" permission.")
+                });
+            }
             console.log("Server commands model updated with", serverCommandsModel.count, "commands");
         }
         function onCommandExecuted(commandId, success, result) {
-            showActionFeedback(success ? "Command '" + commandId + "' executed successfully" : "Command '" + commandId + "' failed: " + result);
+            showMessage(success ? qsTr("Command \"%1\" sent").arg(quickMenuManager.serverCommandManager.getCommandName(commandId))
+                                : qsTr("Command \"%1\" failed: %2").arg(quickMenuManager.serverCommandManager.getCommandName(commandId)).arg(result));
         }
     }
     
-    // Main menu model
+    // Main menu, in the order shared with Android's in-game menu (common entries first, then what
+    // only this PC has). Rebuilt on open: see rebuildMainMenu().
     ListModel {
         id: mainMenuModel
+    }
+
+    // Confirmation of « Quitter la session », with the texts of Android's confirmation
+    ListModel {
+        id: confirmQuitModel
         ListElement {
-            text: qsTr("Disconnect")
-            icon: "⏹"
-            action: "disconnect"
-            description: qsTr("Disconnect from server")
-        }
-        ListElement {
-            text: qsTr("Quit")
+            text: qsTr("Quit Session")
             icon: "❌"
             action: "quit"
-            description: qsTr("Quit streaming session")
-        }
-        ListElement {
-            text: qsTr("Server Commands")
-            icon: "⚙"
-            action: "server_commands"
-            description: qsTr("Access server control commands")
-        }
-        ListElement {
-            text: qsTr("Send Keys")
-            icon: "⌨"
-            action: "send_keys"
-            description: qsTr("Send a shortcut the local OS would otherwise intercept")
-        }
-        ListElement {
-            text: qsTr("Clipboard Upload")
-            icon: "📋"
-            action: "clipboard_upload"
-            description: qsTr("Upload clipboard to server")
-        }
-        ListElement {
-            text: qsTr("Fetch Clipboard")
-            icon: "📥"
-            action: "clipboard_fetch"
-            description: qsTr("Fetch clipboard from server")
-        }
-        ListElement {
-            text: qsTr("Toggle Performance Stats")
-            icon: "📊"
-            action: "toggle_stats"
-            description: qsTr("Show/hide performance statistics")
-        }
-        ListElement {
-            text: qsTr("Toggle Mouse Capture")
-            icon: "🖱"
-            action: "toggle_mouse"
-            description: qsTr("Toggle mouse capture mode")
-        }
-        ListElement {
-            text: qsTr("Toggle Keyboard Capture")
-            icon: "⌨"
-            action: "toggle_keyboard"
-            description: qsTr("Toggle keyboard capture mode")
-        }
-        ListElement {
-            text: qsTr("Mute / Unmute Microphone")
-            icon: "🎤"
-            action: "toggle_microphone"
-            description: qsTr("Stop or resume sending your microphone (Ctrl+Alt+Shift+U)")
-        }
-        ListElement {
-            text: qsTr("Toggle Fullscreen")
-            icon: "🖥"
-            action: "toggle_fullscreen"
-            description: qsTr("Toggle fullscreen mode")
+            description: qsTr("Make sure your progress is saved: quitting the session closes the app running on the PC.")
         }
     }
-    
+
+    function rebuildMainMenu() {
+        mainMenuModel.clear()
+        if (quickMenuManager.playniteGameName !== "") {
+            // LavApollo Link: a game runs inside the host's Playnite -> "Quitter <jeu>", first entry
+            mainMenuModel.append({icon: "⏏", text: qsTr("Quitter %1").arg(quickMenuManager.playniteGameName),
+                                  action: "quit_playnite_game", description: qsTr("Retour à Playnite, le stream continue")})
+        }
+        mainMenuModel.append({icon: "⏹", text: qsTr("Disconnect"), action: "disconnect",
+                              description: qsTr("Disconnect from server")})
+        mainMenuModel.append({icon: "❌", text: qsTr("Quit Session"), action: "confirm_quit",
+                              description: qsTr("Quit streaming session")})
+        mainMenuModel.append({icon: "⚙", text: qsTr("Server Commands"), action: "server_commands",
+                              description: qsTr("Access server control commands")})
+        mainMenuModel.append({icon: "⌨", text: qsTr("Send Keys"), action: "send_keys",
+                              description: qsTr("Send a shortcut the local OS would otherwise intercept")})
+        mainMenuModel.append({icon: "📋", text: qsTr("Clipboard Upload"), action: "clipboard_upload",
+                              description: qsTr("Upload clipboard to server")})
+        mainMenuModel.append({icon: "📥", text: qsTr("Fetch Clipboard"), action: "clipboard_fetch",
+                              description: qsTr("Fetch clipboard from server")})
+        mainMenuModel.append({icon: "📊", text: qsTr("Toggle Performance Stats"), action: "toggle_stats",
+                              description: qsTr("Show/hide performance statistics")})
+        // Only while the microphone is sent, with the label of what it will do (as on Android)
+        if (quickMenuManager.microphoneActive()) {
+            mainMenuModel.append({icon: "🎤",
+                                  text: quickMenuManager.microphoneMuted() ? qsTr("Unmute Microphone") : qsTr("Mute Microphone"),
+                                  action: "toggle_microphone",
+                                  description: qsTr("Stop or resume sending your microphone (Ctrl+Alt+Shift+U)")})
+        }
+        // Touchscreen PCs: switch Multitouch <-> Trackpad for this stream (Android: Menu avancé)
+        if (SystemProperties.hasTouchScreen) {
+            var trackpad = quickMenuManager.trackpadTouchMode()
+            mainMenuModel.append({icon: "👆",
+                                  text: trackpad ? qsTr("Switch to Multitouch") : qsTr("Switch to Trackpad"),
+                                  action: "toggle_touch_mode",
+                                  description: qsTr("For this stream only")})
+        }
+        // This PC only: the actions of the Ctrl+Alt+Shift shortcuts Z, K and X
+        mainMenuModel.append({icon: "🖱", text: qsTr("Release Mouse and Keyboard"), action: "toggle_mouse",
+                              description: qsTr("Gives the pointer back to your PC.")})
+        mainMenuModel.append({icon: "⌨", text: qsTr("Capture Keyboard"), action: "toggle_keyboard",
+                              description: qsTr("Sends the system shortcuts to the host PC, or not.")})
+        mainMenuModel.append({icon: "🖥", text: qsTr("Full Screen / Window"), action: "toggle_fullscreen",
+                              description: qsTr("Switches how the stream is displayed.")})
+    }
+
     function closeMenuDelayed() {
         closeTimer.restart();
     }
@@ -331,7 +328,6 @@ Rectangle {
     function closeMenu() {
         // Only call backend hide - don't set QML invisible
             if (typeof quickMenuManager !== 'undefined') {
-                showActionFeedback("Closing menu...")  // Feedback when closing
             quickMenuManager.hide();
         }
     }
@@ -364,11 +360,16 @@ Rectangle {
         console.log("Executing action:", action)
         
         // Handle navigation actions
-        if (action === "server_commands") {
+        if (action === "confirm_quit") {
+            currentMenu = "confirm_quit";
+            return;
+        } else if (action === "no_server_command") {
+            return;
+        } else if (action === "server_commands") {
             if (quickMenuManager.serverCommandManager && quickMenuManager.serverCommandManager.hasPermission) {
                 currentMenu = "server_commands";
             } else {
-                showActionFeedback("Server commands not available or no permission");
+                showMessage(qsTr("Server commands not available"));
                 closeMenuDelayed();
             }
             return;
@@ -447,10 +448,20 @@ Rectangle {
             case "toggle_microphone":
                 message = qsTr("Toggling microphone...")
                 break
+            case "toggle_touch_mode":
+                // The mode it switches to (the menu was built with the old one)
+                message = quickMenuManager.trackpadTouchMode()
+                        ? qsTr("Multitouch mode")
+                        : qsTr("Trackpad mode: long press to drag, two-finger tap for right click, two fingers to scroll")
+                break
             default:
                 message = qsTr("Executing action...")
         }
         
+        showMessage(message)
+    }
+
+    function showMessage(message) {
         if (message) {
             toastMessage = message
             showToast = true
@@ -462,6 +473,7 @@ Rectangle {
     Component.onCompleted: {
         focus = true
         currentMenu = "main"  // Always start with main menu
+        rebuildMainMenu()
 
         if (quickMenuManager.serverCommandManager) {
             console.log("QuickMenu: Refreshing server commands on open");

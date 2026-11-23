@@ -104,7 +104,6 @@ private:
 
 private:
     // Builtin commands (matches Android implementation)
-    static const QList<ServerCommand> BUILTIN_COMMANDS;
     
     NvComputer *m_computer;
     NvHTTP *m_http;

@@ -375,6 +375,10 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   `action`** sur un `AbstractButton` (elle existe déjà : le composant refuse de se charger).
 - Les jeux **masqués** (« Masquer ») se réaffichent depuis l'accueil (bouton sous la bibliothèque) et se
   démasquent depuis leur menu.
+- **Quitter et Relancer la session demandent confirmation** (Scène et menu d'une appli), avec les textes
+  d'Android (« Quitter %1 ? Ce qui n'est pas sauvegardé sera perdu. »). Le Bureau et Playnite Fullscreen
+  sont nommés par leur titre de carte (`runningTitle`, « Bureau »), jamais par le nom brut de l'hôte
+  (« Desktop »), dans le menu, les dialogues et les segues.
 - **`SettingsView2.qml`** (Réglages) : pages à gauche, lignes à droite, d'après le tri Normal / Expert
   / Supprimer des réglages. Les lignes *expert* n'apparaissent qu'avec `ArtemisSettings.uiExpertMode`
   (bascule en tête de la liste des pages, propre à la machine) ; une page sans ligne visible disparaît
@@ -402,9 +406,29 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   même description que l'Android** (qui ne garde plus que ces deux modes en Dev). Multitouch =
   `absoluteTouchMode` vrai (`abstouch.cpp` : toucher natif si l'hôte le prend en charge, sinon souris
   émulée) ; Trackpad = faux (`reltouch.cpp` : le doigt déplace le curseur, tap = clic gauche, appui à deux
-  doigts = clic droit, appui long 650 ms = clic gauche maintenu — droit avec deux doigts). Écarts avec le
-  Trackpad Android, connus et non corrigés : pas de défilement à deux doigts, pas de zoom au pincement, et
-  pas d'entrée « Passer en trackpad » dans le menu en jeu (le mode est lu à la création de la session).
+  doigts = clic droit, appui long 650 ms = clic gauche maintenu — droit avec deux doigts — et **deux doigts
+  qui bougent = défilement**, porté de `RelativeTouchContext` d'Android : le doigt principal, une fois sorti
+  de la zone de tap, fait défiler de 5 unités par pixel d'un écran de référence de 720 lignes, et ne bouge
+  plus le curseur tant que deux doigts sont posés). Le menu en jeu a « Passer en trackpad / multitouch »
+  (`SdlInputHandler::setAbsoluteTouchMode()`, pour ce stream seulement : la préférence ne change pas, comme
+  Android sans « Retenir le mode tactile choisi en jeu »). Écarts restants avec Android : pas de zoom au
+  pincement, et l'appui long à deux doigts (clic droit maintenu ici, rien sur Android).
+- **Parité avec Android** (règle de l'utilisateur : tout ce que les deux clients ont en commun a le même
+  libellé, la même description, les mêmes options, le même défaut, la même place et le même ordre ; seules
+  les features propres à une plateforme diffèrent). État et écarts restants :
+  `docs/superpowers/specs/2026-11-24-pc-android-parity.md` du dépôt LavArtemis. Un changement d'un texte ou
+  d'un menu commun se fait des deux côtés.
+- **Menu en jeu (`QuickMenu.qml`)** : construit à chaque ouverture (`rebuildMainMenu()`), entrées communes
+  **dans l'ordre et avec les libellés d'Android** (Quitter <jeu Playnite>, Déconnecter, Quitter la session
+  — confirmée par une sous-page « Voulez-vous vraiment quitter ? », textes d'Android —, Commandes du PC hôte,
+  Envoyer des touches, presse-papiers, Statistiques, micro seulement s'il est envoyé et libellé selon son
+  état, Passer en trackpad / multitouch sur un PC tactile), puis les entrées du PC : Libérer la souris et le
+  clavier, Capturer le clavier, Plein écran / fenêtre. ⚠️ Ces trois-là **ne faisaient rien** avant (un
+  `sendKeyCombo()` vide) : elles appellent maintenant `SdlInputHandler::toggleInputCapture()` /
+  `toggleSystemKeyCapture()` / `toggleFullScreenMode()`, le code des raccourcis Z, K et X. Le menu tourne sur
+  le thread principal, comme la boucle SDL (`Session::getInputHandler()` y est sûr). Commandes du PC hôte :
+  plus de liste anglaise inventée quand l'hôte n'en donne pas (`ServerCommandManager`), une ligne « Aucune
+  commande » explique pourquoi, comme Android.
 - **Aucun bouton Aide** (demande de l'utilisateur, comme l'Android) : `NavigableMessageDialog` n'a plus
   `helpText` / `helpUrl` / `onHelpRequested`, `ErrorMessageDialog` n'a que OK ; les phrases « Click the Help
   button… » de `main.qml` sont parties avec. Tous ouvraient un wiki Moonlight en anglais. Ne pas remettre de
