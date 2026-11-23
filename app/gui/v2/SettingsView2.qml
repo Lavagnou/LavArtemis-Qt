@@ -39,6 +39,7 @@ FocusScope {
         {id: "manettes", title: qsTr("Manettes")},
         {id: "apparence", title: qsTr("Apparence")},
         {id: "pc", title: qsTr("PC")},
+        {id: "raccourcis", title: qsTr("Raccourcis clavier")},
         {id: "avance", title: qsTr("Avancé")}
     ]
 
@@ -52,6 +53,7 @@ FocusScope {
         case "manettes": return pageManettes
         case "apparence": return pageApparence
         case "pc": return pagePc
+        case "raccourcis": return pageRaccourcis
         case "avance": return pageAvance
         }
         return null
@@ -1471,6 +1473,122 @@ FocusScope {
                             onToggled: (v) => { StreamingPreferences.detectNetworkBlocking = v; settingsPage.persist() }
                         }
                     }
+
+                    // ============================ Raccourcis clavier ============================
+
+                    // The stream's key combos (streaming/input/input.cpp, m_SpecialKeyCombos): all start with
+
+                    // Ctrl+Alt+Shift. Read-only reference.
+
+                    Column {
+
+                        id: pageRaccourcis
+
+                        visible: settingsPage.currentPage === "raccourcis"
+
+                        width: parent.width
+
+                        spacing: 12
+
+
+                        Repeater {
+
+                            model: [
+
+                                {key: "\\", label: qsTr("Menu en jeu"), desc: qsTr("Ouvre ou ferme le menu pendant le stream.")},
+
+                                {key: "Q", label: qsTr("Quitter le stream"), desc: qsTr("L'appli continue sur le PC distant.")},
+
+                                {key: "E", label: qsTr("Quitter le stream et l'appli"), desc: qsTr("Ferme aussi l'appli sur le PC distant.")},
+
+                                {key: "Z", label: qsTr("Libérer la souris et le clavier"), desc: qsTr("Rend le pointeur à ton PC.")},
+
+                                {key: "X", label: qsTr("Plein écran / fenêtre"), desc: qsTr("Bascule l'affichage du stream.")},
+
+                                {key: "S", label: qsTr("Statistiques"), desc: qsTr("Affiche ou masque les statistiques du stream.")},
+
+                                {key: "M", label: qsTr("Mode de souris"), desc: qsTr("Bascule entre souris de bureau et souris de jeu.")},
+
+                                {key: "C", label: qsTr("Masquer le curseur local"), desc: qsTr("Affiche ou masque le curseur de ton PC.")},
+
+                                {key: "L", label: qsTr("Verrouiller le pointeur"), desc: qsTr("Garde le pointeur dans la fenêtre du stream.")},
+
+                                {key: "K", label: qsTr("Capturer le clavier"), desc: qsTr("Envoie ou non les raccourcis système au PC distant.")},
+
+                                {key: "D", label: qsTr("Réduire la fenêtre"), desc: qsTr("Réduit le stream.")},
+
+                                {key: "V", label: qsTr("Coller du texte"), desc: qsTr("Tape le texte de ton presse-papiers sur le PC distant.")},
+
+                                {key: "U", label: qsTr("Couper / rétablir le micro"), desc: qsTr("Quand le micro est envoyé au PC distant.")},
+
+                                {key: "+  −  0", label: qsTr("Zoom"), desc: qsTr("Zoomer, dézoomer, revenir à 100 %.")},
+
+                                {key: "← → ↑ ↓", label: qsTr("Déplacer la vue zoomée"), desc: qsTr("Quand le stream est zoomé.")}
+
+                            ]
+
+                            delegate: SettingRow {
+
+                                required property var modelData
+
+                                label: modelData.label
+
+                                description: modelData.desc
+
+                                Row {
+
+                                    spacing: 6
+
+                                    Repeater {
+
+                                        model: ["Ctrl", "Alt", "Maj", modelData.key]
+
+                                        delegate: Rectangle {
+
+                                            required property string modelData
+
+                                            height: 34
+
+                                            width: Math.max(34, capText.implicitWidth + 18)
+
+                                            radius: Theme.id === "affiche" ? 0 : 8
+
+                                            color: Theme.surface2
+
+                                            border.width: Math.max(1, Theme.border)
+
+                                            border.color: Theme.borderColor
+
+                                            Text {
+
+                                                id: capText
+
+                                                anchors.centerIn: parent
+
+                                                text: modelData
+
+                                                color: Theme.fg
+
+                                                font.family: Theme.textFont
+
+                                                font.pixelSize: 15
+
+                                                font.weight: Font.Bold
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
 
                     // ================================ Avancé ================================
                     Column {
