@@ -82,13 +82,16 @@ void AutoUpdateChecker::performCheck()
     QT_WARNING_POP
 #endif
 
-    // Point to LavArtemis GitHub releases. /releases/latest returns the most
-    // recent stable release (CI builds are published as prereleases); the
-    // prerelease channel needs the full list to also see CI builds.
-    bool includePrerelease = ArtemisSettings::instance()->autoUpdatePrerelease();
-    QUrl url(includePrerelease
-             ? "https://api.github.com/repos/Lavagnou/LavArtemis/releases"
-             : "https://api.github.com/repos/Lavagnou/LavArtemis/releases/latest");
+    // Point to LavArtemis GitHub releases. The channel is the build's own: the
+    // stable app reads /releases/latest, which GitHub never points at a
+    // prerelease; LavArtemis Dev (LAV_DEV_CHANNEL) needs the full list and keeps
+    // the newest "-dev." tag (see pickDevRelease()). Dev releases are published
+    // as prereleases, so neither app is ever offered the other's installer.
+#ifdef LAV_DEV_CHANNEL
+    QUrl url("https://api.github.com/repos/Lavagnou/LavArtemis/releases");
+#else
+    QUrl url("https://api.github.com/repos/Lavagnou/LavArtemis/releases/latest");
+#endif
     QNetworkRequest request(url);
     request.setRawHeader("Accept", "application/vnd.github+json");
     request.setRawHeader("User-Agent", QByteArray("LavArtemis-Desktop/") + VERSION_STR);
@@ -103,6 +106,26 @@ void AutoUpdateChecker::performCheck()
 #else
     emit updateCheckFailed(tr("Updates are not handled in-app on this platform."));
 #endif
+}
+
+bool AutoUpdateChecker::isDevVersion(const QString& version)
+{
+    return version.contains(QStringLiteral("-dev."));
+}
+
+int AutoUpdateChecker::pickDevRelease(const QJsonArray& releases)
+{
+    // Newest first. Stable and "-ci." builds are never offered to the Dev app.
+    for (int i = 0; i < releases.size(); i++) {
+        QJsonObject release = releases[i].toObject();
+        if (release["draft"].toBool()) {
+            continue;
+        }
+        if (isDevVersion(release["tag_name"].toString())) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 void AutoUpdateChecker::parseStringToVersionQuad(QString& string, QVector<int>& version)
@@ -414,12 +437,13 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
         QJsonObject releaseObj;
         if (jsonDoc.isArray()) {
             QJsonArray releasesArray = jsonDoc.array();
-            if (releasesArray.isEmpty()) {
-                qWarning() << "GitHub API response doesn't contain any releases";
+            int picked = pickDevRelease(releasesArray);
+            if (picked < 0) {
+                qWarning() << "GitHub API response doesn't contain any dev release";
                 emit updateCheckFailed(tr("No release has been published yet."));
                 return;
             }
-            releaseObj = releasesArray[0].toObject();
+            releaseObj = releasesArray[picked].toObject();
         } else {
             releaseObj = jsonDoc.object();
         }

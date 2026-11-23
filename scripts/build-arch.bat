@@ -120,6 +120,13 @@ if defined CI_VERSION (
     set /p VERSION=<%SOURCE_ROOT%\app\version.txt
 )
 
+rem The release channel is read from the version: "21.8.0-dev.3" builds
+rem LavArtemis Dev, whose installer has its own names and upgrade codes so it
+rem installs next to the stable app. MSBuild reads LAV_CHANNEL from the env.
+set LAV_CHANNEL=
+echo %VERSION%| findstr /C:"-dev." >nul
+if not errorlevel 1 set LAV_CHANNEL=dev
+
 rem Use the correct VC tools for the specified architecture
 if /I "%ARCH%" EQU "x64" (
     rem x64 is a special case that doesn't match %PROCESSOR_ARCHITECTURE%

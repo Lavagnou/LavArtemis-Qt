@@ -228,6 +228,7 @@ SOURCES += \
     backend/benchmark/benchmarkrunner.cpp \
     backend/otppairingmanager.cpp \
     settings/artemissettings.cpp \
+    settings/channelmigration.cpp \
     settings/profilemanager.cpp \
     wm.cpp
 
@@ -295,6 +296,7 @@ HEADERS += \
     backend/benchmark/benchmarkrunner.h \
     backend/otppairingmanager.h \
     settings/artemissettings.h \
+    settings/channelmigration.h \
     settings/profilemanager.h
 
 # Platform-specific renderers and decoders
@@ -704,5 +706,15 @@ macx {
     }
 }
 
-VERSION = "$$cat(version.txt)"
-DEFINES += VERSION_STR=\\\"$$cat(version.txt)\\\"
+# The release channel is read from the version: "21.8.0-dev.3" builds
+# LavArtemis Dev, installed next to the stable app (own organisation name,
+# install folder and installer codes). Windows resources and the MSI need a
+# numeric version, so the Dev build number becomes a fourth component
+# (21.8.0.3); VERSION_STR keeps the readable string for the UI and the updater.
+LAV_VERSION_STR = $$cat(version.txt)
+LAV_VERSION_NUM = $$replace(LAV_VERSION_STR, "-dev\.", ".")
+contains(LAV_VERSION_STR, ".*-dev\..*") {
+    DEFINES += LAV_DEV_CHANNEL
+}
+VERSION = $$LAV_VERSION_NUM
+DEFINES += VERSION_STR=\\\"$$LAV_VERSION_STR\\\"

@@ -1,9 +1,23 @@
+<!-- The channel comes from scripts/build-arch.bat (LAV_CHANNEL=dev for a
+     "-dev." version). LavArtemis Dev installs next to the stable app: its own
+     names, folders, registry key and upgrade code, and it leaves art:// and
+     .art to the stable app. Stable values must stay exactly as they are. -->
+<?if "$(var.LavChannel)" = "dev" ?>
+<?define ShortName = "LavArtemis Dev" ?>
+<?define FullName = "LavArtemis Dev Game Streaming Client" ?>
+<?define InstallFolder = "LavArtemis Dev" ?>
+<?define RegKey = "Software\LavArtemis Dev" ?>
+<?define ProductUpgradeCode = "772478fe-f84c-4d7e-801e-71c3c8277257" ?>
+<?else?>
 <?define ShortName = "LavArtemis" ?>
 <?define FullName = "LavArtemis Game Streaming Client" ?>
+<?define InstallFolder = "LavArtemis" ?>
+<?define RegKey = "Software\LavArtemis" ?>
+<?define ProductUpgradeCode = "0a9086a7-5fd5-4ca1-9489-5e2c0d6be8ef" ?>
+<?endif?>
 
 <?define ShortcutName = "$(var.ShortName)" ?>
 <?define ShortcutDesc = "Stream games and other applications from another PC" ?>
-<?define InstallFolder = "LavArtemis" ?>
 
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:fire="http://wixtoolset.org/schemas/v4/wxs/firewall" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
 
@@ -11,8 +25,13 @@
            Language="1033"
            Version="!(bind.fileVersion.LavArtemisExe)"
            Manufacturer="LavArtemis"
-           UpgradeCode="0a9086a7-5fd5-4ca1-9489-5e2c0d6be8ef">
+           UpgradeCode="$(var.ProductUpgradeCode)">
+<?if "$(var.LavChannel)" = "dev" ?>
+    <!-- Dev builds are 21.8.0.N and the MSI compares only three fields. -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." Schedule="afterInstallInitialize" AllowSameVersionUpgrades="yes" />
+<?else?>
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." Schedule="afterInstallInitialize" />
+<?endif?>
     <MediaTemplate CompressionLevel="high" EmbedCab="yes" />
 
     <Property Id="MPSSVC_START">
@@ -26,13 +45,13 @@
     <Launch Condition="Installed OR MPSSVC_START=&quot;#2&quot;"
             Message="Setup requires Windows Firewall service (MpsSvc) to be running. Please start the service and try again." />
 
-    <Property Id="APPDATAFOLDER" Value="%LOCALAPPDATA%\LavArtemis" />
+    <Property Id="APPDATAFOLDER" Value="%LOCALAPPDATA%\$(var.InstallFolder)" />
 
     <!-- There's no way to delete a registry key on uninstall but not major upgrade, so
         we have to roll our own deletion via custom action -->
     <CustomAction Id="DeleteRegistryKey"
                   Directory="ProgramFiles6432Folder"
-                  ExeCommand="reg.exe delete &quot;HKCU\Software\LavArtemis&quot; /f"
+                  ExeCommand="reg.exe delete &quot;HKCU\$(var.RegKey)&quot; /f"
                   Execute="deferred"
                   Return="ignore"
                   Impersonate="yes" />
@@ -56,7 +75,7 @@
                            On="uninstall"
                            Property="APPDATAFOLDER" />
       <RegistryValue Root="HKCU"
-                     Key="Software\LavArtemis"
+                     Key="$(var.RegKey)"
                      Name="Installed"
                      Type="integer"
                      Value="1"
@@ -75,12 +94,12 @@
                     Directory="DesktopFolder"
                     On="uninstall" />
       <RegistryValue Root="HKCU"
-                     Key="Software\LavArtemis"
+                     Key="$(var.RegKey)"
                      Name="DesktopShortcutInstalled"
                      Type="integer"
                      Value="1" />
       <RegistryValue Root="HKCU"
-                     Key="Software\LavArtemis"
+                     Key="$(var.RegKey)"
                      Name="DesktopShortcutInstallState"
                      Type="integer"
                      Value="[ADDDESKTOPSHORTCUT]"
@@ -101,6 +120,7 @@
       </Component>
     </DirectoryRef>
 
+<?if "$(var.LavChannel)" != "dev" ?>
     <!-- art:// links, so a browser or a desktop shortcut can pair with a host
          or launch an app directly. Registered under HKCU because the rest of
          this package's per-user state lives there too. -->
@@ -127,16 +147,20 @@
                      Value="&quot;[#LavArtemisExe]&quot; &quot;%1&quot;" Type="string" />
     </Component>
 
+<?endif?>
+
     <ComponentGroup Id="ArtemisDependencies" Directory="INSTALLFOLDER">
       <Files Include="$(var.DeployDir)\**" />
     </ComponentGroup>
 
-    <Feature Id="ProductFeature" Title="LavArtemis" Level="1" ConfigurableDirectory="INSTALLFOLDER">
+    <Feature Id="ProductFeature" Title="$(var.ShortName)" Level="1" ConfigurableDirectory="INSTALLFOLDER">
       <ComponentRef Id="LavArtemis" />
       <ComponentRef Id="ArtemisShortcuts" />
       <ComponentRef Id="ArtemisDesktopShortcut" />
+<?if "$(var.LavChannel)" != "dev" ?>
       <ComponentRef Id="ArtUrlScheme" />
       <ComponentRef Id="ArtFileAssociation" />
+<?endif?>
       <ComponentGroupRef Id="ArtemisDependencies" />
     </Feature>
 

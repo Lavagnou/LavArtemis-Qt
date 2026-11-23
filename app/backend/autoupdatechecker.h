@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QJsonArray>
 #include <QNetworkAccessManager>
 #include <QPointer>
 
@@ -73,6 +74,10 @@ private:
     // "-ci.N" prerelease suffix. A stable release sorts after a prerelease
     // with the same base version.
     int compareVersionStrings(const QString& a, const QString& b);
+
+    // Dev channel helpers ("21.8.0-dev.3"), public for the tests.
+    static bool isDevVersion(const QString& version);
+    static int pickDevRelease(const QJsonArray& releases);
 
     QString getPlatform();
 

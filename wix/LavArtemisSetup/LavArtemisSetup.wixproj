@@ -10,6 +10,9 @@
     <IntermediateOutputPath>$(BUILD_FOLDER)\</IntermediateOutputPath>
   </PropertyGroup>
   <PropertyGroup>
+    <DefineConstants>$(DefineConstants);LavChannel=$(LAV_CHANNEL)</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup>
     <AcceptEula>wix7</AcceptEula>
   </PropertyGroup>
   <PropertyGroup Condition="$(SIGN)!=''">

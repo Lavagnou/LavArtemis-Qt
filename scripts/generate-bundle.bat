@@ -46,6 +46,13 @@ if defined CI_VERSION (
     set /p VERSION=<%SOURCE_ROOT%\app\version.txt
 )
 
+rem The release channel is read from the version: "21.8.0-dev.3" builds
+rem LavArtemis Dev, whose installer has its own names and upgrade codes so it
+rem installs next to the stable app. MSBuild reads LAV_CHANNEL from the env.
+set LAV_CHANNEL=
+echo %VERSION%| findstr /C:"-dev." >nul
+if not errorlevel 1 set LAV_CHANNEL=dev
+
 rem Ensure that all architectures have been built before the final bundle
 if not exist "%BUILD_ROOT%\build-x64-%BUILD_CONFIG%\LavArtemis.msi" (
     echo Unable to build bundle - missing binaries for %BUILD_CONFIG% x64

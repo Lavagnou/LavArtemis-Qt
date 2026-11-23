@@ -46,6 +46,7 @@
 #include "cli/artlink.h"
 #include "cli/commandlineparser.h"
 #include "path.h"
+#include "settings/channelmigration.h"
 #include "utils.h"
 #include "gui/computermodel.h"
 #include "gui/appmodel.h"
@@ -450,7 +451,14 @@ int main(int argc, char *argv[])
     // NB: These identify LavArtemis distinctly from Moonlight and from Artemis-Qt
     // so the three can be installed side by side without sharing (or clobbering)
     // each other's settings, certificates and paired-host list.
+    // LavArtemis Dev (a "-dev." version, see app.pro) uses its own organisation,
+    // not just its own application name: uninstalling the stable app deletes
+    // HKCU\Software\LavArtemis and %LOCALAPPDATA%\LavArtemis as a whole.
+#ifdef LAV_DEV_CHANNEL
+    QCoreApplication::setOrganizationName("LavArtemis Dev");
+#else
     QCoreApplication::setOrganizationName("LavArtemis");
+#endif
     QCoreApplication::setOrganizationDomain("lavartemis.org");
     QCoreApplication::setApplicationName("LavArtemis");
 
@@ -465,6 +473,9 @@ int main(int argc, char *argv[])
     else {
         // Initialize paths for standard installation
         Path::initialize(false);
+
+        // Dev builds: copy the stable app's settings on the very first start.
+        ChannelMigration::importStableSettingsOnce();
     }
 
     // Override the default QML cache directory with the one we chose
@@ -961,6 +972,11 @@ int main(int argc, char *argv[])
 
     // This is necessary to show our icon correctly on Wayland
     app.setDesktopFileName("com.moonlight_stream.Moonlight");
+
+#ifdef LAV_DEV_CHANNEL
+    // Window titles and the taskbar tell the Dev app apart from the stable one.
+    app.setApplicationDisplayName("LavArtemis Dev");
+#endif
     qputenv("SDL_VIDEO_WAYLAND_WMCLASS", "com.moonlight_stream.Moonlight");
     qputenv("SDL_VIDEO_X11_WMCLASS", "com.moonlight_stream.Moonlight");
 

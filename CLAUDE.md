@@ -297,6 +297,28 @@ sous Windows, télécharge et lance l'installeur lui-même. Réglages dans **Sof
 > d'instance unique côté desktop — donc il est conservé. Tout le reste (plus ancien ou égal) a déjà été
 > installé ou abandonné. Un critère par ancienneté de fichier n'aurait pas cette garantie.
 
+## 🧪 Canal Dev (LavArtemis Dev)
+
+Une version qui contient `-dev.` (`app/version.txt`, écrit par la CI depuis le tag) construit
+**LavArtemis Dev**, installée à côté de la stable. Branche `dev` ici, branche `dev` dans LavArtemis.
+Vue d'ensemble et tableau stable/dev : section « Stable / Dev » du `CLAUDE.md` de LavArtemis.
+
+- `app/app.pro` : `LAV_DEV_CHANNEL` défini, `VERSION` numérique (`21.8.0-dev.3` → `21.8.0.3`),
+  `VERSION_STR` lisible.
+- `main.cpp` : organisation Qt `LavArtemis Dev` (registre, AppData séparés), nom affiché
+  « LavArtemis Dev », puis `ChannelMigration::importStableSettingsOnce()` (`settings/channelmigration.*`) :
+  copie unique des réglages de la stable au premier lancement, la stable n'étant que lue.
+- `autoupdatechecker.cpp` : stable → `/releases/latest` ; Dev → `/releases` + `pickDevRelease()`.
+- WiX : `scripts/build-arch.bat` et `generate-bundle.bat` posent `LAV_CHANNEL=dev`, que les deux
+  `.wixproj` passent en `LavChannel` ; `Product.wxs`/`Bundle.wxs` choisissent noms, dossiers, clé de
+  registre et UpgradeCodes. La Dev n'enregistre ni `art://` ni `.art`.
+
+> ⚠️ **Conditions WiX entre guillemets** : `<?if "$(var.LavChannel)" = "dev" ?>`. Sans guillemets, une
+> valeur vide (build stable) donne `<?if  = "dev" ?>`, une erreur de préprocesseur.
+
+> ⚠️ **Ne jamais modifier les valeurs stables** (organisation `LavArtemis`, UpgradeCodes, clés
+> `HKCU\Software\LavArtemis`) : les installations existantes ne se mettraient plus à jour.
+
 ## 🌊 PyroWave
 
 [PyroWave](https://github.com/Themaister/pyrowave) est un codec intra-only en ondelettes, décodé sur

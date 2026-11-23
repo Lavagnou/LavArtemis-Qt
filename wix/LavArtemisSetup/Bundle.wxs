@@ -11,10 +11,22 @@
 
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
 
-  <Bundle Name="LavArtemis Game Streaming Client"
+<!-- LavArtemis Dev: see wix/LavArtemis/Product.wxs. -->
+<?if "$(var.LavChannel)" = "dev" ?>
+<?define BundleName = "LavArtemis Dev Game Streaming Client" ?>
+<?define BundleUpgradeCode = "0f199e84-5a47-4311-bec5-4330a80c1095" ?>
+<?define BundleFolder = "LavArtemis Dev" ?>
+<?define BundleRegKey = "Software\LavArtemis Dev" ?>
+<?else?>
+<?define BundleName = "LavArtemis Game Streaming Client" ?>
+<?define BundleUpgradeCode = "0dc77dbb-91d2-4126-9993-558fbe74ae28" ?>
+<?define BundleFolder = "LavArtemis Game Streaming" ?>
+<?define BundleRegKey = "Software\LavArtemis" ?>
+<?endif?>
+  <Bundle Name="$(var.BundleName)"
           Version="!(bind.PackageVersion.Artemis_x64)"
           Manufacturer="LavArtemis"
-          UpgradeCode="0dc77dbb-91d2-4126-9993-558fbe74ae28"
+          UpgradeCode="$(var.BundleUpgradeCode)"
           HelpUrl="https://github.com/wjbeckett/artemis/wiki/Setup-Guide"
           UpdateUrl="https://github.com/wjbeckett/artemis/releases"
           DisableModify="yes"
@@ -23,7 +35,7 @@
     <bal:Condition Message="This version of LavArtemis requires Windows 10 or later." Condition="VersionNT &gt;= v10.0" />
     <bal:Condition Message="This version of LavArtemis requires a 64-bit version of Windows." Condition="NativeMachine &lt;&gt; 332" />
 
-    <Variable Name="InstallFolder" Type="formatted" Value="[ProgramFiles6432Folder]LavArtemis Game Streaming" />
+    <Variable Name="InstallFolder" Type="formatted" Value="[ProgramFiles6432Folder]$(var.BundleFolder)" />
 
     <!-- Define "Add desktop shortcut" -checkbox's state by defining a variable
          which has same name as the checkbox has. Value 1 means that checkbox
@@ -32,8 +44,8 @@
     <Variable Name="AddDesktopShortcutCheckbox" Type="numeric" Value="1" />
     <!-- Get checkbox's state from registry if present. The registry value
          "DesktopShortcutInstallState" is set in Product.wxs. -->
-    <util:RegistrySearch Variable="HasDesktopShortcutInstallStateRegKey" Root="HKCU" Key="Software\LavArtemis" Value="DesktopShortcutInstallState" Result="exists" />
-    <util:RegistrySearch Variable="AddDesktopShortcutCheckbox" Root="HKCU" Key="Software\LavArtemis" Value="DesktopShortcutInstallState" Condition="HasDesktopShortcutInstallStateRegKey" />
+    <util:RegistrySearch Variable="HasDesktopShortcutInstallStateRegKey" Root="HKCU" Key="$(var.BundleRegKey)" Value="DesktopShortcutInstallState" Result="exists" />
+    <util:RegistrySearch Variable="AddDesktopShortcutCheckbox" Root="HKCU" Key="$(var.BundleRegKey)" Value="DesktopShortcutInstallState" Condition="HasDesktopShortcutInstallStateRegKey" />
 
     <util:ProductSearch Id="VCREDIST_14_x64"
                         UpgradeCode="$(var.VCREDIST_X64_UPGRADE_CODE)"

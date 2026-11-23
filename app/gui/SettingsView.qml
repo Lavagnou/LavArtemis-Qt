@@ -2971,21 +2971,6 @@ Flickable {
                             }
                         }
 
-                        CheckBox {
-                            id: updatePrereleaseCheck
-                            text: qsTr("Include CI pre-release builds")
-                            font.pointSize: 12
-                            checked: ArtemisSettings.autoUpdatePrerelease
-                            onCheckedChanged: {
-                                ArtemisSettings.autoUpdatePrerelease = checked
-                            }
-
-                            ToolTip.delay: 1000
-                            ToolTip.timeout: 5000
-                            ToolTip.visible: hovered
-                            ToolTip.text: qsTr("Pre-releases are built from the latest development state and may be less stable.")
-                        }
-
                         Button {
                             id: checkUpdateButton
                             text: qsTr("Check for updates now")
