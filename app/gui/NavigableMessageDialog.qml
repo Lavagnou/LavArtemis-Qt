@@ -9,9 +9,8 @@ NavigableDialog {
     property alias showSpinner: dialogSpinner.visible
     property alias imageSrc: dialogImage.source
 
-    property string helpText
-    property string helpUrl : "https://github.com/moonlight-stream/moonlight-docs/wiki/Troubleshooting"
-    property string helpTextSeparator : " "
+    // No Help button any more (helpText / helpUrl / Dialog.Help): every one of them opened a
+    // Moonlight wiki page in English, and the user wants no help button anywhere.
 
     onOpened: {
         // Force keyboard focus on the label so keyboard navigation works
@@ -46,7 +45,7 @@ NavigableDialog {
             property string dialogText
 
             id: dialogLabel
-            text: dialogText + ((helpText && (standardButtons & Dialog.Help)) ? (helpTextSeparator + helpText) : "")
+            text: dialogText
             wrapMode: Text.Wrap
             elide: Label.ElideRight
 
@@ -68,11 +67,6 @@ NavigableDialog {
             Keys.onEnterPressed: clicked()
             Keys.onRightPressed: nextItemInFocusChain(true).forceActiveFocus(Qt.TabFocus)
             Keys.onLeftPressed: nextItemInFocusChain(false).forceActiveFocus(Qt.TabFocus)
-        }
-
-        onHelpRequested: {
-            Qt.openUrlExternally(helpUrl)
-            close()
         }
     }
 }

@@ -911,7 +911,6 @@ int main(int argc, char *argv[])
     QCoreApplication::translate("QPlatformTheme", "&Yes");
     QCoreApplication::translate("QPlatformTheme", "&No");
     QCoreApplication::translate("QPlatformTheme", "OK");
-    QCoreApplication::translate("QPlatformTheme", "Help");
     QCoreApplication::translate("QPlatformTheme", "Cancel");
 
     // After the QGuiApplication is created, the platform stuff will be initialized

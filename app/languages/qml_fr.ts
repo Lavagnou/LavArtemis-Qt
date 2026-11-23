@@ -1549,10 +1549,6 @@
         <translation>OK</translation>
     </message>
     <message>
-        <source>Help</source>
-        <translation>Aide</translation>
-    </message>
-    <message>
         <source>Cancel</source>
         <translation>Annuler</translation>
     </message>
@@ -2607,6 +2603,22 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Écran tactile</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Multitouch : les doigts touchent directement l&apos;écran du PC. Trackpad : le doigt déplace le curseur, appui long pour faire glisser, appui à deux doigts pour le clic droit.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Multitouch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Trackpad</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Copier ici, coller là-bas, et inversement, pendant le stream (Apollo / LavApollo). Le menu en jeu envoie ou récupère aussi le presse-papiers à la demande.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2724,14 +2736,6 @@
     </message>
     <message>
         <source>Toujours</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Écran tactile en pavé tactile</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Le doigt déplace le curseur comme sur un trackpad, au lieu de pointer directement.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3192,15 +3196,7 @@
     <name>main</name>
     <message>
         <source>Hardware acceleration doesn&apos;t work on XWayland. Continuing on XWayland may result in poor streaming performance. Try running with QT_QPA_PLATFORM=wayland or switch to X11.</source>
-        <translation>L&apos;accélération matérielle ne fonctionne pas sur XWayland. Continuer sur XWayland peut entraîner de mauvaises performances de streaming. Essayez de lancer Moonlight avec QT_QPA_PLATFORM=wayland ou passez à X11.</translation>
-    </message>
-    <message>
-        <source>Click the Help button for more information on solving this problem.</source>
-        <translation>Cliquez sur le bouton Aide pour obtenir plus d&apos;informations sur la résolution de ce problème.</translation>
-    </message>
-    <message>
-        <source>Click the Help button for more information.</source>
-        <translation>Cliquez sur le bouton Aide pour plus d&apos;informations.</translation>
+        <translation>L&apos;accélération matérielle ne fonctionne pas sur XWayland. Continuer sur XWayland peut entraîner de mauvaises performances de streaming. Essayez de lancer LavArtemis avec QT_QPA_PLATFORM=wayland ou passez à X11.</translation>
     </message>
     <message>
         <source>No functioning hardware accelerated video decoder was detected by LavArtemis. Your streaming performance may be severely degraded in this configuration.</source>

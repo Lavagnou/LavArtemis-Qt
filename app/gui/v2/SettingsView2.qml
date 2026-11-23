@@ -1222,6 +1222,23 @@ FocusScope {
                         width: parent.width
                         spacing: 12
 
+                        // Same row as the Android client (« Écran tactile », Multitouch / Trackpad, same
+                        // texts): the two touch modes the user keeps on both clients.
+                        SettingChoice {
+                            label: qsTr("Écran tactile")
+                            // Only with a touchscreen, or when the trackpad is on (a setting that acts
+                            // never vanishes from under the user)
+                            available: SystemProperties.hasTouchScreen || !StreamingPreferences.absoluteTouchMode
+                            description: qsTr("Multitouch : les doigts touchent directement l'écran du PC. Trackpad : le doigt déplace le curseur, appui long pour faire glisser, appui à deux doigts pour le clic droit.")
+                            descriptionLines: 3
+                            options: [
+                                {text: qsTr("Multitouch"), value: true},
+                                {text: qsTr("Trackpad"), value: false}
+                            ]
+                            value: StreamingPreferences.absoluteTouchMode
+                            onChosen: (v) => { StreamingPreferences.absoluteTouchMode = v; settingsPage.persist() }
+                        }
+
                         SettingToggle {
                             label: qsTr("Souris pour le bureau à distance")
                             description: qsTr("Curseur libre, sans capture : idéal pour le bureau, pas pour les jeux. Ctrl+Alt+Maj+M en stream.")
@@ -1242,15 +1259,6 @@ FocusScope {
                             onChosen: (v) => { StreamingPreferences.captureSysKeysMode = v; settingsPage.persist() }
                         }
 
-                        SettingToggle {
-                            label: qsTr("Écran tactile en pavé tactile")
-                            expert: true
-                            // Only with a touchscreen, or when already on (it never vanishes from under the user)
-                            available: SystemProperties.hasTouchScreen || !StreamingPreferences.absoluteTouchMode
-                            description: qsTr("Le doigt déplace le curseur comme sur un trackpad, au lieu de pointer directement.")
-                            checked: !StreamingPreferences.absoluteTouchMode
-                            onToggled: (v) => { StreamingPreferences.absoluteTouchMode = !v; settingsPage.persist() }
-                        }
                     }
 
                     // =============================== Manettes ===============================

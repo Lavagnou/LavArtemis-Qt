@@ -1,8 +1,8 @@
 import QtQuick 2.0
 import QtQuick.Controls 2.2
 
-import SystemProperties 1.0
-
+// An error with a single OK. No Help button: it opened Moonlight's troubleshooting wiki (in
+// English), and the user wants no help button anywhere (same as the Android client).
 NavigableMessageDialog {
-    standardButtons: Dialog.Ok | (SystemProperties.hasBrowser ? Dialog.Help : 0)
+    standardButtons: Dialog.Ok
 }

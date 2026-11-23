@@ -394,10 +394,21 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   ignorés, repli PyroWave, disposition de manette devinée. Ces fonctions ne s'expliquent que par là :
   un nouvel avertissement LavArtemis prend la seconde.
 - Une ligne qui dépend du matériel ou de la plateforme se masque quand elle ne ferait rien (VRR hors
-  Windows, pavé tactile sans écran tactile — `SystemProperties.hasTouchScreen` —, limite de débit avec
+  Windows, « Écran tactile » sans écran tactile — `SystemProperties.hasTouchScreen` —, limite de débit avec
   PyroWave, où la préférence est gardée pour les autres codecs). Un réglage qui agit encore **reste
-  visible tant qu'il est actif** (le pavé tactile) : on ne retire pas un réglage allumé de sous les
-  yeux de l'utilisateur. La liste des micros se relit à l'ouverture de la page Audio et de la
+  visible tant qu'il est actif** (le mode Trackpad) : on ne retire pas un réglage allumé de sous les
+  yeux de l'utilisateur.
+- **« Écran tactile » : Multitouch / Trackpad**, en mode normal, en tête de la page Entrées, **mêmes libellés et
+  même description que l'Android** (qui ne garde plus que ces deux modes en Dev). Multitouch =
+  `absoluteTouchMode` vrai (`abstouch.cpp` : toucher natif si l'hôte le prend en charge, sinon souris
+  émulée) ; Trackpad = faux (`reltouch.cpp` : le doigt déplace le curseur, tap = clic gauche, appui à deux
+  doigts = clic droit, appui long 650 ms = clic gauche maintenu — droit avec deux doigts). Écarts avec le
+  Trackpad Android, connus et non corrigés : pas de défilement à deux doigts, pas de zoom au pincement, et
+  pas d'entrée « Passer en trackpad » dans le menu en jeu (le mode est lu à la création de la session).
+- **Aucun bouton Aide** (demande de l'utilisateur, comme l'Android) : `NavigableMessageDialog` n'a plus
+  `helpText` / `helpUrl` / `onHelpRequested`, `ErrorMessageDialog` n'a que OK ; les phrases « Click the Help
+  button… » de `main.qml` sont parties avec. Tous ouvraient un wiki Moonlight en anglais. Ne pas remettre de
+  `Dialog.Help`. La liste des micros se relit à l'ouverture de la page Audio et de la
   liste (`LavDropdown.opening`).
 - **`Stage.qml`** : composée sur 1600 px de maquette, agrandie au-delà ; en dessous, la page rétrécit
   avec la fenêtre **mais jamais sous `minScale` (0,8)** et se compose alors sur une scène plus large
