@@ -357,11 +357,13 @@ l'interface d'origine. La Dev l'ouvre au démarrage (`main.cpp`, `initialView`),
   `LavDropdown`, `SettingSlider`, `SettingAction`), popups `LavPopup` / `LavDialog`,
   `PyroWaveCalibration` (SDR seulement). L'ancien `SettingsView.qml` reste la référence de lecture et
   d'écriture de chaque préférence et s'ouvre depuis Avancé (« Écran de réglages complet »).
-- **`Stage.qml`** : au-delà de 1600 px, la page est composée sur 1600 px et agrandie ; **entre 1000 et
-  1600 px elle garde sa taille réelle** (boutons compris) et se compose sur la largeur de la fenêtre ;
-  sous 1000 px seulement, elle est réduite (`minLayoutWidth`). Une page ne doit donc jamais supposer
-  1600 de large : largeurs en `parent.width`, pas en constantes (prototype V5 : rétrécir les boutons a
-  été refusé).
+- **`Stage.qml`** : composée sur 1600 px de maquette, agrandie au-delà ; en dessous, la page rétrécit
+  avec la fenêtre **mais jamais sous `minScale` (0,8)** et se compose alors sur une scène plus large
+  que la fenêtre réduite. Tout réduire rendait les boutons trop petits, la taille réelle trop gros :
+  0,8 est le réglage validé à l'écran. Une page qui a besoin de plus de place pose `minLayoutWidth`
+  (Réglages : 1400, en attendant une mise en page étroite). Une page ne doit jamais supposer 1600 de
+  large : largeurs en `parent.width`, pas en constantes. La fenêtre a un minimum de 1000 × 600
+  (`main.qml`).
 - **En-tête de l'accueil** (prototype V5, piste A validée) : une ligne si tout tient (logo + « Mise à
   jour » | sélecteur de PC centré | boutons) ; sinon une grille de deux lignes : logo | sélecteur de PC,
   puis « Mise à jour » | boutons, chaque côté aligné sur son bord (`headerBar.twoRows`, calculé sur des

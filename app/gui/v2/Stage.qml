@@ -1,19 +1,20 @@
 import QtQuick
 
-// The redesigned pages are laid out like the validated prototype: on a 1600-wide stage scaled up
-// for wider windows, at real size and on the window's width between minLayoutWidth and 1600
-// (pages must not assume 1600), scaled down only below minLayoutWidth. Children go into the
-// stage; its height follows the window.
+// The redesigned pages are laid out like the validated prototype, on a 1600-wide design stage:
+// - wider than 1600: the stage is scaled up;
+// - narrower: it shrinks with the window, but never below minScale (shrinking all the way made
+//   the buttons too small, real size made them too big), and the page then lays itself out on
+//   the wider stage that leaves (pages must not assume 1600);
+// - a page that needs more room (minLayoutWidth) is scaled further down instead.
+// Children go into the stage; its height follows the window.
 Item {
     id: stage
 
     property real designWidth: 1600
-    // Narrower than the design, the page keeps its real size (buttons included) and lays itself
-    // out on the window's width (prototype V5: shrinking the buttons was rejected). Only a window
-    // narrower than minLayoutWidth is scaled down, and a wider one than the design is scaled up.
+    property real minScale: 0.8
     property real minLayoutWidth: 1000
-    readonly property real k: Math.max(0.5, Math.min(2.0, width >= designWidth ? width / designWidth
-                                                                               : Math.min(1.0, width / minLayoutWidth)))
+    readonly property real k: Math.max(0.5, Math.min(2.0, Math.max(width / designWidth, minScale),
+                                                     width / minLayoutWidth))
     default property alias content: inner.data
 
     clip: true
