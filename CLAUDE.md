@@ -360,8 +360,8 @@ l'interface d'origine. La Dev l'ouvre au démarrage (`main.cpp`, `initialView`),
 - **`Stage.qml`** : composée sur 1600 px de maquette, agrandie au-delà ; en dessous, la page rétrécit
   avec la fenêtre **mais jamais sous `minScale` (0,8)** et se compose alors sur une scène plus large
   que la fenêtre réduite. Tout réduire rendait les boutons trop petits, la taille réelle trop gros :
-  0,8 est le réglage validé à l'écran. Une page qui a besoin de plus de place pose `minLayoutWidth`
-  (Réglages : 1400, en attendant une mise en page étroite). Une page ne doit jamais supposer 1600 de
+  0,8 est le réglage validé à l'écran. Une page qui a besoin de plus de place peut poser
+  `minLayoutWidth` (plus réduite plutôt que cassée). Une page ne doit jamais supposer 1600 de
   large : largeurs en `parent.width`, pas en constantes. La fenêtre a un minimum de 1000 × 600
   (`main.qml`).
 - **En-tête de l'accueil** (prototype V5, piste A validée) : une ligne si tout tient (logo + « Mise à
@@ -369,6 +369,11 @@ l'interface d'origine. La Dev l'ouvre au démarrage (`main.cpp`, `initialView`),
   puis « Mise à jour » | boutons, chaque côté aligné sur son bord (`headerBar.twoRows`, calculé sur des
   largeurs qui n'en dépendent pas : pas de boucle). Le logo suit le thème (Braise, Affiche recolorés,
   Ludique d'origine), la **Dev garde toujours son logo**.
+- **Réglages en fenêtre étroite** (prototype V6, piste A) : dans `SettingRow`, quand le réglage
+  laisserait moins de `minTextWidth` (320) au texte, il passe sous le libellé (`stacked`) ; une liste
+  ou un curseur prend alors la largeur de la ligne. Un réglage qui s'étire déclare sa largeur côte à
+  côte dans `naturalControlWidth`, sinon `stacked` dépendrait de la largeur étirée (boucle).
+- **L'en-tête de l'accueil reste fixe** : il est hors du `Flickable`, la page défile dessous.
 - **Barre de titre aux couleurs du thème** : la vraie barre de Windows (déplacement, ancrage, boutons
   natifs), recolorée par DWM (`SystemProperties::setWindowFrameColors()`, fond et texte du thème,
   Windows 11 ; sous Windows 10 elle reste celle du système). `main.qml` la réapplique à chaque
