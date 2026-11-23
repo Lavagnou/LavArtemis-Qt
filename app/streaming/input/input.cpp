@@ -11,7 +11,9 @@
 
 SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, int streamHeight)
     : m_MultiController(prefs.multiController),
-      m_GamepadMouse(prefs.gamepadMouse),
+      // Gamepad mouse (hold Start) was removed from LavArtemis (settings triage, 2026-11-23):
+      // the old preference is ignored.
+      m_GamepadMouse(false),
       m_SwapMouseButtons(prefs.swapMouseButtons),
       m_ReverseScrollDirection(prefs.reverseScrollDirection),
       m_SwapFaceButtons(prefs.swapFaceButtons),

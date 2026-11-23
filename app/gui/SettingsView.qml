@@ -2379,6 +2379,8 @@ Flickable {
 
                 CheckBox {
                     id: gamepadMouseCheck
+                    // Feature removed from LavArtemis (settings triage)
+                    visible: false
                     hoverEnabled: true
                     width: parent.width
                     text: qsTr("Enable mouse control with gamepads by holding the 'Start' button")
