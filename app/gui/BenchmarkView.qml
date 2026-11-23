@@ -46,6 +46,16 @@ Item {
     readonly property color betterColor: "#4caf50"
     readonly property color worseColor: "#f44336"
 
+    // The planner's skip reasons are plain English (it is shared, line for line, with Android);
+    // the runner's own notes already went through tr(). Older reports may hold either.
+    function localizedNote(note) {
+        var m = /^(.+) is not available: the (?:client|device) fell back to (.+)$/.exec(note)
+        if (m) return qsTr("%1 is not available: the client fell back to %2").arg(m[1]).arg(m[2])
+        if (note === "VRR is not available on this display" || note === "VRR pacing is not available")
+            return qsTr("VRR is not available on this display")
+        return note
+    }
+
     function refreshPlan() {
         plan = BenchmarkRunner.describe(ComputerManager, hostUuid, mode, goal)
     }
@@ -338,7 +348,7 @@ Item {
                                 color: modelData.status === "fallback" ? Material.accent : worseColor
                                 text: (modelData.status === "skipped" ? qsTr("Skipped") :
                                        modelData.status === "fallback" ? qsTr("Not tested as asked") : qsTr("Failed"))
-                                      + (modelData.note ? ": " + modelData.note : "")
+                                      + (modelData.note ? ": " + benchmarkPage.localizedNote(modelData.note) : "")
                             }
 
                             RowLayout {

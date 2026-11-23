@@ -5,76 +5,76 @@
     <name>AppCard</name>
     <message>
         <source>Rejoindre</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Lancer</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>AppMenu</name>
     <message>
         <source>Reprendre</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Lancer</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Quitter</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Relancer la session</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Créer un raccourci .art</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ne plus masquer</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Masquer</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>AppModel</name>
     <message>
         <source>That app is no longer in the list.</source>
-        <translation>Cette appli n'est plus dans la liste.</translation>
+        <translation>Cette appli n&apos;est plus dans la liste.</translation>
     </message>
     <message>
         <source>Unable to write %1: %2</source>
-        <translation>Impossible d'écrire %1 : %2</translation>
+        <translation>Impossible d&apos;écrire %1 : %2</translation>
     </message>
 </context>
 <context>
     <name>AutoUpdateChecker</name>
     <message>
         <source>Updates are not handled in-app on this platform.</source>
-        <translation>Les mises à jour ne sont pas gérées dans l'appli sur cette plateforme.</translation>
+        <translation>Les mises à jour ne sont pas gérées dans l&apos;appli sur cette plateforme.</translation>
     </message>
     <message>
         <source>Cannot write to %1</source>
-        <translation>Impossible d'écrire dans %1</translation>
+        <translation>Impossible d&apos;écrire dans %1</translation>
     </message>
     <message>
         <source>Failed to launch the installer</source>
-        <translation>Impossible de lancer l'installeur</translation>
+        <translation>Impossible de lancer l&apos;installeur</translation>
     </message>
     <message>
         <source>No release has been published yet.</source>
-        <translation>Aucune version n'a encore été publiée.</translation>
+        <translation>Aucune version n&apos;a encore été publiée.</translation>
     </message>
     <message>
         <source>The latest release carries no version tag.</source>
-        <translation>La dernière version publiée n'a pas de tag de version.</translation>
+        <translation>La dernière version publiée n&apos;a pas de tag de version.</translation>
     </message>
 </context>
 <context>
@@ -140,12 +140,12 @@
         <translation>Ce PC hôte est inconnu.</translation>
     </message>
     <message>
-        <source>This host doesn't offer the benchmark. It needs LavApollo 2.3 or later, with "Benchmark app for LavArtemis" turned on (Audio/Video settings).</source>
-        <translation>Ce PC hôte ne propose pas le benchmark. Il faut LavApollo 2.3 ou plus récent, avec "Benchmark app for LavArtemis" activé (réglages Audio/Video).</translation>
+        <source>This host doesn&apos;t offer the benchmark. It needs LavApollo 2.3 or later, with &quot;Benchmark app for LavArtemis&quot; turned on (Audio/Video settings).</source>
+        <translation>Ce PC hôte ne propose pas le benchmark. Il faut LavApollo 2.3 ou plus récent, avec &quot;Benchmark app for LavArtemis&quot; activé (réglages Audio/Video).</translation>
     </message>
     <message>
         <source>Quitting the app running on the host...</source>
-        <translation>Fermeture de l'appli en cours sur le PC hôte...</translation>
+        <translation>Fermeture de l&apos;appli en cours sur le PC hôte...</translation>
     </message>
     <message>
         <source>Stopping after this run...</source>
@@ -153,7 +153,7 @@
     </message>
     <message>
         <source>Streaming with your settings failed, so there is nothing to compare with: %1</source>
-        <translation>Le stream avec tes réglages a échoué, il n'y a donc rien à comparer : %1</translation>
+        <translation>Le stream avec tes réglages a échoué, il n&apos;y a donc rien à comparer : %1</translation>
     </message>
     <message>
         <source>Restarting the scene on the host...</source>
@@ -173,15 +173,15 @@
     </message>
     <message>
         <source>The stream could not start.</source>
-        <translation>Le stream n'a pas pu démarrer.</translation>
+        <translation>Le stream n&apos;a pas pu démarrer.</translation>
     </message>
     <message>
         <source>The stream did not start.</source>
-        <translation>Le stream n'a pas démarré.</translation>
+        <translation>Le stream n&apos;a pas démarré.</translation>
     </message>
     <message>
         <source>No frames arrived to measure.</source>
-        <translation>Aucune image n'est arrivée pour la mesure.</translation>
+        <translation>Aucune image n&apos;est arrivée pour la mesure.</translation>
     </message>
     <message>
         <source>The run was cut short.</source>
@@ -189,7 +189,7 @@
     </message>
     <message>
         <source>No frames were shown.</source>
-        <translation>Aucune image n'a été affichée.</translation>
+        <translation>Aucune image n&apos;a été affichée.</translation>
     </message>
     <message>
         <source>Ran as %1 instead.</source>
@@ -201,7 +201,7 @@
     </message>
     <message>
         <source>The report could not be saved: %1</source>
-        <translation>Impossible d'enregistrer le rapport : %1</translation>
+        <translation>Impossible d&apos;enregistrer le rapport : %1</translation>
     </message>
     <message>
         <source>Benchmark finished.</source>
@@ -213,7 +213,7 @@
     </message>
     <message>
         <source>This file is not a LavArtemis benchmark report.</source>
-        <translation>Ce fichier n'est pas un rapport de benchmark LavArtemis.</translation>
+        <translation>Ce fichier n&apos;est pas un rapport de benchmark LavArtemis.</translation>
     </message>
     <message>
         <source>Your settings now use %1.</source>
@@ -228,7 +228,15 @@
     </message>
     <message>
         <source>Benchmark · %1</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 is not available: the client fell back to %2</source>
+        <translation>%1 n&apos;est pas disponible : le client est revenu à %2</translation>
+    </message>
+    <message>
+        <source>VRR is not available on this display</source>
+        <translation>Le VRR n&apos;est pas disponible sur cet écran</translation>
     </message>
     <message>
         <source>Streams an animated scene from %1 several times in a row, each time with another codec, bitrate or frame pacing, and scores the latency and smoothness of each against your current settings. Your settings are not changed unless you apply a result.</source>
@@ -236,7 +244,7 @@
     </message>
     <message>
         <source>Test</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Quick</source>
@@ -279,8 +287,11 @@
         <translation>Le plus fluide</translation>
     </message>
     <message numerus="yes">
-        <source>Your settings: %1. About %n run(s), %2 minutes. Don't use the PC while it runs: anything else on screen or on the network changes the results.</source>
-        <translation><numerusform>Tes réglages : %1. Environ %n passage(s), %2 minutes. N'utilise pas le PC pendant le test : tout autre affichage à l'écran ou trafic réseau fausse les résultats.</numerusform><numerusform>Tes réglages : %1. Environ %n passage(s), %2 minutes. N'utilise pas le PC pendant le test : tout autre affichage à l'écran ou trafic réseau fausse les résultats.</numerusform></translation>
+        <source>Your settings: %1. About %n run(s), %2 minutes. Don&apos;t use the PC while it runs: anything else on screen or on the network changes the results.</source>
+        <translation>
+            <numerusform>Tes réglages : %1. Environ %n passage(s), %2 minutes. N&apos;utilise pas le PC pendant le test : tout autre affichage à l&apos;écran ou trafic réseau fausse les résultats.</numerusform>
+            <numerusform>Tes réglages : %1. Environ %n passage(s), %2 minutes. N&apos;utilise pas le PC pendant le test : tout autre affichage à l&apos;écran ou trafic réseau fausse les résultats.</numerusform>
+        </translation>
     </message>
     <message>
         <source>An app is running on the host. It will be quit.</source>
@@ -327,12 +338,12 @@
         <translation>%1, %2 - %3, objectif : %4 - %5</translation>
     </message>
     <message>
-        <source>Your settings scored %1 points differently at the start and at the end: conditions changed during the benchmark, so small differences don't mean much. Run it again.</source>
-        <translation>Tes réglages ont obtenu %1 points d'écart entre le début et la fin : les conditions ont changé pendant le benchmark, donc les petites différences ne veulent pas dire grand-chose. Relance-le.</translation>
+        <source>Your settings scored %1 points differently at the start and at the end: conditions changed during the benchmark, so small differences don&apos;t mean much. Run it again.</source>
+        <translation>Tes réglages ont obtenu %1 points d&apos;écart entre le début et la fin : les conditions ont changé pendant le benchmark, donc les petites différences ne veulent pas dire grand-chose. Relance-le.</translation>
     </message>
     <message>
-        <source>This report was made on Android: its settings can't be applied here.</source>
-        <translation>Ce rapport a été fait sur Android : ses réglages ne peuvent pas s'appliquer ici.</translation>
+        <source>This report was made on Android: its settings can&apos;t be applied here.</source>
+        <translation>Ce rapport a été fait sur Android : ses réglages ne peuvent pas s&apos;appliquer ici.</translation>
     </message>
     <message>
         <source>Latency and smoothness are scored out of 100, ranked by your goal. Arrows compare each result with your settings; ± is how much the score moved within the run.</source>
@@ -360,7 +371,7 @@
     </message>
     <message>
         <source>%1 ms estimated (host %2, network %3, receive %4, decode %5, queue %6, render %7) - %8% of frames shown, %9% lost - frame times p50 %10 / p99 %11 ms, %12% hitches</source>
-        <translation>%1 ms estimées (hôte %2, réseau %3, réception %4, décodage %5, file %6, rendu %7) - %8 % des images affichées, %9 % perdues - temps d'image p50 %10 / p99 %11 ms, %12 % d'à-coups</translation>
+        <translation>%1 ms estimées (hôte %2, réseau %3, réception %4, décodage %5, file %6, rendu %7) - %8 % des images affichées, %9 % perdues - temps d&apos;image p50 %10 / p99 %11 ms, %12 % d&apos;à-coups</translation>
     </message>
     <message>
         <source>%1 ms compared with your settings</source>
@@ -394,8 +405,8 @@
         <translation>Connexion au PC...</translation>
     </message>
     <message>
-        <source>Pairing... Please enter '%1' on %2.</source>
-        <translation>Appareillage... Veuillez entrer '%1' sur %2.</translation>
+        <source>Pairing... Please enter &apos;%1&apos; on %2.</source>
+        <translation>Appareillage... Veuillez entrer &apos;%1&apos; sur %2.</translation>
     </message>
     <message>
         <source>Pairing completed successfully</source>
@@ -410,7 +421,7 @@
     </message>
     <message>
         <source>Quitting app...</source>
-        <translation>Fermeture de l'application...</translation>
+        <translation>Fermeture de l&apos;application...</translation>
     </message>
 </context>
 <context>
@@ -425,14 +436,14 @@
     </message>
     <message>
         <source>Are you sure you want to quit %1? Any unsaved progress will be lost.</source>
-        <translation>Êtes-vous sûr de vouloir arrêter %1 ? Tout progrès non enregistré sera perdu.</translation>
+        <translation>Êtes-vous sûr de vouloir arrêter %1&#x202f;? Tout progrès non enregistré sera perdu.</translation>
     </message>
 </context>
 <context>
     <name>ClipboardManager</name>
     <message>
         <source>Clipboard sync only works with Apollo/Sunshine servers</source>
-        <translation>La synchro du presse-papiers ne marche qu'avec un hôte Apollo/Sunshine</translation>
+        <translation>La synchro du presse-papiers ne marche qu&apos;avec un hôte Apollo/Sunshine</translation>
     </message>
     <message>
         <source>Clipboard uploaded to server</source>
@@ -440,7 +451,7 @@
     </message>
     <message>
         <source>Failed to send clipboard to server</source>
-        <translation>Impossible d'envoyer le presse-papiers au PC</translation>
+        <translation>Impossible d&apos;envoyer le presse-papiers au PC</translation>
     </message>
     <message>
         <source>Clipboard downloaded from server</source>
@@ -455,7 +466,7 @@
     <name>ComputerModel</name>
     <message>
         <source>Bureau</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -466,23 +477,23 @@
     </message>
     <message>
         <source>LT</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>RT</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>LB</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>RB</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Home</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Back</source>
@@ -494,19 +505,19 @@
     </message>
     <message>
         <source>Y</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>X</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>B</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>A</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Left stick</source>
@@ -514,7 +525,7 @@
     </message>
     <message>
         <source>L3</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Right stick</source>
@@ -522,14 +533,14 @@
     </message>
     <message>
         <source>R3</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>CoverTile</name>
     <message>
         <source>EN COURS</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -552,31 +563,31 @@
     </message>
     <message>
         <source>Cannot open the diagnostic session log.</source>
-        <translation>Impossible d'ouvrir le journal de la session de diagnostic.</translation>
+        <translation>Impossible d&apos;ouvrir le journal de la session de diagnostic.</translation>
     </message>
     <message>
         <source>Cannot write the diagnostic capture manifest.</source>
-        <translation>Impossible d'écrire le manifeste de la capture de diagnostic.</translation>
+        <translation>Impossible d&apos;écrire le manifeste de la capture de diagnostic.</translation>
     </message>
     <message>
         <source>Cannot register the latest diagnostic capture.</source>
-        <translation>Impossible d'enregistrer la dernière capture de diagnostic.</translation>
+        <translation>Impossible d&apos;enregistrer la dernière capture de diagnostic.</translation>
     </message>
     <message>
         <source>Cannot enable the diagnostic capture environment.</source>
-        <translation>Impossible d'activer l'environnement de capture de diagnostic.</translation>
+        <translation>Impossible d&apos;activer l&apos;environnement de capture de diagnostic.</translation>
     </message>
     <message>
         <source>The diagnostics folder is unavailable.</source>
-        <translation>Le dossier de diagnostic n'est pas disponible.</translation>
+        <translation>Le dossier de diagnostic n&apos;est pas disponible.</translation>
     </message>
     <message>
         <source>The latest recording is still active. Disconnect the stream and wait for cleanup before exporting.</source>
-        <translation>Le dernier enregistrement est encore actif. Déconnecte le stream et attends le nettoyage avant d'exporter.</translation>
+        <translation>Le dernier enregistrement est encore actif. Déconnecte le stream et attends le nettoyage avant d&apos;exporter.</translation>
     </message>
     <message>
         <source>No diagnostic recording is available yet. Enable recording and run a stream first.</source>
-        <translation>Aucun enregistrement de diagnostic n'est encore disponible. Active l'enregistrement et lance d'abord un stream.</translation>
+        <translation>Aucun enregistrement de diagnostic n&apos;est encore disponible. Active l&apos;enregistrement et lance d&apos;abord un stream.</translation>
     </message>
     <message>
         <source>No capture files to export, or the destination already exists.</source>
@@ -584,14 +595,14 @@
     </message>
     <message>
         <source>Export failed: unreadable or changing input, insufficient disk space, or the ZIP exceeds 4 GiB. The original capture files were kept.</source>
-        <translation>Échec de l'export : entrée illisible ou en cours de modification, espace disque insuffisant, ou ZIP de plus de 4 Gio. Les fichiers de capture d'origine ont été conservés.</translation>
+        <translation>Échec de l&apos;export : entrée illisible ou en cours de modification, espace disque insuffisant, ou ZIP de plus de 4 Gio. Les fichiers de capture d&apos;origine ont été conservés.</translation>
     </message>
 </context>
 <context>
     <name>DisplayLayout</name>
     <message>
         <source>Unable to enumerate displays: %1</source>
-        <translation>Impossible d'énumérer les écrans : %1</translation>
+        <translation>Impossible d&apos;énumérer les écrans : %1</translation>
     </message>
     <message>
         <source>This PC has %1 displays, which is more than can be emulated on the host (%2).</source>
@@ -599,22 +610,22 @@
     </message>
     <message>
         <source>Unable to read the bounds of display %1: %2</source>
-        <translation>Impossible de lire les limites de l'écran %1 : %2</translation>
+        <translation>Impossible de lire les limites de l&apos;écran %1 : %2</translation>
     </message>
     <message>
         <source>Unable to read the mode of display %1.</source>
-        <translation>Impossible de lire le mode de l'écran %1.</translation>
+        <translation>Impossible de lire le mode de l&apos;écran %1.</translation>
     </message>
     <message>
         <source>Display %1 reports %2x%3 bounds but a %4x%5 native mode. Multi-display streaming needs these to match; check the display scaling settings.</source>
-        <translation>L'écran %1 annonce des limites de %2x%3 mais un mode natif de %4x%5. Le stream multi-écran exige qu'ils correspondent ; vérifie les réglages de mise à l'échelle de l'écran.</translation>
+        <translation>L&apos;écran %1 annonce des limites de %2x%3 mais un mode natif de %4x%5. Le stream multi-écran exige qu&apos;ils correspondent ; vérifie les réglages de mise à l&apos;échelle de l&apos;écran.</translation>
     </message>
 </context>
 <context>
     <name>GamepadControl</name>
     <message>
         <source>%1 — bound to %2. Click to remap, right-click to clear.</source>
-        <translation>%1 — associé à %2. Clique pour le réassigner, clic droit pour l'effacer.</translation>
+        <translation>%1 — associé à %2. Clique pour le réassigner, clic droit pour l&apos;effacer.</translation>
     </message>
     <message>
         <source>%1 — not bound. Click it, then operate it on your controller.</source>
@@ -629,11 +640,11 @@
     </message>
     <message>
         <source>Configurer une manette</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Pick a device to teach LavArtemis its button layout. Controllers already recognized don't need this unless something is misplaced.</source>
-        <translation>Choisis un périphérique pour apprendre à LavArtemis la disposition de ses boutons. Les manettes déjà reconnues n'en ont pas besoin, sauf si quelque chose est mal placé.</translation>
+        <source>Pick a device to teach LavArtemis its button layout. Controllers already recognized don&apos;t need this unless something is misplaced.</source>
+        <translation>Choisis un périphérique pour apprendre à LavArtemis la disposition de ses boutons. Les manettes déjà reconnues n&apos;en ont pas besoin, sauf si quelque chose est mal placé.</translation>
     </message>
     <message>
         <source>Refresh</source>
@@ -661,7 +672,7 @@
     </message>
     <message>
         <source>Click a control, then operate it on your controller. Right-click a control to clear it.</source>
-        <translation>Clique sur un contrôle, puis actionne-le sur ta manette. Clic droit sur un contrôle pour l'effacer.</translation>
+        <translation>Clique sur un contrôle, puis actionne-le sur ta manette. Clic droit sur un contrôle pour l&apos;effacer.</translation>
     </message>
     <message>
         <source>%1 to go</source>
@@ -677,7 +688,7 @@
     </message>
     <message>
         <source>Map everything in order</source>
-        <translation>Tout mapper dans l'ordre</translation>
+        <translation>Tout mapper dans l&apos;ordre</translation>
     </message>
     <message>
         <source>Clear all</source>
@@ -704,306 +715,306 @@
     <name>HomeView</name>
     <message>
         <source>Bureau</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Playnite Fullscreen</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Mise à jour</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>LavArtemis %1 est disponible</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Hors ligne</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Session en cours</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>En ligne</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Clair ou sombre : %1</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Multi-écran</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Mes PC</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Réglages</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Aucun PC appairé</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>%1 est hors ligne</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ajouter un PC</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>EN COURS SUR %1</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Reprendre</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Entrée</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Quitter</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>dans %1</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Sur %1</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ton bureau Windows, tel quel</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>EN COURS</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Plein écran, choisis ton jeu à la manette</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>EN COURS · %1</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Bibliothèque Playnite</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Cacher les jeux masqués</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Afficher les %1 jeux masqués</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Afficher le jeu masqué</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>%1 est en cours. Le quitter pour lancer %2 ? Ce qui n'est pas sauvegardé sera perdu.</source>
-        <translation type="unfinished" />
+        <source>%1 est en cours. Le quitter pour lancer %2 ? Ce qui n&apos;est pas sauvegardé sera perdu.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Le multi-écran s'appliquera à la prochaine session. Relance la session en cours pour l'appliquer maintenant (menu « … » › Relancer la session).</source>
-        <translation type="unfinished" />
+        <source>Le multi-écran s&apos;appliquera à la prochaine session. Relance la session en cours pour l&apos;appliquer maintenant (menu « … » › Relancer la session).</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Créer un raccourci .art</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Raccourci LavArtemis (*.art)</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>HostsView</name>
     <message>
         <source>Mes PC</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>La version du logiciel hôte de %1 n'est pas prise en charge. Mets à jour LavApollo sur ce PC.</source>
-        <translation type="unfinished" />
+        <source>La version du logiciel hôte de %1 n&apos;est pas prise en charge. Mets à jour LavApollo sur ce PC.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Réveil envoyé à %1</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>%1 ne peut pas être réveillé d'ici : il n'a encore jamais donné son adresse réseau matérielle (MAC). Allume-le une fois à la main pendant que LavArtemis tourne.</source>
-        <translation type="unfinished" />
+        <source>%1 ne peut pas être réveillé d&apos;ici : il n&apos;a encore jamais donné son adresse réseau matérielle (MAC). Allume-le une fois à la main pendant que LavArtemis tourne.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>%1 est appairé</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ouvrir</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Benchmark des réglages</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Appairer</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Réveiller</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Renommer</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Oublier ce PC</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Saisir une adresse…</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Trouvés sur le réseau</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Aucun PC trouvé sur le réseau</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Recherche de %1…</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Impossible de joindre %1. Vérifie que le PC est allumé, que LavApollo tourne et que l'adresse est la bonne.</source>
-        <translation type="unfinished" />
+        <source>Impossible de joindre %1. Vérifie que le PC est allumé, que LavApollo tourne et que l&apos;adresse est la bonne.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>La connexion Internet de ce réseau semble bloquer LavArtemis : le stream par Internet risque de ne pas marcher d'ici.</source>
-        <translation type="unfinished" />
+        <source>La connexion Internet de ce réseau semble bloquer LavArtemis : le stream par Internet risque de ne pas marcher d&apos;ici.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>%1 est ajouté</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ce PC est déjà dans la liste</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Appairés avec cet appareil</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Recherche…</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Hors ligne</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Session en cours</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>En ligne</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Éteint ou en veille : il peut être réveillé d'ici.</source>
-        <translation type="unfinished" />
+        <source>Éteint ou en veille : il peut être réveillé d&apos;ici.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Éteint ou injoignable.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>En cours : %1</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>En cours</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ajouter un PC</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Trouvé sur le réseau, ou par son adresse</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>A : ouvrir le PC. Y ou A maintenu : réveiller, benchmark, renommer, oublier.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Entrée : ouvrir le PC. Touche Menu : réveiller, benchmark, renommer, oublier.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Touche pour ouvrir le PC. Appui long ou bouton « … » : réveiller, benchmark, renommer, oublier.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Clic : ouvrir le PC. Clic droit ou bouton « … » : réveiller, benchmark, renommer, oublier.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Appairer %1</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Sur %1, ouvre LavApollo › Appairage et entre ce code : %2. Il n'est demandé qu'une fois ; cette fenêtre se fermera toute seule.</source>
-        <translation type="unfinished" />
+        <source>Sur %1, ouvre LavApollo › Appairage et entre ce code : %2. Il n&apos;est demandé qu&apos;une fois ; cette fenêtre se fermera toute seule.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>C'est fait : le code est entré</source>
-        <translation type="unfinished" />
+        <source>C&apos;est fait : le code est entré</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Adresse IP ou nom du PC hôte (par exemple 192.168.1.24).</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ajouter</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Oublier %1 ?</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Il disparaît de LavArtemis. Pour le retrouver, il faudra l'ajouter et l'appairer à nouveau.</source>
-        <translation type="unfinished" />
+        <source>Il disparaît de LavArtemis. Pour le retrouver, il faudra l&apos;ajouter et l&apos;appairer à nouveau.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Oublier</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Oups</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1014,19 +1025,19 @@
     </message>
     <message>
         <source>F11</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Alt+F4</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Alt+Enter</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ctrl+V</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Windows key</source>
@@ -1042,7 +1053,7 @@
     </message>
     <message>
         <source>Ctrl+Alt+Del</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ctrl+Shift+Esc (task manager)</source>
@@ -1050,23 +1061,23 @@
     </message>
     <message>
         <source>Ctrl+Alt+Tab</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Shift+Tab</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Win+Shift+Left</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ctrl+Alt+Shift+F1</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ctrl+Alt+Shift+F12</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Win+Alt+B (HDR toggle)</source>
@@ -1078,11 +1089,11 @@
     </message>
     <message>
         <source>%1 is not valid JSON: %2</source>
-        <translation>%1 n'est pas un JSON valide : %2</translation>
+        <translation>%1 n&apos;est pas un JSON valide : %2</translation>
     </message>
     <message>
-        <source>Macro '%1' uses an unknown key: %2</source>
-        <translation>La macro '%1' utilise une touche inconnue : %2</translation>
+        <source>Macro &apos;%1&apos; uses an unknown key: %2</source>
+        <translation>La macro &apos;%1&apos; utilise une touche inconnue : %2</translation>
     </message>
 </context>
 <context>
@@ -1093,26 +1104,26 @@
     </message>
     <message>
         <source>Annuler</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>NetworkBuffers</name>
     <message>
-        <source>This PC's network adapter has a small receive buffer, so PyroWave frames may lose detail. Fix it in Settings, Video (expert mode), under the video codec.</source>
+        <source>This PC&apos;s network adapter has a small receive buffer, so PyroWave frames may lose detail. Fix it in Settings, Video (expert mode), under the video codec.</source>
         <translation>La carte réseau de ce PC a un petit tampon de réception : les images PyroWave peuvent perdre en détail. Corrige-le dans Réglages › Vidéo (mode expert), sous le codec vidéo.</translation>
     </message>
     <message>
-        <source>Linux limits this PC's network receive buffer, so PyroWave frames may lose packets. Fix it in Settings, Video (expert mode), under the video codec.</source>
+        <source>Linux limits this PC&apos;s network receive buffer, so PyroWave frames may lose packets. Fix it in Settings, Video (expert mode), under the video codec.</source>
         <translation>Linux limite le tampon de réception réseau de ce PC : les images PyroWave peuvent perdre des paquets. Corrige-le dans Réglages › Vidéo (mode expert), sous le codec vidéo.</translation>
     </message>
     <message>
-        <source>Raises the adapter's receive buffers to its maximum and restarts it, which briefly drops the network. Asks for administrator permission.</source>
-        <translation>Porte les tampons de réception de la carte à leur maximum et la redémarre, ce qui coupe brièvement le réseau. Demande l'autorisation administrateur.</translation>
+        <source>Raises the adapter&apos;s receive buffers to its maximum and restarts it, which briefly drops the network. Asks for administrator permission.</source>
+        <translation>Porte les tampons de réception de la carte à leur maximum et la redémarre, ce qui coupe brièvement le réseau. Demande l&apos;autorisation administrateur.</translation>
     </message>
     <message>
         <source>Raises net.core.rmem_max now and saves it for future boots. Asks for your password.</source>
-        <translation>Relève net.core.rmem_max tout de suite et l'enregistre pour les prochains démarrages. Demande ton mot de passe.</translation>
+        <translation>Relève net.core.rmem_max tout de suite et l&apos;enregistre pour les prochains démarrages. Demande ton mot de passe.</translation>
     </message>
     <message>
         <source>Run this in PowerShell as administrator:</source>
@@ -1127,16 +1138,16 @@
         <translation>%1 %2 sur %3</translation>
     </message>
     <message>
-        <source>The network adapter "%1" has a small receive buffer (%2). PyroWave bursts overflow it, so frames lose detail and still images shimmer.</source>
-        <translation>La carte réseau "%1" a un petit tampon de réception (%2). Les rafales PyroWave le font déborder : les images perdent en détail et les images fixes scintillent.</translation>
+        <source>The network adapter &quot;%1&quot; has a small receive buffer (%2). PyroWave bursts overflow it, so frames lose detail and still images shimmer.</source>
+        <translation>La carte réseau &quot;%1&quot; a un petit tampon de réception (%2). Les rafales PyroWave le font déborder : les images perdent en détail et les images fixes scintillent.</translation>
     </message>
     <message>
-        <source>Linux limits this PC's network receive buffer to %1 KB. PyroWave needs about %2 MB, or frames arrive with missing packets.</source>
-        <translation>Linux limite le tampon de réception réseau de ce PC à %1 Ko. PyroWave a besoin d'environ %2 Mo, sinon les images arrivent avec des paquets manquants.</translation>
+        <source>Linux limits this PC&apos;s network receive buffer to %1 KB. PyroWave needs about %2 MB, or frames arrive with missing packets.</source>
+        <translation>Linux limite le tampon de réception réseau de ce PC à %1 Ko. PyroWave a besoin d&apos;environ %2 Mo, sinon les images arrivent avec des paquets manquants.</translation>
     </message>
     <message>
         <source>Waiting for authorization…</source>
-        <translation>En attente d'autorisation…</translation>
+        <translation>En attente d&apos;autorisation…</translation>
     </message>
     <message>
         <source>Receive buffer limit raised to %1 MB and saved for future boots. Reconnect any running stream.</source>
@@ -1148,7 +1159,7 @@
     </message>
     <message>
         <source>No password prompt is available here (for example in Gaming Mode). Switch to Desktop Mode, or run the command below in a terminal.</source>
-        <translation>Aucune demande de mot de passe n'est possible ici (par exemple en mode Jeu). Passe en mode Bureau, ou exécute la commande ci-dessous dans un terminal.</translation>
+        <translation>Aucune demande de mot de passe n&apos;est possible ici (par exemple en mode Jeu). Passe en mode Bureau, ou exécute la commande ci-dessous dans un terminal.</translation>
     </message>
     <message>
         <source>The change failed (exit code %1). Run the command below in a terminal instead.</source>
@@ -1156,7 +1167,7 @@
     </message>
     <message>
         <source>Could not start the authorization helper. Run the command below in a terminal instead.</source>
-        <translation>Impossible de lancer l'assistant d'autorisation. Exécute plutôt la commande ci-dessous dans un terminal.</translation>
+        <translation>Impossible de lancer l&apos;assistant d&apos;autorisation. Exécute plutôt la commande ci-dessous dans un terminal.</translation>
     </message>
     <message>
         <source>Receive buffers raised. The adapter restarted; reconnect any running stream.</source>
@@ -1190,7 +1201,7 @@
     </message>
     <message>
         <source>OTP pairing is only available with Apollo servers</source>
-        <translation>L'appairage par OTP n'existe qu'avec un hôte Apollo</translation>
+        <translation>L&apos;appairage par OTP n&apos;existe qu&apos;avec un hôte Apollo</translation>
     </message>
     <message>
         <source>PIN must be exactly 4 digits</source>
@@ -1202,15 +1213,15 @@
     </message>
     <message>
         <source>No response from Apollo server. Please check the server is running and OTP is active.</source>
-        <translation>Pas de réponse du PC hôte. Vérifie que LavApollo tourne et que l'OTP est actif.</translation>
+        <translation>Pas de réponse du PC hôte. Vérifie que LavApollo tourne et que l&apos;OTP est actif.</translation>
     </message>
     <message>
         <source>OTP is not available or has expired. Please generate a new OTP on the Apollo server.</source>
-        <translation>L'OTP n'est pas disponible ou a expiré. Génère un nouvel OTP sur le PC hôte.</translation>
+        <translation>L&apos;OTP n&apos;est pas disponible ou a expiré. Génère un nouvel OTP sur le PC hôte.</translation>
     </message>
     <message>
         <source>Invalid uniqueid format. This may be a configuration issue.</source>
-        <translation>Format d'identifiant invalide. C'est peut-être un problème de configuration.</translation>
+        <translation>Format d&apos;identifiant invalide. C&apos;est peut-être un problème de configuration.</translation>
     </message>
     <message>
         <source>Invalid OTP hash. Please verify the PIN and passphrase match what you entered in Apollo server.</source>
@@ -1226,22 +1237,22 @@
     </message>
     <message>
         <source>Apollo OTP pairing failed: %1</source>
-        <translation>L'appairage par OTP a échoué : %1</translation>
+        <translation>L&apos;appairage par OTP a échoué : %1</translation>
     </message>
     <message>
         <source>OTP pairing request timed out</source>
-        <translation>L'appairage par OTP n'a pas répondu à temps</translation>
+        <translation>L&apos;appairage par OTP n&apos;a pas répondu à temps</translation>
     </message>
 </context>
 <context>
     <name>PendingPairingTask</name>
     <message>
-        <source>The PIN from the PC didn't match. Please try again.</source>
+        <source>The PIN from the PC didn&apos;t match. Please try again.</source>
         <translation>Le code PIN du PC hôte ne correspond pas. Veuillez réessayer.</translation>
     </message>
     <message>
         <source>You cannot pair while a previous session is still running on the host PC. Quit any running games or reboot the host PC, then try pairing again.</source>
-        <translation>Vous ne pouvez pas effectuer de jumelage alors qu'une session précédente est encore en cours sur le PC hôte. Fermez les jeux en cours ou redémarrez le PC hôte, puis essayez à nouveau d'effectuer le jumelage.</translation>
+        <translation>Vous ne pouvez pas effectuer de jumelage alors qu&apos;une session précédente est encore en cours sur le PC hôte. Fermez les jeux en cours ou redémarrez le PC hôte, puis essayez à nouveau d&apos;effectuer le jumelage.</translation>
     </message>
     <message>
         <source>Pairing failed. Please try again.</source>
@@ -1259,8 +1270,8 @@
 <context>
     <name>PendingQuitTask</name>
     <message>
-        <source>The running game wasn't started by this PC. You must quit the game on the host PC manually or use the device that originally started the game.</source>
-        <translation>Le jeu en cours d’exécution n'a pas été démarré par ce PC. Vous devez le fermer manuellement sur le PC hôte ou depuis l'appareil qui l'a démarré.</translation>
+        <source>The running game wasn&apos;t started by this PC. You must quit the game on the host PC manually or use the device that originally started the game.</source>
+        <translation>Le jeu en cours d’exécution n&apos;a pas été démarré par ce PC. Vous devez le fermer manuellement sur le PC hôte ou depuis l&apos;appareil qui l&apos;a démarré.</translation>
     </message>
 </context>
 <context>
@@ -1274,106 +1285,106 @@
     <name>PyroWaveCalibration</name>
     <message>
         <source>%1 Mbit/s</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Test en cours…</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Trop lent</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Confortable</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Juste</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Très juste</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>qualité réduite</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>basse qualité</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>99 % des images se décodent et s'affichent en %1 ms au plus, soit %2 % de chaque image à %3 FPS.</source>
-        <translation type="unfinished" />
+        <source>99 % des images se décodent et s&apos;affichent en %1 ms au plus, soit %2 % de chaque image à %3 FPS.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Baisser le débit ne suffit pas : le stream saccadera ou prendra du retard. Tu peux quand même le choisir.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Une image lente peut sortir un rafraîchissement trop tard, surtout sur un écran à fréquence fixe.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Les images lentes prennent presque toute la période : attends-toi à des saccades, surtout sur un écran à fréquence fixe.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>%1 Mbit/s donnent %2 dB sur l'échelle de qualité de l'auteur du codec, qui recommande %3 Mbit/s (35 dB) pour ce format.</source>
-        <translation type="unfinished" />
+        <source>%1 Mbit/s donnent %2 dB sur l&apos;échelle de qualité de l&apos;auteur du codec, qui recommande %3 Mbit/s (35 dB) pour ce format.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Le débit a été baissé pour que ce PC suive.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Le débit est plafonné par la carte réseau de ce PC.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Calibrage PyroWave — %1 FPS</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Le test de débit est un transfert en bloc ; un vrai stream peut encore subir des pertes. Choisir un format applique sa résolution, ses couleurs (4:4:4) et le débit affiché.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Confortable : 99 % des images prennent au plus 60 % de leur temps, de la marge pour le travail en plus d'un vrai stream.</source>
-        <translation type="unfinished" />
+        <source>Confortable : 99 % des images prennent au plus 60 % de leur temps, de la marge pour le travail en plus d&apos;un vrai stream.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Juste : les images lentes prennent jusqu'à 80 % de leur temps. Une image peut sortir en retard ; un écran VRR le cache mieux.</source>
-        <translation type="unfinished" />
+        <source>Juste : les images lentes prennent jusqu&apos;à 80 % de leur temps. Une image peut sortir en retard ; un écran VRR le cache mieux.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Très juste : les images lentes prennent presque tout leur temps. Quelques saccades à prévoir.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Trop lent : à %1 FPS, plus d'une image sur 100 dépasse son temps. Saccades à prévoir ; reste possible.</source>
-        <translation type="unfinished" />
+        <source>Trop lent : à %1 FPS, plus d&apos;une image sur 100 dépasse son temps. Saccades à prévoir ; reste possible.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Résolution</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Chaque format est testé au débit recommandé par l'auteur du codec. « Qualité réduite » ou « basse qualité » : il a fallu baisser le débit pour que ce PC suive.</source>
-        <translation type="unfinished" />
+        <source>Chaque format est testé au débit recommandé par l&apos;auteur du codec. « Qualité réduite » ou « basse qualité » : il a fallu baisser le débit pour que ce PC suive.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Fermer</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>PyroWaveCalibrator</name>
     <message>
         <source>Could not initialize encoder</source>
-        <translation>Impossible d'initialiser l'encodeur</translation>
+        <translation>Impossible d&apos;initialiser l&apos;encodeur</translation>
     </message>
     <message>
         <source>Could not create renderer surfaces</source>
@@ -1381,19 +1392,19 @@
     </message>
     <message>
         <source>Could not initialize decoder</source>
-        <translation>Impossible d'initialiser le décodeur</translation>
+        <translation>Impossible d&apos;initialiser le décodeur</translation>
     </message>
     <message>
         <source>Could not encode test image</source>
-        <translation>Impossible d'encoder l'image de test</translation>
+        <translation>Impossible d&apos;encoder l&apos;image de test</translation>
     </message>
     <message>
         <source>Could not packetize test image</source>
-        <translation>Impossible de découper l'image de test en paquets</translation>
+        <translation>Impossible de découper l&apos;image de test en paquets</translation>
     </message>
     <message>
         <source>Could not draw the decoded frame</source>
-        <translation>Impossible d'afficher l'image décodée</translation>
+        <translation>Impossible d&apos;afficher l&apos;image décodée</translation>
     </message>
     <message>
         <source>Could not create a GPU renderer for PyroWave calibration</source>
@@ -1401,7 +1412,7 @@
     </message>
     <message>
         <source>Choose a valid frame rate first.</source>
-        <translation>Choisis d'abord un nombre d'images par seconde valide.</translation>
+        <translation>Choisis d&apos;abord un nombre d&apos;images par seconde valide.</translation>
     </message>
     <message>
         <source>Finish the current stream before calibrating.</source>
@@ -1441,7 +1452,7 @@
     </message>
     <message>
         <source>No usable PyroWave bitrate could be recommended.</source>
-        <translation>Aucun débit PyroWave utilisable n'a pu être recommandé.</translation>
+        <translation>Aucun débit PyroWave utilisable n&apos;a pu être recommandé.</translation>
     </message>
     <message>
         <source>%1 → this PC: measured %2 Mbps; host link %3 Mbps; client link %4 Mbps. Video bitrate cap: %5 Mbps. 4K 4:4:4 at %6 FPS: SDR %7, HDR %8 by network capacity.</source>
@@ -1465,7 +1476,7 @@
     </message>
     <message>
         <source>Done. Click a format to use it with the bitrate shown.</source>
-        <translation>Terminé. Clique sur un format pour l'utiliser avec le débit affiché.</translation>
+        <translation>Terminé. Clique sur un format pour l&apos;utiliser avec le débit affiché.</translation>
     </message>
 </context>
 <context>
@@ -1480,19 +1491,19 @@
     </message>
     <message>
         <source>Computer %1 has not been paired. Please open Moonlight to pair before streaming.</source>
-        <translation>L'ordinateur %1 n'a pas été couplé. Veuillez ouvrir Moonlight pour le coupler avant de streamer.</translation>
+        <translation>L&apos;ordinateur %1 n&apos;a pas été couplé. Veuillez ouvrir Moonlight pour le coupler avant de streamer.</translation>
     </message>
     <message>
         <source>Quitting app failed, reason: %1</source>
-        <translation>La fermeture de l'application a échoué, raison : %1</translation>
+        <translation>La fermeture de l&apos;application a échoué, raison : %1</translation>
     </message>
     <message>
         <source>Failed to find application %1</source>
-        <translation>L'application %1 n'a pas été trouvée</translation>
+        <translation>L&apos;application %1 n&apos;a pas été trouvée</translation>
     </message>
     <message>
         <source>Computer %1 has not been paired. Please open Moonlight to pair before retrieving games list.</source>
-        <translation>L'ordinateur %1 n'a pas été couplé. Veuillez ouvrir Moonlight pour coupler avant de récupérer la liste des jeux.</translation>
+        <translation>L&apos;ordinateur %1 n&apos;a pas été couplé. Veuillez ouvrir Moonlight pour coupler avant de récupérer la liste des jeux.</translation>
     </message>
     <message>
         <source>No host was specified.</source>
@@ -1504,7 +1515,7 @@
     </message>
     <message>
         <source>%1 is not a valid art:// link.</source>
-        <translation>%1 n'est pas un lien art:// valide.</translation>
+        <translation>%1 n&apos;est pas un lien art:// valide.</translation>
     </message>
     <message>
         <source>%1 does not name a host.</source>
@@ -1512,7 +1523,7 @@
     </message>
     <message>
         <source>%1 is a pairing link but carries no PIN.</source>
-        <translation>%1 est un lien d'appairage mais ne contient pas de code PIN.</translation>
+        <translation>%1 est un lien d&apos;appairage mais ne contient pas de code PIN.</translation>
     </message>
     <message>
         <source>Unable to read %1.</source>
@@ -1520,7 +1531,7 @@
     </message>
     <message>
         <source>%1 is not a valid .art file.</source>
-        <translation>%1 n'est pas un fichier .art valide.</translation>
+        <translation>%1 n&apos;est pas un fichier .art valide.</translation>
     </message>
 </context>
 <context>
@@ -1570,11 +1581,11 @@
     </message>
     <message>
         <source>Quitter %1</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Retour à Playnite, le stream continue</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Disconnect</source>
@@ -1646,7 +1657,7 @@
     </message>
     <message>
         <source>Stop or resume sending your microphone (Ctrl+Alt+Shift+U)</source>
-        <translation>Arrêter ou reprendre l'envoi de ton micro (Ctrl+Alt+Shift+U)</translation>
+        <translation>Arrêter ou reprendre l&apos;envoi de ton micro (Ctrl+Alt+Shift+U)</translation>
     </message>
     <message>
         <source>Toggle Fullscreen</source>
@@ -1725,11 +1736,11 @@
     <name>QuickMenuManager</name>
     <message>
         <source>Fermeture du jeu, retour à Playnite…</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Impossible de fermer le jeu dans Playnite</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Server commands not available</source>
@@ -1747,7 +1758,7 @@
     <name>SdlGamepadMapper</name>
     <message>
         <source>A</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Press the bottom face button (A / Cross)</source>
@@ -1755,7 +1766,7 @@
     </message>
     <message>
         <source>B</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Press the right face button (B / Circle)</source>
@@ -1763,7 +1774,7 @@
     </message>
     <message>
         <source>X</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Press the left face button (X / Square)</source>
@@ -1771,7 +1782,7 @@
     </message>
     <message>
         <source>Y</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Press the top face button (Y / Triangle)</source>
@@ -1779,7 +1790,7 @@
     </message>
     <message>
         <source>LB</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Press the left shoulder button (LB / L1)</source>
@@ -1787,7 +1798,7 @@
     </message>
     <message>
         <source>RB</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Press the right shoulder button (RB / R1)</source>
@@ -1795,7 +1806,7 @@
     </message>
     <message>
         <source>LT</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Pull the left trigger (LT / L2) all the way</source>
@@ -1803,7 +1814,7 @@
     </message>
     <message>
         <source>RT</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Pull the right trigger (RT / R2) all the way</source>
@@ -1827,7 +1838,7 @@
     </message>
     <message>
         <source>Guide</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Press the Guide / Home button</source>
@@ -1835,7 +1846,7 @@
     </message>
     <message>
         <source>L3</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Press the left stick in</source>
@@ -1843,7 +1854,7 @@
     </message>
     <message>
         <source>R3</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Press the right stick in</source>
@@ -1965,11 +1976,11 @@
     <name>ServerPermissions</name>
     <message>
         <source>INPUT CAPABILITIES</source>
-        <translation>CAPACITÉS D'ENTRÉE</translation>
+        <translation>CAPACITÉS D&apos;ENTRÉE</translation>
     </message>
     <message>
         <source>─────────────────</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>SYSTEM CAPABILITIES</source>
@@ -1977,7 +1988,7 @@
     </message>
     <message>
         <source>──────────────────</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>APP MANAGEMENT</source>
@@ -1985,38 +1996,38 @@
     </message>
     <message>
         <source>─────────────</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>Session</name>
     <message>
         <source>No video received from host.</source>
-        <translation>Aucune vidéo reçue de l'hôte.</translation>
+        <translation>Aucune vidéo reçue de l&apos;hôte.</translation>
     </message>
     <message>
         <source>Check your firewall and port forwarding rules for port(s): %1</source>
         <translation>Vérifiez votre pare-feu et vos règles de redirection de port pour le(s) port(s) : %1</translation>
     </message>
     <message>
-        <source>Your network connection isn't performing well. Reduce your video bitrate setting or try a faster connection.</source>
+        <source>Your network connection isn&apos;t performing well. Reduce your video bitrate setting or try a faster connection.</source>
         <translation>Votre connexion réseau ne fonctionne pas très bien. Réduisez votre débit vidéo ou essayez une connexion plus rapide.</translation>
     </message>
     <message>
         <source>Something went wrong on your host PC when starting the stream.</source>
-        <translation>Quelque chose s'est mal passé sur votre PC hôte lors du lancement du streaming.</translation>
+        <translation>Quelque chose s&apos;est mal passé sur votre PC hôte lors du lancement du streaming.</translation>
     </message>
     <message>
-        <source>Make sure you don't have any DRM-protected content open on your host PC. You can also try restarting your host PC.</source>
-        <translation>Vérifiez que vous n'avez pas de contenu protégé par DRM ouvert sur votre PC hôte. Vous pouvez également essayer de redémarrer le PC hôte.</translation>
+        <source>Make sure you don&apos;t have any DRM-protected content open on your host PC. You can also try restarting your host PC.</source>
+        <translation>Vérifiez que vous n&apos;avez pas de contenu protégé par DRM ouvert sur votre PC hôte. Vous pouvez également essayer de redémarrer le PC hôte.</translation>
     </message>
     <message>
         <source>The host PC reported a fatal video encoding error.</source>
-        <translation>Le PC hôte a signalé une erreur fatale de l'encodage vidéo.</translation>
+        <translation>Le PC hôte a signalé une erreur fatale de l&apos;encodage vidéo.</translation>
     </message>
     <message>
-        <source>Try disabling HDR mode, changing the streaming resolution, or changing your host PC's display resolution.</source>
-        <translation>Essayez de désactiver le mode HDR, de modifier la résolution du stream, ou de modifier la résolution d'affichage de votre PC hôte.</translation>
+        <source>Try disabling HDR mode, changing the streaming resolution, or changing your host PC&apos;s display resolution.</source>
+        <translation>Essayez de désactiver le mode HDR, de modifier la résolution du stream, ou de modifier la résolution d&apos;affichage de votre PC hôte.</translation>
     </message>
     <message>
         <source>Connection terminated</source>
@@ -2024,7 +2035,7 @@
     </message>
     <message>
         <source>Error code: %1</source>
-        <translation>Code d'erreur : %1</translation>
+        <translation>Code d&apos;erreur&#x202f;: %1</translation>
     </message>
     <message>
         <source>Your selection to enable remote desktop mouse mode may cause problems in games.</source>
@@ -2035,44 +2046,44 @@
         <translation>Vos réglages pour forcer le décodage logiciel peuvent causer de mauvaises performances.</translation>
     </message>
     <message>
-        <source>Your host PC doesn't support encoding HEVC.</source>
-        <translation>Votre PC hôte ne prend pas en charge l'encodage HEVC.</translation>
+        <source>Your host PC doesn&apos;t support encoding HEVC.</source>
+        <translation>Votre PC hôte ne prend pas en charge l&apos;encodage HEVC.</translation>
     </message>
     <message>
         <source>Using software decoding due to your selection to force HEVC without GPU support. This may cause poor streaming performance.</source>
         <translation>Utilisation du décodage logiciel dû à votre sélection pour forcer le codec HEVC sans support GPU. Ceci peut causer des problèmes de performances.</translation>
     </message>
     <message>
-        <source>Your host software or GPU doesn't support encoding AV1.</source>
-        <translation>Votre logiciel hôte ou GPU ne prend pas en charge l'encodage du AV1.</translation>
+        <source>Your host software or GPU doesn&apos;t support encoding AV1.</source>
+        <translation>Votre logiciel hôte ou GPU ne prend pas en charge l&apos;encodage du AV1.</translation>
     </message>
     <message>
         <source>Using software decoding due to your selection to force AV1 without GPU support. This may cause poor streaming performance.</source>
-        <translation>Utilisation du décodage logiciel en raison de votre sélection de forcer l'utilisation du codec AV1 sans prise en charge GPU. Ceci peut causer des problèmes de performances.</translation>
+        <translation>Utilisation du décodage logiciel en raison de votre sélection de forcer l&apos;utilisation du codec AV1 sans prise en charge GPU. Ceci peut causer des problèmes de performances.</translation>
     </message>
     <message>
-        <source>Your host PC doesn't support HDR streaming.</source>
+        <source>Your host PC doesn&apos;t support HDR streaming.</source>
         <translation>Votre PC hôte ne prend pas en charge le streaming HDR.</translation>
     </message>
     <message>
         <source>HDR is not supported using the H.264 codec.</source>
-        <translation>HDR n'est pas pris en charge avec le codec H.264.</translation>
+        <translation>HDR n&apos;est pas pris en charge avec le codec H.264.</translation>
     </message>
     <message>
-        <source>This PC's GPU doesn't support AV1 Main10 decoding for HDR streaming.</source>
+        <source>This PC&apos;s GPU doesn&apos;t support AV1 Main10 decoding for HDR streaming.</source>
         <translation>Le GPU de ce PC ne prend pas en charge le décodage AV1 Main 10 pour le streaming HDR.</translation>
     </message>
     <message>
-        <source>This PC's GPU doesn't support 10-bit HEVC or AV1 decoding for HDR streaming.</source>
+        <source>This PC&apos;s GPU doesn&apos;t support 10-bit HEVC or AV1 decoding for HDR streaming.</source>
         <translation>Le GPU de ce PC ne prend pas en charge le décodage HEVC ou AV1 10 bits pour le streaming HDR.</translation>
     </message>
     <message>
-        <source>Your host PC and client PC don't support the same HDR video codecs.</source>
+        <source>Your host PC and client PC don&apos;t support the same HDR video codecs.</source>
         <translation>Votre PC hôte et votre PC client ne prennent pas en charge les mêmes codecs vidéo HDR.</translation>
     </message>
     <message>
-        <source>An attached gamepad has no mapping and won't be usable. Set it up in Settings, Gamepads, Set up a gamepad.</source>
-        <translation>Une manette branchée n'a pas de disposition et ne sera pas utilisable. Configure-la dans Réglages › Manettes › Configurer une manette.</translation>
+        <source>An attached gamepad has no mapping and won&apos;t be usable. Set it up in Settings, Gamepads, Set up a gamepad.</source>
+        <translation>Une manette branchée n&apos;a pas de disposition et ne sera pas utilisable. Configure-la dans Réglages › Manettes › Configurer une manette.</translation>
     </message>
     <message>
         <source>Video resolutions over 4K are not supported by the H.264 codec.</source>
@@ -2080,11 +2091,11 @@
     </message>
     <message>
         <source>Host returned error: %1</source>
-        <translation>L'hôte a renvoyé une erreur : %1</translation>
+        <translation>L&apos;hôte a renvoyé une erreur : %1</translation>
     </message>
     <message>
         <source>Using software decoding due to your selection to force H.264 without GPU support. This may cause poor streaming performance.</source>
-        <translation>Le décodage logiciel est utilisé car vous voulez forcer l'utilisation du H.264 sans support matériel du GPU. Ceci peut causer des problèmes de performances.</translation>
+        <translation>Le décodage logiciel est utilisé car vous voulez forcer l&apos;utilisation du H.264 sans support matériel du GPU. Ceci peut causer des problèmes de performances.</translation>
     </message>
     <message>
         <source>warming up</source>
@@ -2092,7 +2103,10 @@
     </message>
     <message numerus="yes">
         <source>%n s left</source>
-        <translation><numerusform>%n s restante(s)</numerusform><numerusform>%n s restante(s)</numerusform></translation>
+        <translation>
+            <numerusform>%n s restante(s)</numerusform>
+            <numerusform>%n s restante(s)</numerusform>
+        </translation>
     </message>
     <message>
         <source>Benchmark: %1 (%2)</source>
@@ -2100,70 +2114,70 @@
     </message>
     <message>
         <source>VRR was skipped because the stream spans several monitors.</source>
-        <translation>Le VRR n'a pas été utilisé car le stream couvre plusieurs écrans.</translation>
+        <translation>Le VRR n&apos;a pas été utilisé car le stream couvre plusieurs écrans.</translation>
     </message>
     <message>
         <source>Multi-display streaming was skipped because resolution scaling is enabled.</source>
-        <translation>Le stream multi-écran n'a pas été utilisé car la mise à l'échelle de la résolution est activée.</translation>
+        <translation>Le stream multi-écran n&apos;a pas été utilisé car la mise à l&apos;échelle de la résolution est activée.</translation>
     </message>
     <message>
-        <source>This host doesn't support separate displays, so all your monitors will appear as one large display.</source>
+        <source>This host doesn&apos;t support separate displays, so all your monitors will appear as one large display.</source>
         <translation>Ce PC hôte ne gère pas les écrans séparés : tous tes écrans apparaîtront comme un seul grand écran.</translation>
     </message>
     <message>
         <source>Your displays use different scaling levels, so the picture may be resampled on some of them. Setting them all to the same scaling gives a sharper result.</source>
-        <translation>Tes écrans n'ont pas tous la même mise à l'échelle : l'image peut être rééchantillonnée sur certains. Leur donner à tous la même mise à l'échelle rend l'image plus nette.</translation>
+        <translation>Tes écrans n&apos;ont pas tous la même mise à l&apos;échelle : l&apos;image peut être rééchantillonnée sur certains. Leur donner à tous la même mise à l&apos;échelle rend l&apos;image plus nette.</translation>
     </message>
     <message>
         <source>Multi-display streaming was skipped: %1</source>
-        <translation>Le stream multi-écran n'a pas été utilisé : %1</translation>
+        <translation>Le stream multi-écran n&apos;a pas été utilisé : %1</translation>
     </message>
     <message>
         <source>Multi-display streaming was skipped: only one display was found on this PC.</source>
-        <translation>Le stream multi-écran n'a pas été utilisé : un seul écran a été trouvé sur ce PC.</translation>
+        <translation>Le stream multi-écran n&apos;a pas été utilisé : un seul écran a été trouvé sur ce PC.</translation>
     </message>
     <message>
         <source>The host software on %1 is not supported by this version of LavArtemis. Update LavArtemis to stream from %1.</source>
-        <translation>Le logiciel hôte de %1 n'est pas pris en charge par cette version de LavArtemis. Mets LavArtemis à jour pour streamer depuis %1.</translation>
+        <translation>Le logiciel hôte de %1 n&apos;est pas pris en charge par cette version de LavArtemis. Mets LavArtemis à jour pour streamer depuis %1.</translation>
     </message>
     <message>
-        <source>Your microphone won't be sent: microphone passthrough is turned off on the host (LavApollo, Audio/Video settings).</source>
+        <source>Your microphone won&apos;t be sent: microphone passthrough is turned off on the host (LavApollo, Audio/Video settings).</source>
         <translation>Ton micro ne sera pas envoyé : le passthrough du micro est désactivé sur le PC hôte (LavApollo, réglages Audio/Video).</translation>
     </message>
     <message>
-        <source>Your microphone won't be sent: the host hasn't given this device the Microphone permission (LavApollo, Clients).</source>
-        <translation>Ton micro ne sera pas envoyé : le PC hôte n'a pas donné à cet appareil la permission Microphone (LavApollo, Clients).</translation>
+        <source>Your microphone won&apos;t be sent: the host hasn&apos;t given this device the Microphone permission (LavApollo, Clients).</source>
+        <translation>Ton micro ne sera pas envoyé : le PC hôte n&apos;a pas donné à cet appareil la permission Microphone (LavApollo, Clients).</translation>
     </message>
     <message>
-        <source>Your microphone won't be sent: the host has no virtual microphone. Installing Steam on the host provides one, or pick another in LavApollo's Audio/Video settings.</source>
-        <translation>Ton micro ne sera pas envoyé : le PC hôte n'a pas de micro virtuel. Installer Steam sur le PC hôte en fournit un, sinon choisis-en un autre dans les réglages Audio/Video de LavApollo.</translation>
+        <source>Your microphone won&apos;t be sent: the host has no virtual microphone. Installing Steam on the host provides one, or pick another in LavApollo&apos;s Audio/Video settings.</source>
+        <translation>Ton micro ne sera pas envoyé : le PC hôte n&apos;a pas de micro virtuel. Installer Steam sur le PC hôte en fournit un, sinon choisis-en un autre dans les réglages Audio/Video de LavApollo.</translation>
     </message>
     <message>
-        <source>Your microphone won't be sent: this host doesn't support microphone passthrough. It needs LavApollo 2.2 or later.</source>
+        <source>Your microphone won&apos;t be sent: this host doesn&apos;t support microphone passthrough. It needs LavApollo 2.2 or later.</source>
         <translation>Ton micro ne sera pas envoyé : ce PC hôte ne gère pas le passthrough du micro. Il faut LavApollo 2.2 ou plus récent.</translation>
     </message>
     <message>
-        <source>Your host PC doesn't support PyroWave. Using H.264 instead.</source>
+        <source>Your host PC doesn&apos;t support PyroWave. Using H.264 instead.</source>
         <translation>Ton PC hôte ne gère pas PyroWave. Passage en H.264.</translation>
     </message>
     <message>
-        <source>This PC's GPU driver can't decode PyroWave. Using H.264 instead.</source>
+        <source>This PC&apos;s GPU driver can&apos;t decode PyroWave. Using H.264 instead.</source>
         <translation>Le pilote GPU de ce PC ne sait pas décoder PyroWave. Passage en H.264.</translation>
     </message>
     <message>
-        <source>PyroWave is set to %1 Mbps, but the host's %2 Mbps wired link leaves room for only about %3 Mbps of video. Lower the bitrate or run calibration.</source>
+        <source>PyroWave is set to %1 Mbps, but the host&apos;s %2 Mbps wired link leaves room for only about %3 Mbps of video. Lower the bitrate or run calibration.</source>
         <translation>PyroWave est réglé sur %1 Mbit/s, mais le lien filaire à %2 Mbit/s du PC hôte ne laisse de place que pour environ %3 Mbit/s de vidéo. Baisse le débit ou lance le calibrage.</translation>
     </message>
     <message>
-        <source>PyroWave is set to %1 Mbps, but this PC's %2 Mbps wired link leaves room for only about %3 Mbps of video. Lower the bitrate or run calibration.</source>
+        <source>PyroWave is set to %1 Mbps, but this PC&apos;s %2 Mbps wired link leaves room for only about %3 Mbps of video. Lower the bitrate or run calibration.</source>
         <translation>PyroWave est réglé sur %1 Mbit/s, mais le lien filaire à %2 Mbit/s de ce PC ne laisse de place que pour environ %3 Mbit/s de vidéo. Baisse le débit ou lance le calibrage.</translation>
     </message>
     <message>
-        <source>Your host PC and client PC don't support the same video codecs. This may cause poor streaming performance.</source>
+        <source>Your host PC and client PC don&apos;t support the same video codecs. This may cause poor streaming performance.</source>
         <translation>Votre PC hôte et PC client ne supportent pas les mêmes codecs vidéo. Ceci peut causer des problèmes de performance.</translation>
     </message>
     <message>
-        <source>Your client GPU doesn't support H.264 decoding. This may cause poor streaming performance.</source>
+        <source>Your client GPU doesn&apos;t support H.264 decoding. This may cause poor streaming performance.</source>
         <translation>Le GPU de votre client ne supporte pas le décodage matériel du H.264. Ceci peut causer des problèmes de performance.</translation>
     </message>
     <message>
@@ -2171,15 +2185,15 @@
         <translation>Utilisation du décodage logiciel dû à votre sélection de forcer le HDR sans support GPU. Ceci peut causer des problèmes de performances.</translation>
     </message>
     <message>
-        <source>This PC's GPU doesn't support HEVC Main10 decoding for HDR streaming.</source>
+        <source>This PC&apos;s GPU doesn&apos;t support HEVC Main10 decoding for HDR streaming.</source>
         <translation>Le GPU de ce PC ne prend pas en charge le décodage du HEVC Main10 pour le streaming HDR.</translation>
     </message>
     <message>
-        <source>Your host PC doesn't support YUV 4:4:4 streaming.</source>
+        <source>Your host PC doesn&apos;t support YUV 4:4:4 streaming.</source>
         <translation>Votre PC hôte ne supporte pas le streaming en YUV 4:4:4.</translation>
     </message>
     <message>
-        <source>Your host PC doesn't support YUV 4:4:4 streaming for selected video codec.</source>
+        <source>Your host PC doesn&apos;t support YUV 4:4:4 streaming for selected video codec.</source>
         <translation>Votre PC hôte ne supporte pas le streaming en YUV 4:4:4 pour le codec sélectionné.</translation>
     </message>
     <message>
@@ -2187,7 +2201,7 @@
         <translation>Utilisation du décodage logiciel dû à votre sélection pour forcer le YUV 4:4:4 sans support GPU. Ceci peut causer des problèmes de performances.</translation>
     </message>
     <message>
-        <source>This PC's GPU doesn't support YUV 4:4:4 decoding for selected video codec.</source>
+        <source>This PC&apos;s GPU doesn&apos;t support YUV 4:4:4 decoding for selected video codec.</source>
         <translation>Le GPU de ce PC ne supporte pas le décodage YUV 4:4:4 pour le codec sélectionné.</translation>
     </message>
     <message>
@@ -2196,26 +2210,26 @@
     </message>
     <message>
         <source>Your selected surround sound setting is not supported by the current audio device.</source>
-        <translation>Le réglage du son surround que vous avez sélectionné n'est pas pris en charge par le périphérique audio actuel.</translation>
+        <translation>Le réglage du son surround que vous avez sélectionné n&apos;est pas pris en charge par le périphérique audio actuel.</translation>
     </message>
     <message>
         <source>Failed to open audio device. Audio will be unavailable during this session.</source>
-        <translation>L'ouverture de l'appareil audio à échoué. L'audio ne sera pas disponible pendant cette session.</translation>
+        <translation>L&apos;ouverture de l&apos;appareil audio à échoué. L&apos;audio ne sera pas disponible pendant cette session.</translation>
     </message>
     <message>
         <source>Guessed a button layout for %1. If the controls are wrong, remap it in the gamepad mapper.</source>
-        <translation>Disposition des boutons devinée pour %1. Si les contrôles sont faux, refais son mapping dans l'outil de mapping des manettes.</translation>
+        <translation>Disposition des boutons devinée pour %1. Si les contrôles sont faux, refais son mapping dans l&apos;outil de mapping des manettes.</translation>
     </message>
     <message>
-        <source>Your host PC's GPU doesn't support streaming video resolutions over 4K.</source>
+        <source>Your host PC&apos;s GPU doesn&apos;t support streaming video resolutions over 4K.</source>
         <translation>Le GPU de votre PC hôte ne prend pas en charge le streaming dans des résolutions supérieures à la 4K.</translation>
     </message>
     <message>
-        <source>Your selection to force hardware decoding cannot be satisfied due to missing hardware decoding support on this PC's GPU.</source>
-        <translation>Impossible de forcer l'utilisation du décodage matériel car le GPU de cet ordinateur ne supporte pas le décodage matériel.</translation>
+        <source>Your selection to force hardware decoding cannot be satisfied due to missing hardware decoding support on this PC&apos;s GPU.</source>
+        <translation>Impossible de forcer l&apos;utilisation du décodage matériel car le GPU de cet ordinateur ne supporte pas le décodage matériel.</translation>
     </message>
     <message>
-        <source>Your codec selection and force hardware decoding setting are not compatible. This PC's GPU lacks support for decoding your chosen codec.</source>
+        <source>Your codec selection and force hardware decoding setting are not compatible. This PC&apos;s GPU lacks support for decoding your chosen codec.</source>
         <translation>Votre sélection de codecs et le réglage du décodage matériel ne sont pas compatibles. Le GPU de ce PC ne prend pas en charge le décodage du codec que vous avez choisi.</translation>
     </message>
     <message>
@@ -2224,829 +2238,829 @@
     </message>
     <message>
         <source>Recording folder: %1. Disconnect before exporting.</source>
-        <translation>Dossier d'enregistrement : %1. Déconnecte-toi avant d'exporter.</translation>
+        <translation>Dossier d&apos;enregistrement : %1. Déconnecte-toi avant d&apos;exporter.</translation>
     </message>
     <message>
         <source>Unable to initialize video decoder. Please check your streaming settings and try again.</source>
-        <translation>Impossible d'initialiser le décodeur vidéo. Veuillez vérifier vos paramètres de streaming et réessayez.</translation>
+        <translation>Impossible d&apos;initialiser le décodeur vidéo. Veuillez vérifier vos paramètres de streaming et réessayez.</translation>
     </message>
 </context>
 <context>
     <name>SettingRow</name>
     <message>
         <source>EXPERT</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>SettingsView2</name>
     <message>
         <source>Réglages</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Profil</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Affichage</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Vidéo</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Audio</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Entrées</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Manettes</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Apparence</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>PC</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Raccourcis clavier</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Avancé</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Natif</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Natif sans encoche</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Personnalisée…</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Autre…</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Plein écran</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Sans bordure</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Fenêtre</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Auto</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Automatique</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Réglages globaux (aucun profil)</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Micro par défaut du système</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>La version %1 est disponible.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>LavArtemis %1 est à jour.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>La vérification a échoué : %1</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Mode expert</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Affiche les réglages avancés</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Profil actif</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Gérer les profils</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Un nouveau profil part des réglages en cours.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Nouveau</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Renommer</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Supprimer</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Résolution</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Plus haute, l'image est plus nette, mais le PC distant et le réseau travaillent plus.</source>
-        <translation type="unfinished" />
+        <source>Plus haute, l&apos;image est plus nette, mais le PC distant et le réseau travaillent plus.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Images par seconde</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Idéalement la fréquence de ton écran.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Affichage du stream</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>La VRR impose « Sans bordure » ; ton choix revient pour les sessions sans VRR.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Recommandé ici : %1. « Sans bordure » facilite Alt+Tab et les captures d'écran.</source>
-        <translation type="unfinished" />
+        <source>Recommandé ici : %1. « Sans bordure » facilite Alt+Tab et les captures d&apos;écran.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Synchronisation verticale (V-Sync)</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Évite les déchirures d'image ; la couper réduit un peu la latence.</source>
-        <translation type="unfinished" />
+        <source>Évite les déchirures d&apos;image ; la couper réduit un peu la latence.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Régularité des images (frame pacing)</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Retient les images arrivées trop tôt pour éviter les micro-saccades.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Nécessite la V-Sync.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Fréquence variable (VRR, G-Sync / FreeSync)</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ignorée tant que « Un écran virtuel par moniteur » est actif : le stream couvre plusieurs moniteurs.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Affiche chaque image dès son arrivée, en plein écran sans bordure. L'hôte capture à l'instant près.</source>
-        <translation type="unfinished" />
+        <source>Affiche chaque image dès son arrivée, en plein écran sans bordure. L&apos;hôte capture à l&apos;instant près.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Marge du VRR</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Délai minimal ; plus de saccades si le réseau est irrégulier (jusqu'à 1 image de réserve).</source>
-        <translation type="unfinished" />
+        <source>Délai minimal ; plus de saccades si le réseau est irrégulier (jusqu&apos;à 1 image de réserve).</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Mouvement plus régulier, un peu plus de latence (jusqu'à 4 images de réserve).</source>
-        <translation type="unfinished" />
+        <source>Mouvement plus régulier, un peu plus de latence (jusqu&apos;à 4 images de réserve).</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Compromis entre fluidité et latence (jusqu'à 2 images de réserve).</source>
-        <translation type="unfinished" />
+        <source>Compromis entre fluidité et latence (jusqu&apos;à 2 images de réserve).</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Effet à la prochaine connexion.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Faible latence</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Équilibrée</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Fluide</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Lisser la cadence (VRR)</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Régularise l'affichage quand les FPS du jeu ne collent pas à l'écran du PC distant. Effet à la prochaine connexion.</source>
-        <translation type="unfinished" />
+        <source>Régularise l&apos;affichage quand les FPS du jeu ne collent pas à l&apos;écran du PC distant. Effet à la prochaine connexion.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Écran virtuel</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Le PC distant crée un écran à la taille de celui-ci (Apollo / LavApollo).</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Un écran virtuel par moniteur</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Recrée tous tes moniteurs sur le PC distant, chacun réaffiché sur le sien.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Nécessite l'écran virtuel.</source>
-        <translation type="unfinished" />
+        <source>Nécessite l&apos;écran virtuel.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Garder l'écran allumé pendant le stream</source>
-        <translation type="unfinished" />
+        <source>Garder l&apos;écran allumé pendant le stream</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Empêche la veille et l'économiseur d'écran de ce PC pendant le stream.</source>
-        <translation type="unfinished" />
+        <source>Empêche la veille et l&apos;économiseur d&apos;écran de ce PC pendant le stream.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Débit vidéo</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Baisse-le si le réseau est lent, monte-le pour une image plus nette.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>%1 Mbit/s</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Revenir au débit recommandé</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>%1 Mbit/s pour cette résolution et ces images par seconde, ajusté ensuite automatiquement.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Rétablir</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Format vidéo (codec)</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>PyroWave : réseau filaire avec des centaines de Mbit/s et un hôte LavApollo, sinon H.264.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>« Auto » choisit le meilleur format que ce PC sait décoder.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Agrandir le tampon réseau (PyroWave)</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Corriger</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Copier la commande</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Calibrer PyroWave</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Mesure le réseau depuis le PC choisi, puis le débit que ce PC décode et affiche sans à-coups. Environ deux minutes.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Calibrer</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Couleurs complètes (4:4:4)</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Texte plus net sur le bureau ; déconseillé pour les jeux rapides.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Décodage vidéo</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Laisse « Auto », sauf souci avec le décodeur de ce PC.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Logiciel</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Matériel</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Un micro branché après coup apparaît dès que tu rouvres la liste.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Plus bas, moins de latence ; plus haut, moins de craquements sur un réseau instable. Effet à la prochaine connexion.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Copier ici, coller là-bas, et inversement, pendant le stream (Apollo / LavApollo). Le menu en jeu envoie ou récupère aussi le presse-papiers à la demande.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Signale au lancement les réglages que ce PC ou le PC distant ne peut pas appliquer. Micro, multi-écran, VRR, PyroWave et manettes devinées sont toujours signalés.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Traces dans le dossier « vrr-diagnostics » de l'appli, dès la prochaine connexion. Prend de la place : à couper après.</source>
-        <translation type="unfinished" />
+        <source>Traces dans le dossier « vrr-diagnostics » de l&apos;appli, dès la prochaine connexion. Prend de la place : à couper après.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Le dossier « vrr-diagnostics » de l'appli.</source>
-        <translation type="unfinished" />
+        <source>Le dossier « vrr-diagnostics » de l&apos;appli.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Images par seconde personnalisées</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>De 10 à 500, avec deux décimales au plus (59,94 par exemple).</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Débloquer la limite de débit</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Un jeu de réglages de stream par usage, par exemple à la maison et à distance. Ce qui tient à ce PC reste commun : langue, apparence, micro et tampon audio, presse-papiers, recherche des PC, mises à jour.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Jusqu'à 500 Mbit/s, à réserver au réseau filaire.</source>
-        <translation type="unfinished" />
+        <source>Jusqu&apos;à 500 Mbit/s, à réserver au réseau filaire.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Statistiques à l'écran pendant le stream</source>
-        <translation type="unfinished" />
+        <source>Statistiques à l&apos;écran pendant le stream</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>FPS, latence et décodage en surimpression. Ctrl+Alt+Maj+S les affiche ou les masque en jeu.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Canaux audio</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ce que ton casque ou tes enceintes savent restituer.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Stéréo</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Couper le son du PC distant</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Le son ne sort que d'ici. Relance le jeu en cours pour que ça s'applique.</source>
-        <translation type="unfinished" />
+        <source>Le son ne sort que d&apos;ici. Relance le jeu en cours pour que ça s&apos;applique.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Couper le son quand la fenêtre n'est pas au premier plan</source>
-        <translation type="unfinished" />
+        <source>Couper le son quand la fenêtre n&apos;est pas au premier plan</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Silence dès que tu passes sur une autre fenêtre (Alt+Tab).</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Envoyer mon micro au PC distant</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Pour le chat vocal (LavApollo 2.2 ou plus). Prends un casque ; Ctrl+Alt+Maj+U le coupe en jeu.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Micro utilisé</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Tampon audio</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>%1 ms</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Souris pour le bureau à distance</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Curseur libre, sans capture : idéal pour le bureau, pas pour les jeux. Ctrl+Alt+Maj+M en stream.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Envoyer les raccourcis système au PC distant</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Alt+Tab, touche Windows… partent au PC distant (pas Ctrl+Alt+Suppr).</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Non</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>En plein écran</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Toujours</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Écran tactile en pavé tactile</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Le doigt déplace le curseur comme sur un trackpad, au lieu de pointer directement.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Configurer une manette</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Pour une manette que LavArtemis ne reconnaît pas, ou un bouton mal placé : on clique le contrôle sur le schéma, puis on l'actionne.</source>
-        <translation type="unfinished" />
+        <source>Pour une manette que LavArtemis ne reconnaît pas, ou un bouton mal placé : on clique le contrôle sur le schéma, puis on l&apos;actionne.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ouvrir</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Inverser A/B et X/Y</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Disposition des boutons façon Nintendo.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Toujours brancher une manette sur le PC distant</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Pour les jeux qui ne voient pas une manette branchée après leur lancement.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Manette active en arrière-plan</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>La manette reste prise en compte quand LavArtemis n'est pas au premier plan.</source>
-        <translation type="unfinished" />
+        <source>La manette reste prise en compte quand LavArtemis n&apos;est pas au premier plan.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Deviner la disposition des manettes inconnues</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Une manette non reconnue reçoit une disposition devinée au lieu d'être ignorée.</source>
-        <translation type="unfinished" />
+        <source>Une manette non reconnue reçoit une disposition devinée au lieu d&apos;être ignorée.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Thème</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Couleurs, formes et polices de toute l'appli.</source>
-        <translation type="unfinished" />
+        <source>Couleurs, formes et polices de toute l&apos;appli.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Clair ou sombre</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>« Système » suit le mode clair ou sombre de Windows, en direct.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Langue</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Langue de l'appli ; la nouvelle interface est en français.</source>
-        <translation type="unfinished" />
+        <source>Langue de l&apos;appli ; la nouvelle interface est en français.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Redémarre LavArtemis pour appliquer la langue.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Fenêtre de l'appli au démarrage</source>
-        <translation type="unfinished" />
+        <source>Fenêtre de l&apos;appli au démarrage</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Comment LavArtemis s'ouvre, hors stream.</source>
-        <translation type="unfinished" />
+        <source>Comment LavArtemis s&apos;ouvre, hors stream.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Agrandie</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Quitter l'appli sur le PC distant à la fin</source>
-        <translation type="unfinished" />
+        <source>Quitter l&apos;appli sur le PC distant à la fin</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ferme le jeu quand tu arrêtes le stream : la progression non sauvegardée est perdue.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Synchroniser le presse-papiers</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Taille maximale</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Au-delà, le contenu copié n'est pas synchronisé.</source>
-        <translation type="unfinished" />
+        <source>Au-delà, le contenu copié n&apos;est pas synchronisé.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>%1 Mo</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Notifier chaque synchronisation</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Une notification à chaque contenu synchronisé.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Trouver les PC sur le réseau local</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Détecte tout seul les PC du réseau (recommandé).</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Détecter les connexions bloquées</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Prévient quand un pare-feu ou le réseau bloque le stream (recommandé).</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Menu en jeu</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ouvre ou ferme le menu pendant le stream.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Quitter le stream</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>L'appli continue sur le PC distant.</source>
-        <translation type="unfinished" />
+        <source>L&apos;appli continue sur le PC distant.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Quitter le stream et l'appli</source>
-        <translation type="unfinished" />
+        <source>Quitter le stream et l&apos;appli</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Ferme aussi l'appli sur le PC distant.</source>
-        <translation type="unfinished" />
+        <source>Ferme aussi l&apos;appli sur le PC distant.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Libérer la souris et le clavier</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Rend le pointeur à ton PC.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Plein écran / fenêtre</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Bascule l'affichage du stream.</source>
-        <translation type="unfinished" />
+        <source>Bascule l&apos;affichage du stream.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Statistiques</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Affiche ou masque les statistiques du stream.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Mode de souris</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Bascule entre souris de bureau et souris de jeu.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Masquer le curseur local</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Affiche ou masque le curseur de ton PC.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Verrouiller le pointeur</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Garde le pointeur dans la fenêtre du stream.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Capturer le clavier</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Envoie ou non les raccourcis système au PC distant.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Réduire la fenêtre</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Réduit le stream.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Coller du texte</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Tape le texte de ton presse-papiers sur le PC distant.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Couper / rétablir le micro</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Quand le micro est envoyé au PC distant.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Zoom</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Zoomer, dézoomer, revenir à 100 %.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Déplacer la vue zoomée</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Quand le stream est zoomé.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Chercher les mises à jour au démarrage</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Vérifie s'il existe une nouvelle version de LavArtemis.</source>
-        <translation type="unfinished" />
+        <source>Vérifie s&apos;il existe une nouvelle version de LavArtemis.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Installer la mise à jour</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Chercher une mise à jour maintenant</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Vérification…</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>LavArtemis %1 est disponible.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Version installée : %1.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Installer</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Vérifier</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Avertir quand la connexion se dégrade</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Un message à l'écran quand le réseau faiblit pendant le stream.</source>
-        <translation type="unfinished" />
+        <source>Un message à l&apos;écran quand le réseau faiblit pendant le stream.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Avertissements de configuration</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Enregistrer les performances (CSV)</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Une ligne par seconde (FPS, décodage, latence), un fichier par stream dans le dossier de l'appli. À couper après la mesure.</source>
-        <translation type="unfinished" />
+        <source>Une ligne par seconde (FPS, décodage, latence), un fichier par stream dans le dossier de l&apos;appli. À couper après la mesure.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ouvrir le dossier des mesures</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Les fichiers « stream-perf » des streams enregistrés.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Trace détaillée du VRR</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Exporter la dernière trace VRR (ZIP)</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Un ZIP de la dernière session tracée, à joindre à un rapport.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Export…</source>
@@ -3054,51 +3068,51 @@
     </message>
     <message>
         <source>Exporter</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ouvrir le dossier des traces</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Renommer le profil</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Nouveau profil</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Il part des réglages en cours.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Créer</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Nom du profil</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Supprimer le profil</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Supprimer le profil « %1 » ? Les réglages qu'il contient seront perdus.</source>
-        <translation type="unfinished" />
+        <source>Supprimer le profil « %1 » ? Les réglages qu&apos;il contient seront perdus.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Résolution personnalisée</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Une résolution que ce PC ou le PC distant ne gère pas peut faire échouer le stream.</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Appliquer</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -3120,8 +3134,8 @@
         <translation>Vérifiez votre pare-feu et vos règles de redirection de port pour le(s) port(s) : %1</translation>
     </message>
     <message>
-        <source>This PC's Internet connection is blocking LavArtemis. Streaming over the Internet may not work while connected to this network.</source>
-        <translation>La connexion Internet de ce PC bloque LavArtemis. Le stream par Internet risque de ne pas marcher tant qu'il est sur ce réseau.</translation>
+        <source>This PC&apos;s Internet connection is blocking LavArtemis. Streaming over the Internet may not work while connected to this network.</source>
+        <translation>La connexion Internet de ce PC bloque LavArtemis. Le stream par Internet risque de ne pas marcher tant qu&apos;il est sur ce réseau.</translation>
     </message>
     <message>
         <source>Tip:</source>
@@ -3144,22 +3158,22 @@
     <name>Theme</name>
     <message>
         <source>Système</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Clair</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Sombre</source>
-        <translation type="unfinished" />
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>VrrDiagnostics</name>
     <message>
         <source>Unable to open the diagnostics folder: %1</source>
-        <translation>Impossible d'ouvrir le dossier de diagnostic : %1</translation>
+        <translation>Impossible d&apos;ouvrir le dossier de diagnostic : %1</translation>
     </message>
     <message>
         <source>Diagnostics folder: %1</source>
@@ -3177,32 +3191,32 @@
 <context>
     <name>main</name>
     <message>
-        <source>Hardware acceleration doesn't work on XWayland. Continuing on XWayland may result in poor streaming performance. Try running with QT_QPA_PLATFORM=wayland or switch to X11.</source>
-        <translation>L'accélération matérielle ne fonctionne pas sur XWayland. Continuer sur XWayland peut entraîner de mauvaises performances de streaming. Essayez de lancer Moonlight avec QT_QPA_PLATFORM=wayland ou passez à X11.</translation>
+        <source>Hardware acceleration doesn&apos;t work on XWayland. Continuing on XWayland may result in poor streaming performance. Try running with QT_QPA_PLATFORM=wayland or switch to X11.</source>
+        <translation>L&apos;accélération matérielle ne fonctionne pas sur XWayland. Continuer sur XWayland peut entraîner de mauvaises performances de streaming. Essayez de lancer Moonlight avec QT_QPA_PLATFORM=wayland ou passez à X11.</translation>
     </message>
     <message>
         <source>Click the Help button for more information on solving this problem.</source>
-        <translation>Cliquez sur le bouton Aide pour obtenir plus d'informations sur la résolution de ce problème.</translation>
+        <translation>Cliquez sur le bouton Aide pour obtenir plus d&apos;informations sur la résolution de ce problème.</translation>
     </message>
     <message>
         <source>Click the Help button for more information.</source>
-        <translation>Cliquez sur le bouton Aide pour plus d'informations.</translation>
+        <translation>Cliquez sur le bouton Aide pour plus d&apos;informations.</translation>
     </message>
     <message>
         <source>No functioning hardware accelerated video decoder was detected by LavArtemis. Your streaming performance may be severely degraded in this configuration.</source>
-        <translation>Aucun décodeur vidéo matériel fonctionnel n'a été détecté par LavArtemis. Les performances du stream peuvent être fortement dégradées dans cette configuration.</translation>
+        <translation>Aucun décodeur vidéo matériel fonctionnel n&apos;a été détecté par LavArtemis. Les performances du stream peuvent être fortement dégradées dans cette configuration.</translation>
     </message>
     <message>
-        <source>This version of LavArtemis isn't optimized for your PC. Please download the '%1' version of LavArtemis for the best streaming performance.</source>
-        <translation>Cette version de LavArtemis n'est pas optimisée pour ton PC. Télécharge la version '%1' de LavArtemis pour de meilleures performances de stream.</translation>
+        <source>This version of LavArtemis isn&apos;t optimized for your PC. Please download the &apos;%1&apos; version of LavArtemis for the best streaming performance.</source>
+        <translation>Cette version de LavArtemis n&apos;est pas optimisée pour ton PC. Télécharge la version &apos;%1&apos; de LavArtemis pour de meilleures performances de stream.</translation>
     </message>
     <message>
-        <source>These gamepads have no usable mapping and won't work:</source>
-        <translation>Ces manettes n'ont aucun mapping utilisable et ne fonctionneront pas :</translation>
+        <source>These gamepads have no usable mapping and won&apos;t work:</source>
+        <translation>Ces manettes n&apos;ont aucun mapping utilisable et ne fonctionneront pas :</translation>
     </message>
     <message>
         <source>Open the gamepad mapper to set one up?</source>
-        <translation>Ouvrir l'outil de mapping des manettes pour en créer un ?</translation>
+        <translation>Ouvrir l&apos;outil de mapping des manettes pour en créer un ?</translation>
     </message>
     <message>
         <source>LavArtemis %1 is available. You are running version %2.</source>
@@ -3210,7 +3224,7 @@
     </message>
     <message>
         <source>Press OK to download and install it.</source>
-        <translation>Appuie sur OK pour la télécharger et l'installer.</translation>
+        <translation>Appuie sur OK pour la télécharger et l&apos;installer.</translation>
     </message>
     <message>
         <source>Press OK to open the download page in your browser.</source>
@@ -3222,7 +3236,7 @@
     </message>
     <message>
         <source>LavArtemis %1 is ready to install. Press OK to install it and restart.</source>
-        <translation>LavArtemis %1 est prêt à être installé. Appuie sur OK pour l'installer et redémarrer.</translation>
+        <translation>LavArtemis %1 est prêt à être installé. Appuie sur OK pour l&apos;installer et redémarrer.</translation>
     </message>
     <message>
         <source>Download failed: %1</source>
@@ -3230,7 +3244,7 @@
     </message>
     <message>
         <source>Are you sure you want to quit?</source>
-        <translation>Êtes-vous sûr de vouloir quitter ?</translation>
+        <translation>Êtes-vous sûr de vouloir quitter&#x202f;?</translation>
     </message>
 </context>
 </TS>
