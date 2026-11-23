@@ -107,6 +107,22 @@ QtObject {
 
     readonly property int animMs: 160
 
+    // A card or cover dimmed while another app runs (prototype dimOff / dimFocus, per theme and
+    // mode): grayscale, then brightness, then opacity, applied to the whole tile -- its cover and
+    // the name drawn in place of a missing cover alike. Brightness MULTIPLIES like CSS
+    // brightness(): MultiEffect.brightness adds, and pushed dark covers to plain black.
+    function dim(focused) {
+        if (id === "braise") {
+            return dark ? (focused ? {gray: 0.35, bright: 0.85, opacity: 1.0} : {gray: 0.9, bright: 0.42, opacity: 1.0})
+                        : (focused ? {gray: 0.3, bright: 1.0, opacity: 0.9} : {gray: 0.9, bright: 1.0, opacity: 0.45})
+        }
+        if (id === "affiche") {
+            return focused ? {gray: 0.5, bright: 1.0, opacity: 0.75} : {gray: 1.0, bright: 1.0, opacity: 0.3}
+        }
+        return dark ? (focused ? {gray: 0.3, bright: 1.0, opacity: 0.95} : {gray: 1.0, bright: 0.7, opacity: 0.55})
+                    : (focused ? {gray: 0.4, bright: 1.0, opacity: 0.85} : {gray: 1.0, bright: 1.0, opacity: 0.4})
+    }
+
     // Scale of the 1600-wide Stage of the visible page (set by Stage.qml). Popups live in the window
     // overlay, outside the scaled stage, and use it to keep the same proportions as the page.
     property real stageScale: 1.0

@@ -14,7 +14,8 @@ import SdlGamepadKeyNavigation 1.0
 
 // Home of the redesigned interface: one host at a time. The running session is staged at the top
 // ("Scène"), everything else dimmed ("Projecteur") and the running item glows. Then Bureau and
-// Playnite Fullscreen as two half cards, the user's other apps, then the Playnite library.
+// Playnite Fullscreen as two half cards, then the Playnite library. The host's other apps (Apollo's
+// "Virtual Desktop"...) are not shown: the user asked for the home to hold only these two sections.
 // Spec: docs/superpowers/specs/2026-11-23-ui-redesign-design.md (LavArtemis).
 FocusScope {
     id: home
@@ -163,7 +164,6 @@ FocusScope {
 
     AppKindModel { id: desktopModel; sourceModel: home.appModel; kind: "desktop" }
     AppKindModel { id: playniteModel; sourceModel: home.appModel; kind: "playnite" }
-    AppKindModel { id: otherAppsModel; sourceModel: home.appModel; kind: "app" }
     AppKindModel { id: gamesModel; sourceModel: home.appModel; kind: "game" }
 
     // ---- actions ------------------------------------------------------------------------------
@@ -573,28 +573,6 @@ FocusScope {
                             onClicked: home.launch(playniteModel.sourceRow(model.index), model.name, model.appid)
                             onMenuRequested: (x, y) => home.openMenu(this, playniteModel.sourceRow(model.index), model.name, model.boxart, model.running, x, y, model.appid)
                             Keys.onMenuPressed: home.openMenu(this, playniteModel.sourceRow(model.index), model.name, model.boxart, model.running, width / 2, height / 2, model.appid)
-                        }
-                    }
-                }
-
-                SectionTitle {
-                    visible: home.appModel !== null && otherAppsModel.count > 0
-                    text: qsTr("Applis")
-                }
-                Flow {
-                    visible: home.appModel !== null && otherAppsModel.count > 0
-                    width: parent.width
-                    spacing: 20
-                    Repeater {
-                        model: otherAppsModel
-                        delegate: CoverTile {
-                            title: model.name
-                            cover: model.boxart
-                            running: model.running
-                            dimmed: home.sessionRunning && !model.running
-                            onClicked: home.launch(otherAppsModel.sourceRow(model.index), model.name, model.appid)
-                            onMenuRequested: (x, y) => home.openMenu(this, otherAppsModel.sourceRow(model.index), model.name, model.boxart, model.running, x, y, model.appid)
-                            Keys.onMenuPressed: home.openMenu(this, otherAppsModel.sourceRow(model.index), model.name, model.boxart, model.running, width / 2, height / 2, model.appid)
                         }
                     }
                 }

@@ -133,8 +133,19 @@ bool NvComputer::isEqualSerialized(const NvComputer &that) const
 
 void NvComputer::sortAppList()
 {
-    std::stable_sort(appList.begin(), appList.end(), [](const NvApp& app1, const NvApp& app2) {
-       return app1.name.toLower() < app2.name.toLower();
+    sortApps(appList);
+}
+
+void NvComputer::sortApps(QVector<NvApp>& apps)
+{
+    // By name, except the Playnite library (LavApollo Link): it keeps the host's order, most
+    // recently played first like Playnite's "Recent activity", after the other apps. All its
+    // games compare equal here, and stable_sort keeps them as the host listed them.
+    std::stable_sort(apps.begin(), apps.end(), [](const NvApp& app1, const NvApp& app2) {
+        if (app1.isPlayniteGame || app2.isPlayniteGame) {
+            return !app1.isPlayniteGame && app2.isPlayniteGame;
+        }
+        return app1.name.toLower() < app2.name.toLower();
     });
 }
 
@@ -522,6 +533,8 @@ NvComputer::ReachabilityType NvComputer::getActiveAddressReachability() const
 }
 
 bool NvComputer::updateAppList(QVector<NvApp> newAppList) {
+    // Compared in the stored order: the host's own order made every fetch look like a change
+    sortApps(newAppList);
     if (appList == newAppList) {
         return false;
     }
@@ -537,7 +550,6 @@ bool NvComputer::updateAppList(QVector<NvApp> newAppList) {
     }
 
     appList = newAppList;
-    sortAppList();
     return true;
 }
 

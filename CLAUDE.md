@@ -337,8 +337,10 @@ fichier) ; `scripts/generate-ico.sh` n'est plus qu'un renvoi vers lui. Ne jamais
 
 La refonte (spec : `docs/superpowers/specs/2026-11-23-ui-redesign-design.md` dans LavArtemis,
 prototype de référence dans `docs/ui-redesign/prototype/`) vit dans **`app/gui/v2/`**, à côté de
-l'interface d'origine. La Dev l'ouvre au démarrage (`main.cpp`, `initialView`), sauf si
-`ArtemisSettings.uiLegacy` (Réglages › Interface, ou la case de *LavArtemis Features*).
+l'interface d'origine. La Dev l'ouvre toujours au démarrage (`main.cpp`, `initialView`) : le retour
+à l'ancienne interface (`uiLegacy`) a été retiré. Les anciens écrans restent pour ce que la v2 n'a pas
+encore : `PcView` (ajout par adresse, OTP, renommer, benchmark, depuis Mes PC) et l'ancien
+`SettingsView` (depuis Avancé).
 
 - `Theme.qml` (singleton, `qmldir`) : jetons des thèmes Braise / Affiche / Ludique en clair et sombre,
   `ArtemisSettings.uiTheme` / `uiThemeMode` (0 Système qui suit `Qt.styleHints.colorScheme` en
@@ -347,8 +349,17 @@ l'interface d'origine. La Dev l'ouvre au démarrage (`main.cpp`, `initialView`),
   `SdlGamepadKeyNavigation::gamepadInput()` est émis **après** la touche synthétique : le gestionnaire
   `Keys` (qui pose `keys`) passe d'abord, le signal (qui pose `pad`) gagne.
 - `HomeView.qml` : un hôte à la fois, sections par `AppKindModel` (proxy filtrant
-  `AppModel::KindRole` : `desktop`, `playnite`, `app`, `game`), Scène de la session en cours,
-  Projecteur (`dimmed`) et halo (`LiveHalo`). `AppMenu.qml` : popover au pointeur à la souris,
+  `AppModel::KindRole` : `desktop`, `playnite`, `game`), Scène de la session en cours,
+  Projecteur (`dimmed`) et halo (`LiveHalo`). Les autres applis de l'hôte (`app`, ex. « Virtual
+  Desktop » d'Apollo) ne sont **pas** affichées, à la demande de l'utilisateur. La bibliothèque
+  Playnite garde **l'ordre de l'hôte**, du plus récemment joué au plus ancien
+  (`NvComputer::sortApps()` : nom pour le reste). Une jaquette absente (`no_app_image.png`, ou 404
+  de LavApollo pour un jeu Playnite sans jaquette, mémorisé par `BoxArtManager::m_Missing`) affiche
+  le nom du jeu.
+- **Projecteur = `Theme.dim()`**, les valeurs `dimOff` / `dimFocus` du prototype par thème et mode :
+  gris, luminosité puis opacité, sur **toute** la face (jaquette et nom). ⚠️ La luminosité
+  **multiplie** (calque noir) : `MultiEffect.brightness` ajoute, et noircissait les jaquettes
+  sombres. `AppMenu.qml` : popover au pointeur à la souris,
   centré sinon. `HostsView.qml` (Mes PC).
 - **`SettingsView2.qml`** (Réglages) : pages à gauche, lignes à droite, d'après le tri Normal / Expert
   / Supprimer des réglages. Les lignes *expert* n'apparaissent qu'avec `ArtemisSettings.uiExpertMode`
@@ -377,7 +388,7 @@ l'interface d'origine. La Dev l'ouvre au démarrage (`main.cpp`, `initialView`),
 - **Barre de titre aux couleurs du thème** : la vraie barre de Windows (déplacement, ancrage, boutons
   natifs), recolorée par DWM (`SystemProperties::setWindowFrameColors()`, fond et texte du thème,
   Windows 11 ; sous Windows 10 elle reste celle du système). `main.qml` la réapplique à chaque
-  changement de thème (`frameKey`) et la rend au système en ancienne interface ; la fenêtre SDL du
+  changement de thème (`frameKey`) ; la fenêtre SDL du
   stream reprend les mêmes couleurs (`applyWindowFrameColors()` dans `Session`).
 - **Mise à jour** : la v2 masque la barre d'outils et son bouton de mise à jour. `main.qml` expose
   `window.updateVersion` et `openUpdateDialog()` ; l'accueil (bouton « Mise à jour ») et Réglages ›
@@ -388,7 +399,9 @@ l'interface d'origine. La Dev l'ouvre au démarrage (`main.cpp`, `initialView`),
 
 > ⚠️ **Jamais de liaison de `header.visible`/`height` sur `stackView.currentItem`** : elle a fait
 > boucler la mise en page au démarrage (appli figée, CPU à 100 %, même en ancienne interface).
-> `main.qml` pose `window.v2Page` dans `onCurrentItemChanged`, et la barre lit ce drapeau.
+> `main.qml` pose `window.v2Page` dans `onCurrentItemChanged`, et la barre lit ce drapeau. Il part
+> de `initialView` (et le fond de la fenêtre de `Theme.bg`) : sinon les premières images montraient
+> la barre et le gris Material de l'ancienne interface.
 
 > ⚠️ **Réglages v2 : une ligne lit la préférence, elle ne la garde jamais.** `checked`, `value` sont
 > des liaisons sur `StreamingPreferences` / `ArtemisSettings` ; un clic émet `toggled` / `chosen` /

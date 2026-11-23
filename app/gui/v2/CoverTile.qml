@@ -27,12 +27,23 @@ AbstractButton {
 
     transform: Translate { y: tile.hovered && Theme.input === "mouse" && !tile.dimmed ? -5 : 0 }
 
+    // Dimmed while another app runs: the whole face (cover, or the name when there is none)
+    readonly property var dimStyle: Theme.dim(tile.activeFocus && Theme.showFocus)
+
     background: Rectangle {
         radius: Theme.rs
         color: Theme.surface2
         border.width: Theme.border
         border.color: Theme.borderColor
         clip: true
+        opacity: tile.dimmed ? tile.dimStyle.opacity : 1.0
+        Behavior on opacity { NumberAnimation { duration: Theme.animMs } }
+        layer.enabled: tile.dimmed
+        // Rendered at the stage's scale: a layer is otherwise drawn at the unscaled size and blurs
+        layer.textureSize: Qt.size(width * Theme.stageScale * Screen.devicePixelRatio,
+                                   height * Theme.stageScale * Screen.devicePixelRatio)
+        layer.smooth: true
+        layer.effect: MultiEffect { saturation: -tile.dimStyle.gray }
 
         Text {
             // Without a cover: the name, big, on the theme's second surface
@@ -52,18 +63,17 @@ AbstractButton {
             id: coverImage
             anchors.fill: parent
             anchors.margins: Theme.border
-            source: tile.cover
+            // The client's grey placeholder (cover not fetched yet, or none on the host) is not a
+            // cover: the name shows instead, as in the prototype
+            source: tile.cover.toString() === "qrc:/res/no_app_image.png" ? "" : tile.cover
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             sourceSize.width: 300
-            layer.enabled: true
+            layer.enabled: Theme.rs > 0
             layer.effect: MultiEffect {
-                saturation: tile.dimmed ? -0.9 : 0.0
-                brightness: tile.dimmed && Theme.dark ? -0.5 : 0.0
-                maskEnabled: Theme.rs > 0
+                maskEnabled: true
                 maskSource: mask
             }
-            opacity: tile.dimmed && !Theme.dark ? 0.45 : 1.0
         }
         Rectangle {
             id: mask
@@ -71,6 +81,14 @@ AbstractButton {
             radius: Math.max(0, Theme.rs - Theme.border)
             visible: false
             layer.enabled: true
+        }
+        Rectangle {
+            // brightness() of the dim: black over the face, multiplies its colours
+            anchors.fill: parent
+            radius: parent.radius
+            color: "black"
+            opacity: tile.dimmed ? 1.0 - tile.dimStyle.bright : 0.0
+            visible: opacity > 0
         }
     }
 

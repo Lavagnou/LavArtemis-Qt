@@ -20,8 +20,10 @@ ApplicationWindow {
     // a retranslate() because AppView breaks for some reason.
     property bool clearOnBack: false
 
-    // The current page belongs to the redesigned interface (gui/v2): hide the legacy toolbar
-    property bool v2Page: false
+    // The current page belongs to the redesigned interface (gui/v2): hide the legacy toolbar.
+    // Already true before the first page is pushed: the first frames showed the old toolbar and
+    // the Material grey background before the redesigned home.
+    property bool v2Page: initialView.indexOf("/gui/v2/") >= 0
 
     // Set when a check (at startup or "check now") finds an update. The v2 interface hides the
     // toolbar and its update button, so it reads this and calls openUpdateDialog() itself
@@ -34,7 +36,7 @@ ApplicationWindow {
 
     // Redesigned interface: the native title bar takes the theme's background and text colours
     // (Windows 11) instead of the system accent colour; the legacy interface gives it back.
-    readonly property bool themedFrame: SystemProperties.isDevChannel && !ArtemisSettings.uiLegacy
+    readonly property bool themedFrame: SystemProperties.isDevChannel
     readonly property string frameKey: themedFrame ? ("" + Theme.bg + Theme.fg + Theme.dark) : "system"
     onFrameKeyChanged: applyFrameColors()
     function applyFrameColors() {
@@ -42,6 +44,8 @@ ApplicationWindow {
     }
 
     id: window
+    // The theme's background behind the redesigned pages, from the very first frame
+    background: Rectangle { color: window.v2Page ? Theme.bg : window.Material.backgroundColor }
     width: 1280
     height: 600
     // Below this the redesigned pages can only shrink and break (Stage.minLayoutWidth is 1000):

@@ -27,6 +27,9 @@ AbstractButton {
         radius: Theme.r
     }
 
+    // Dimmed while something else runs: the whole face, cover and text (Theme.dim)
+    readonly property var dimStyle: Theme.dim(card.activeFocus && Theme.showFocus)
+
     background: Rectangle {
         id: bgRect
         radius: Theme.r
@@ -34,6 +37,14 @@ AbstractButton {
         border.width: Theme.border
         border.color: Theme.borderColor
         clip: true
+        opacity: card.dimmed ? card.dimStyle.opacity : 1.0
+        Behavior on opacity { NumberAnimation { duration: Theme.animMs } }
+        layer.enabled: card.dimmed
+        // Rendered at the stage's scale: a layer is otherwise drawn at the unscaled size and blurs
+        layer.textureSize: Qt.size(width * Theme.stageScale * Screen.devicePixelRatio,
+                                   height * Theme.stageScale * Screen.devicePixelRatio)
+        layer.smooth: true
+        layer.effect: MultiEffect { saturation: -card.dimStyle.gray }
 
         Image {
             id: coverImage
@@ -44,12 +55,6 @@ AbstractButton {
             source: card.cover
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
-            layer.enabled: card.dimmed
-            layer.effect: MultiEffect {
-                saturation: -0.9
-                brightness: Theme.dark ? -0.5 : 0.0
-            }
-            opacity: card.dimmed && !Theme.dark ? 0.45 : 1.0
         }
         Rectangle {
             // separator line between text and cover
@@ -59,13 +64,6 @@ AbstractButton {
             width: Theme.border
             color: Theme.borderColor
         }
-    }
-
-    transform: Translate { y: card.hovered && Theme.input === "mouse" && !card.dimmed ? -5 : 0 }
-
-    contentItem: Item {
-        opacity: card.dimmed ? 0.5 : 1.0
-        Behavior on opacity { NumberAnimation { duration: Theme.animMs } }
 
         Column {
             anchors.left: parent.left
@@ -133,6 +131,19 @@ AbstractButton {
             }
         }
 
+        Rectangle {
+            // brightness() of the dim: black over the face, multiplies its colours
+            anchors.fill: parent
+            radius: parent.radius
+            color: "black"
+            opacity: card.dimmed ? 1.0 - card.dimStyle.bright : 0.0
+            visible: opacity > 0
+        }
+    }
+
+    transform: Translate { y: card.hovered && Theme.input === "mouse" && !card.dimmed ? -5 : 0 }
+
+    contentItem: Item {
         // "⋯": options. Mouse: only on hover; touch: always; pad/keys: Y / Menu instead.
         AbstractButton {
             id: moreButton

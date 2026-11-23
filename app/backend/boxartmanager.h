@@ -5,6 +5,7 @@
 #include <QImage>
 #include <QThreadPool>
 #include <QRunnable>
+#include <QSet>
 
 class BoxArtManager : public QObject
 {
@@ -38,6 +39,11 @@ private:
 
     QString
     getFilePathForBoxArt(NvComputer* computer, int appId);
+
+    // Fetches under way, and covers the host does not have (LavApollo answers 404 for a Playnite
+    // game without one): asked once per model, instead of on every data() call. Keyed by cache path.
+    QSet<QString> m_Pending;
+    QSet<QString> m_Missing;
 
     QDir m_BoxArtDir;
     QThreadPool m_ThreadPool;

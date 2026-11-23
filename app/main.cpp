@@ -1096,9 +1096,8 @@ int main(int argc, char *argv[])
     switch (commandLineParserResult) {
     case GlobalCommandLineParser::NormalStartRequested:
 #ifdef LAV_DEV_CHANNEL
-        // LavArtemis Dev opens the redesigned interface (gui/v2), unless the user went back
-        // to the legacy one (Réglages › Interface, or LavArtemis Features in the old settings).
-        initialView = ArtemisSettings::instance()->uiLegacy() ? "qrc:/gui/PcView.qml" : "qrc:/gui/v2/HomeView.qml";
+        // LavArtemis Dev opens the redesigned interface (gui/v2)
+        initialView = "qrc:/gui/v2/HomeView.qml";
 #else
         initialView = "qrc:/gui/PcView.qml";
 #endif

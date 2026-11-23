@@ -77,6 +77,13 @@ QUrl BoxArtManager::loadBoxArt(NvComputer* computer, NvApp& app)
         return QUrl::fromLocalFile(cacheFile.fileName());
     }
 
+    // The placeholder: the redesigned interface shows the app's name instead (gui/v2/CoverTile)
+    QString key = cacheFile.fileName();
+    if (m_Pending.contains(key) || m_Missing.contains(key)) {
+        return QUrl("qrc:/res/no_app_image.png");
+    }
+    m_Pending.insert(key);
+
     // If we get here, we need to fetch asynchronously.
     // Kick off a worker on our thread pool to do just that.
     NetworkBoxArtLoadTask* netLoadTask = new NetworkBoxArtLoadTask(this, computer, app);
@@ -99,7 +106,12 @@ void BoxArtManager::deleteBoxArt(NvComputer* computer)
 
 void BoxArtManager::handleBoxArtLoadComplete(NvComputer* computer, NvApp app, QUrl image)
 {
-    if (!image.isEmpty()) {
+    QString key = getFilePathForBoxArt(computer, app.id);
+    m_Pending.remove(key);
+    if (image.isEmpty()) {
+        m_Missing.insert(key);
+    }
+    else {
         emit boxArtLoadComplete(computer, app, image);
     }
 }

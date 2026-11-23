@@ -1395,13 +1395,6 @@ FocusScope {
                             value: StreamingPreferences.uiDisplayMode
                             onChosen: (v) => { StreamingPreferences.uiDisplayMode = v; settingsPage.persist() }
                         }
-
-                        SettingAction {
-                            label: qsTr("Revenir à l'ancienne interface")
-                            description: qsTr("Au prochain démarrage ; la nouvelle reste disponible depuis l'ancienne.")
-                            buttonText: qsTr("Revenir")
-                            onTriggered: legacyDialog.open()
-                        }
                     }
 
                     // ================================== PC ==================================
@@ -1820,18 +1813,6 @@ FocusScope {
                 if (changed) settingsPage.applyDefaultBitrateIfAuto()
                 settingsPage.persist()
             }
-        }
-    }
-
-    LavDialog {
-        id: legacyDialog
-        title: qsTr("Ancienne interface")
-        text: qsTr("LavArtemis Dev rouvrira l'ancienne interface au prochain démarrage. Tu pourras revenir à la nouvelle depuis Réglages › LavArtemis Features.")
-        acceptText: qsTr("Oui")
-        rejectText: qsTr("Non")
-        onAccepted: {
-            ArtemisSettings.uiLegacy = true
-            ArtemisSettings.save()
         }
     }
 

@@ -2964,18 +2964,6 @@ Flickable {
                         spacing: 8
 
                         CheckBox {
-                            // LavArtemis Dev: the way back to the redesigned interface
-                            visible: SystemProperties.isDevChannel
-                            text: qsTr("Use the new interface (LavArtemis Dev, applies at next start)")
-                            font.pointSize: 12
-                            checked: !ArtemisSettings.uiLegacy
-                            onToggled: {
-                                ArtemisSettings.uiLegacy = !checked
-                                ArtemisSettings.save()
-                            }
-                        }
-
-                        CheckBox {
                             id: autoUpdateCheck
                             text: qsTr("Check for updates when the app starts")
                             font.pointSize: 12

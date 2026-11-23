@@ -14,7 +14,7 @@ Rectangle {
     height: 400
     // Don't use anchors with SizeViewToRootObject - position manually
     // LavArtemis Dev, redesigned interface: the theme's colours and fonts (gui/v2/Theme.qml)
-    readonly property bool v2: SystemProperties.isDevChannel && !ArtemisSettings.uiLegacy
+    readonly property bool v2: SystemProperties.isDevChannel
     readonly property color fgColor: v2 ? Theme.fg : "white"
     readonly property color mutedColor: v2 ? Theme.muted : "#cccccc"
     readonly property color accentColor: v2 ? Theme.accent : "#00cccc"

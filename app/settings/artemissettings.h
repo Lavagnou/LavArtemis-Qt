@@ -65,7 +65,6 @@ class ArtemisSettings : public QObject
     // escape hatch back to the legacy interface. Machine-wide, like the language: not per profile.
     Q_PROPERTY(QString uiTheme READ uiTheme WRITE setUiTheme NOTIFY uiThemeChanged)
     Q_PROPERTY(int uiThemeMode READ uiThemeMode WRITE setUiThemeMode NOTIFY uiThemeModeChanged)
-    Q_PROPERTY(bool uiLegacy READ uiLegacy WRITE setUiLegacy NOTIFY uiLegacyChanged)
     // Réglages v2 (gui/v2/SettingsView2.qml): shows the rows triaged as "expert". Machine-wide.
     Q_PROPERTY(bool uiExpertMode READ uiExpertMode WRITE setUiExpertMode NOTIFY uiExpertModeChanged)
     Q_PROPERTY(bool autoUpdatePrerelease READ autoUpdatePrerelease WRITE setAutoUpdatePrerelease NOTIFY autoUpdatePrereleaseChanged)
@@ -158,8 +157,6 @@ public:
     void setUiTheme(const QString &theme);
     int uiThemeMode() const { return m_uiThemeMode; }
     void setUiThemeMode(int mode);
-    bool uiLegacy() const { return m_uiLegacy; }
-    void setUiLegacy(bool legacy);
     bool uiExpertMode() const { return m_uiExpertMode; }
     void setUiExpertMode(bool expert);
     void setAutoUpdateEnabled(bool enabled);
@@ -212,7 +209,6 @@ signals:
     void autoUpdateEnabledChanged();
     void uiThemeChanged();
     void uiThemeModeChanged();
-    void uiLegacyChanged();
     void uiExpertModeChanged();
     void autoUpdatePrereleaseChanged();
 
@@ -270,7 +266,6 @@ private:
     bool m_autoUpdateEnabled;
     QString m_uiTheme;
     int m_uiThemeMode;
-    bool m_uiLegacy;
     bool m_uiExpertMode;
     bool m_autoUpdatePrerelease;
 };
