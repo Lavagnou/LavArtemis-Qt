@@ -121,6 +121,8 @@
         <MsiProperty Name="ADDDESKTOPSHORTCUT" Value="[AddDesktopShortcutCheckbox]" />
       </MsiPackage>
 
+      <!-- LAV_X64_ONLY=1 (local release build, no Qt arm64 kit on that PC): x64 only -->
+      <?if $(var.X64Only) != "1" ?>
       <MsiPackage Id="Artemis_arm64"
                   SourceFile="$(env.BUILD_ROOT)\build-arm64-$(env.BUILD_CONFIG)\LavArtemis.msi"
                   Name="Artemis_arm64.msi"
@@ -129,6 +131,7 @@
         <MsiProperty Name="INSTALLFOLDER" Value="[InstallFolder]" />
         <MsiProperty Name="ADDDESKTOPSHORTCUT" Value="[AddDesktopShortcutCheckbox]" />
       </MsiPackage>
+      <?endif ?>
     </Chain>
 
   </Bundle>

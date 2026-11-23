@@ -10,7 +10,7 @@
     <IntermediateOutputPath>$(BUILD_FOLDER)\</IntermediateOutputPath>
   </PropertyGroup>
   <PropertyGroup>
-    <DefineConstants>$(DefineConstants);LavChannel=$(LAV_CHANNEL)</DefineConstants>
+    <DefineConstants>$(DefineConstants);LavChannel=$(LAV_CHANNEL);X64Only=$(LAV_X64_ONLY)</DefineConstants>
   </PropertyGroup>
   <PropertyGroup>
     <AcceptEula>wix7</AcceptEula>

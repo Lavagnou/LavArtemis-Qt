@@ -59,7 +59,8 @@ if not exist "%BUILD_ROOT%\build-x64-%BUILD_CONFIG%\LavArtemis.msi" (
     echo You must run 'build-arch.bat %BUILD_CONFIG% x64' first
     exit /b 1
 )
-if not exist "%BUILD_ROOT%\build-arm64-%BUILD_CONFIG%\LavArtemis.msi" (
+rem LAV_X64_ONLY=1: a local release build on a PC without the Qt arm64 kit (see Bundle.wxs)
+if not "%LAV_X64_ONLY%"=="1" if not exist "%BUILD_ROOT%\build-arm64-%BUILD_CONFIG%\LavArtemis.msi" (
     echo Unable to build bundle - missing binaries for %BUILD_CONFIG% arm64
     echo You must run 'build-arch.bat %BUILD_CONFIG% arm64' first
     exit /b 1
