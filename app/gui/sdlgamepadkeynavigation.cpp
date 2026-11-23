@@ -269,6 +269,7 @@ void SdlGamepadKeyNavigation::sendKey(QEvent::Type type, Qt::Key key, Qt::Keyboa
     if (focusWindow != nullptr) {
         QKeyEvent keyPressEvent(type, key, modifiers);
         app->sendEvent(focusWindow, &keyPressEvent);
+        emit gamepadInput();
     }
 }
 

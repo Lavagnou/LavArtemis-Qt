@@ -61,6 +61,7 @@ NvComputer::NvComputer(QSettings& settings)
     this->isMultiDisplayCapable = false;
     this->micPassthroughState.clear();
     this->currentDisplayWidth = 0;
+    this->playniteHostRunning = false;
     this->currentDisplayHeight = 0;
     this->currentDisplayRefreshRate = 0;
     this->benchmarkAppId = 0;
@@ -176,6 +177,10 @@ NvComputer::NvComputer(NvHTTP& http, QString serverInfo)
     this->currentDisplayWidth = NvHTTP::getXmlString(serverInfo, "CurrentDisplayWidth").toInt();
     this->currentDisplayHeight = NvHTTP::getXmlString(serverInfo, "CurrentDisplayHeight").toInt();
     this->currentDisplayRefreshRate = NvHTTP::getXmlString(serverInfo, "CurrentDisplayRefreshRate").toInt();
+
+    // LavApollo Link (Playnite), absent without the extension
+    this->playniteHostRunning = NvHTTP::getXmlString(serverInfo, "PlayniteHostRunning") == "1";
+    this->playniteGameName = NvHTTP::getXmlString(serverInfo, "PlayniteGameName");
 
     // The scene LavArtemis' benchmark streams, absent when the host does not offer it
     this->benchmarkAppId = NvHTTP::getXmlString(serverInfo, "BenchmarkAppId").toInt();
@@ -621,6 +626,8 @@ bool NvComputer::update(const NvComputer& that)
     ASSIGN_IF_CHANGED(currentDisplayWidth);
     ASSIGN_IF_CHANGED(currentDisplayHeight);
     ASSIGN_IF_CHANGED(currentDisplayRefreshRate);
+    ASSIGN_IF_CHANGED(playniteHostRunning);
+    ASSIGN_IF_CHANGED(playniteGameName);
     ASSIGN_IF_CHANGED(benchmarkAppId);
     ASSIGN_IF_CHANGED(benchmarkAppUuid);
     ASSIGN_IF_CHANGED(currentGameId);

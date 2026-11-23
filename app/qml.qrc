@@ -26,5 +26,21 @@
         <file>gui/QuickMenu.qml</file>
         <file>gui/Toast.qml</file>
         <file>gui/BenchmarkView.qml</file>
+        <file>gui/v2/qmldir</file>
+        <file>gui/v2/Theme.qml</file>
+        <file>gui/v2/AppCard.qml</file>
+        <file>gui/v2/AppMenu.qml</file>
+        <file>gui/v2/CoverTile.qml</file>
+        <file>gui/v2/HomeView.qml</file>
+        <file>gui/v2/HostsView.qml</file>
+        <file>gui/v2/LavButton.qml</file>
+        <file>gui/v2/LavIcon.qml</file>
+        <file>gui/v2/LavPill.qml</file>
+        <file>gui/v2/LiveHalo.qml</file>
+        <file>gui/v2/PageHeader.qml</file>
+        <file>gui/v2/RoundIconButton.qml</file>
+        <file>gui/v2/SectionTitle.qml</file>
+        <file>gui/v2/SettingsHome.qml</file>
+        <file>gui/v2/Stage.qml</file>
     </qresource>
 </RCC>

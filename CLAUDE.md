@@ -319,6 +319,38 @@ Vue d'ensemble et tableau stable/dev : section « Stable / Dev » du `CLAUDE.md`
 > ⚠️ **Ne jamais modifier les valeurs stables** (organisation `LavArtemis`, UpgradeCodes, clés
 > `HKCU\Software\LavArtemis`) : les installations existantes ne se mettraient plus à jour.
 
+## 🎨 Interface v2 (LavArtemis Dev)
+
+La refonte (spec : `docs/superpowers/specs/2026-11-23-ui-redesign-design.md` dans LavArtemis,
+prototype de référence dans `docs/ui-redesign/prototype/`) vit dans **`app/gui/v2/`**, à côté de
+l'interface d'origine. La Dev l'ouvre au démarrage (`main.cpp`, `initialView`), sauf si
+`ArtemisSettings.uiLegacy` (Réglages › Interface, ou la case de *LavArtemis Features*).
+
+- `Theme.qml` (singleton, `qmldir`) : jetons des thèmes Braise / Affiche / Ludique en clair et sombre,
+  `ArtemisSettings.uiTheme` / `uiThemeMode` (0 Système qui suit `Qt.styleHints.colorScheme` en
+  direct, 1 Clair, 2 Sombre). `Theme.input` = dernière entrée (`pad`/`keys`/`mouse`/`touch`) :
+  indications et anneau de focus seulement pour la manette et le clavier.
+  `SdlGamepadKeyNavigation::gamepadInput()` est émis **après** la touche synthétique : le gestionnaire
+  `Keys` (qui pose `keys`) passe d'abord, le signal (qui pose `pad`) gagne.
+- `HomeView.qml` : un hôte à la fois, sections par `AppKindModel` (proxy filtrant
+  `AppModel::KindRole` : `desktop`, `playnite`, `app`, `game`), Scène de la session en cours,
+  Projecteur (`dimmed`) et halo (`LiveHalo`). `AppMenu.qml` : popover au pointeur à la souris,
+  centré sinon. `HostsView.qml` (Mes PC), `SettingsHome.qml` (Apparence ; le reste ouvre
+  `SettingsView.qml`).
+- **`Stage.qml`** : chaque page est composée sur une scène de **1600 px de large mise à l'échelle**
+  de la fenêtre, comme le prototype. Ne pas raisonner en pixels de fenêtre dans `v2/`.
+- Polices OFL embarquées (`res/fonts/`, enregistrées dans `main.cpp`).
+
+> ⚠️ **Jamais de liaison de `header.visible`/`height` sur `stackView.currentItem`** : elle a fait
+> boucler la mise en page au démarrage (appli figée, CPU à 100 %, même en ancienne interface).
+> `main.qml` pose `window.v2Page` dans `onCurrentItemChanged`, et la barre lit ce drapeau.
+
+> ⚠️ **Délégués : `model.xxx`, pas `required property`** quand le rôle porte le nom d'une
+> propriété du composant (`running` existe déjà sur `AppCard`/`CoverTile`).
+
+> 📋 **Captures** : sur une session Windows verrouillée, Qt ne rend plus la fenêtre (PrintWindow
+> rend une image figée, `grabToImage` n'aboutit jamais). Vérifier l'interface session ouverte.
+
 ## 🌊 PyroWave
 
 [PyroWave](https://github.com/Themaister/pyrowave) est un codec intra-only en ondelettes, décodé sur

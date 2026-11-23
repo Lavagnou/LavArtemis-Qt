@@ -1,4 +1,5 @@
 #include <QGuiApplication>
+#include <QFontDatabase>
 #include <QStyleHints>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -50,6 +51,7 @@
 #include "utils.h"
 #include "gui/computermodel.h"
 #include "gui/appmodel.h"
+#include "gui/appkindmodel.h"
 #include "backend/autoupdatechecker.h"
 #include "backend/computermanager.h"
 #include "backend/systemproperties.h"
@@ -983,6 +985,7 @@ int main(int argc, char *argv[])
     // Register our C++ types for QML
     qmlRegisterType<ComputerModel>("ComputerModel", 1, 0, "ComputerModel");
     qmlRegisterType<AppModel>("AppModel", 1, 0, "AppModel");
+    qmlRegisterType<AppKindModel>("AppKindModel", 1, 0, "AppKindModel");
     qmlRegisterUncreatableType<Session>("Session", 1, 0, "Session", "Session cannot be created from QML");
     qmlRegisterSingletonType<ComputerManager>("ComputerManager", 1, 0,
                                               "ComputerManager",
@@ -1073,13 +1076,28 @@ int main(int argc, char *argv[])
         qputenv("QT_QUICK_CONTROLS_MATERIAL_PRIMARY", "#3F51B5");
     }
 
+    // Fonts of the redesigned interface's themes (gui/v2/Theme.qml), SIL Open Font License
+    // (res/fonts/OFL-*.txt): Space Grotesk + Inter (Braise), Archivo (Affiche), Bricolage Grotesque (Ludique).
+    for (const char* font : {":/res/fonts/SpaceGrotesk.ttf", ":/res/fonts/Inter.ttf",
+                             ":/res/fonts/Archivo.ttf", ":/res/fonts/BricolageGrotesque.ttf"}) {
+        if (QFontDatabase::addApplicationFont(font) < 0) {
+            qWarning() << "Unable to load font" << font;
+        }
+    }
+
     QQmlApplicationEngine engine;
     QString initialView;
     bool hasGUI = true;
 
     switch (commandLineParserResult) {
     case GlobalCommandLineParser::NormalStartRequested:
+#ifdef LAV_DEV_CHANNEL
+        // LavArtemis Dev opens the redesigned interface (gui/v2), unless the user went back
+        // to the legacy one (Réglages › Interface, or LavArtemis Features in the old settings).
+        initialView = ArtemisSettings::instance()->uiLegacy() ? "qrc:/gui/PcView.qml" : "qrc:/gui/v2/HomeView.qml";
+#else
         initialView = "qrc:/gui/PcView.qml";
+#endif
         break;
     case GlobalCommandLineParser::StreamRequested:
         {

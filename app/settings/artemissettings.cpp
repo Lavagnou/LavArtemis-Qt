@@ -113,6 +113,9 @@ void ArtemisSettings::save()
     // Software update settings
     m_settings->beginGroup("SoftwareUpdate");
     m_settings->setValue("autoUpdateEnabled", m_autoUpdateEnabled);
+    m_settings->setValue("uiTheme", m_uiTheme);
+    m_settings->setValue("uiThemeMode", m_uiThemeMode);
+    m_settings->setValue("uiLegacy", m_uiLegacy);
     m_settings->setValue("autoUpdatePrerelease", m_autoUpdatePrerelease);
     m_settings->endGroup();
 
@@ -184,6 +187,9 @@ void ArtemisSettings::load()
     // Software update settings
     m_settings->beginGroup("SoftwareUpdate");
     m_autoUpdateEnabled = m_settings->value("autoUpdateEnabled", true).toBool();
+    m_uiTheme = m_settings->value("uiTheme", QStringLiteral("braise")).toString();
+    m_uiThemeMode = m_settings->value("uiThemeMode", 0).toInt();
+    m_uiLegacy = m_settings->value("uiLegacy", false).toBool();
     m_autoUpdatePrerelease = m_settings->value("autoUpdatePrerelease", false).toBool();
     m_settings->endGroup();
 }
@@ -213,6 +219,9 @@ void ArtemisSettings::resetToDefaults()
     emit showServerPermissionsChanged();
     emit inputOnlyModeEnabledChanged();
     emit autoUpdateEnabledChanged();
+    emit uiThemeChanged();
+    emit uiThemeModeChanged();
+    emit uiLegacyChanged();
     emit autoUpdatePrereleaseChanged();
 }
 
@@ -266,6 +275,34 @@ void ArtemisSettings::loadDefaults()
     // prereleases are opt-in since they're built from workflow_dispatch.
     m_autoUpdateEnabled = true;
     m_autoUpdatePrerelease = false;
+
+    m_uiTheme = QStringLiteral("braise");
+    m_uiThemeMode = 0;
+    m_uiLegacy = false;
+}
+
+void ArtemisSettings::setUiTheme(const QString &theme)
+{
+    if (m_uiTheme != theme) {
+        m_uiTheme = theme;
+        emit uiThemeChanged();
+    }
+}
+
+void ArtemisSettings::setUiThemeMode(int mode)
+{
+    if (m_uiThemeMode != mode) {
+        m_uiThemeMode = mode;
+        emit uiThemeModeChanged();
+    }
+}
+
+void ArtemisSettings::setUiLegacy(bool legacy)
+{
+    if (m_uiLegacy != legacy) {
+        m_uiLegacy = legacy;
+        emit uiLegacyChanged();
+    }
 }
 
 // Clipboard sync setters

@@ -114,6 +114,12 @@ SystemProperties::SystemProperties()
     hasPyroWave = false;
 #endif
 
+#ifdef LAV_DEV_CHANNEL
+    isDevChannel = true;
+#else
+    isDevChannel = false;
+#endif
+
     // These will be queried asynchronously to avoid blocking the UI
     hasHardwareAcceleration = true;
     rendererAlwaysFullScreen = false;

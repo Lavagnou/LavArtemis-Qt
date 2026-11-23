@@ -207,7 +207,10 @@ CenteredGridView {
         function launchOrResumeSelectedApp(quitExistingApp)
         {
             var runningId = appModel.getRunningAppId()
-            if (runningId !== 0 && runningId !== model.appid) {
+            // A Playnite game picked while the host's Playnite runs starts inside it: the session
+            // goes on, so nothing has to be quit first (LavApollo Link).
+            var insidePlaynite = appModel.startsInsidePlaynite(index)
+            if (runningId !== 0 && runningId !== model.appid && !insidePlaynite) {
                 if (quitExistingApp) {
                     quitAppDialog.appName = appModel.getRunningAppName()
                     quitAppDialog.segueToStream = true
@@ -223,7 +226,7 @@ CenteredGridView {
             var segue = component.createObject(stackView, {
                                                    "appName": model.name,
                                                    "session": appModel.createSessionForApp(index),
-                                                   "isResume": runningId === model.appid
+                                                   "isResume": runningId === model.appid || insidePlaynite
                                                })
             stackView.push(segue)
         }

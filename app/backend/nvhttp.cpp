@@ -400,9 +400,11 @@ NvHTTP::getDisplayModeList(QString serverInfo)
 QVector<NvApp>
 NvHTTP::getAppList()
 {
+    // playnite=1: LavApollo also lists the host's Playnite games (LavApollo Link), which it
+    // keeps from clients that do not ask for them.
     QString appxml = openConnectionToString(m_BaseUrlHttps,
                                             "applist",
-                                            nullptr,
+                                            "playnite=1",
                                             REQUEST_TIMEOUT_MS,
                                             NvLogLevel::NVLL_ERROR);
     verifyResponseStatus(appxml);
@@ -446,6 +448,13 @@ NvHTTP::getAppList()
                 }
                 else if (XML_NAME_EQUALS(name, "IsAppCollectorGame")) {
                     apps.last().isAppCollectorGame = xmlReader.readElementText() == "1";
+                }
+                else if (XML_NAME_EQUALS(name, "IsPlayniteGame")) {
+                    // LavApollo Link: a game of the host's Playnite library
+                    apps.last().isPlayniteGame = xmlReader.readElementText() == "1";
+                }
+                else if (XML_NAME_EQUALS(name, "IsPlayniteHost")) {
+                    apps.last().isPlayniteHost = xmlReader.readElementText() == "1";
                 }
             }
         }

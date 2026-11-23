@@ -130,6 +130,10 @@ public:
     int currentDisplayWidth;
     int currentDisplayHeight;
     int currentDisplayRefreshRate;
+    // LavApollo Link (Playnite): whether the running app is the host's Playnite front end, where a
+    // Playnite game starts without ending the session, and the game running in Playnite (empty if none)
+    bool playniteHostRunning;
+    QString playniteGameName;
 
     // LavApollo's hidden "Benchmark" app (docs/benchmark.md), 0 / empty when the host
     // does not offer it. Not in appList: it is launched by these.

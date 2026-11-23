@@ -25,6 +25,8 @@ public:
     Q_PROPERTY(bool hasBrowser MEMBER hasBrowser CONSTANT)
     Q_PROPERTY(bool hasDiscordIntegration MEMBER hasDiscordIntegration CONSTANT)
     Q_PROPERTY(bool hasPyroWave MEMBER hasPyroWave CONSTANT)
+    // LavArtemis Dev build (a "-dev." version, see app.pro)
+    Q_PROPERTY(bool isDevChannel MEMBER isDevChannel CONSTANT)
     Q_PROPERTY(bool usesMaterial3Theme MEMBER usesMaterial3Theme CONSTANT)
     Q_PROPERTY(QString versionString MEMBER versionString CONSTANT)
 
@@ -67,6 +69,7 @@ private:
     bool hasBrowser;
     bool hasDiscordIntegration;
     bool hasPyroWave;
+    bool isDevChannel;
     QString versionString;
     bool usesMaterial3Theme;
     bool isDarwin;

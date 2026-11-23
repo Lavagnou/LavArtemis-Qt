@@ -1,0 +1,15 @@
+singleton Theme 1.0 Theme.qml
+AppCard 1.0 AppCard.qml
+AppMenu 1.0 AppMenu.qml
+CoverTile 1.0 CoverTile.qml
+HomeView 1.0 HomeView.qml
+HostsView 1.0 HostsView.qml
+LavButton 1.0 LavButton.qml
+LavIcon 1.0 LavIcon.qml
+LavPill 1.0 LavPill.qml
+LiveHalo 1.0 LiveHalo.qml
+PageHeader 1.0 PageHeader.qml
+RoundIconButton 1.0 RoundIconButton.qml
+SectionTitle 1.0 SectionTitle.qml
+SettingsHome 1.0 SettingsHome.qml
+Stage 1.0 Stage.qml

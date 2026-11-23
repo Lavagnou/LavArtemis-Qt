@@ -59,6 +59,13 @@ class ArtemisSettings : public QObject
 
     // Software update settings
     Q_PROPERTY(bool autoUpdateEnabled READ autoUpdateEnabled WRITE setAutoUpdateEnabled NOTIFY autoUpdateEnabledChanged)
+
+    // Redesigned interface (gui/v2, docs/superpowers/specs/2026-11-23-ui-redesign-design.md):
+    // theme ("braise", "affiche", "ludique"), light/dark mode (0 system, 1 light, 2 dark), and the
+    // escape hatch back to the legacy interface. Machine-wide, like the language: not per profile.
+    Q_PROPERTY(QString uiTheme READ uiTheme WRITE setUiTheme NOTIFY uiThemeChanged)
+    Q_PROPERTY(int uiThemeMode READ uiThemeMode WRITE setUiThemeMode NOTIFY uiThemeModeChanged)
+    Q_PROPERTY(bool uiLegacy READ uiLegacy WRITE setUiLegacy NOTIFY uiLegacyChanged)
     Q_PROPERTY(bool autoUpdatePrerelease READ autoUpdatePrerelease WRITE setAutoUpdatePrerelease NOTIFY autoUpdatePrereleaseChanged)
 
 public:
@@ -145,6 +152,12 @@ public:
 
     // Software update getters/setters
     bool autoUpdateEnabled() const { return m_autoUpdateEnabled; }
+    QString uiTheme() const { return m_uiTheme; }
+    void setUiTheme(const QString &theme);
+    int uiThemeMode() const { return m_uiThemeMode; }
+    void setUiThemeMode(int mode);
+    bool uiLegacy() const { return m_uiLegacy; }
+    void setUiLegacy(bool legacy);
     void setAutoUpdateEnabled(bool enabled);
     bool autoUpdatePrerelease() const { return m_autoUpdatePrerelease; }
     void setAutoUpdatePrerelease(bool enabled);
@@ -193,6 +206,9 @@ signals:
 
     // Software update signals
     void autoUpdateEnabledChanged();
+    void uiThemeChanged();
+    void uiThemeModeChanged();
+    void uiLegacyChanged();
     void autoUpdatePrereleaseChanged();
 
 private:
@@ -247,5 +263,8 @@ private:
 
     // Software update
     bool m_autoUpdateEnabled;
+    QString m_uiTheme;
+    int m_uiThemeMode;
+    bool m_uiLegacy;
     bool m_autoUpdatePrerelease;
 };

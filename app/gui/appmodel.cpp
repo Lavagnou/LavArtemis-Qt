@@ -26,6 +26,59 @@ void AppModel::initialize(ComputerManager* computerManager, int computerIndex, b
     updateAppList(m_Computer->appList);
 }
 
+bool AppModel::startsInsidePlaynite(int appIndex)
+{
+    Q_ASSERT(appIndex < m_VisibleApps.count());
+    const NvApp& app = m_VisibleApps.at(appIndex);
+
+    QReadLocker lock(&m_Computer->lock);
+    return app.isPlayniteGame &&
+           m_Computer->playniteHostRunning &&
+           m_Computer->currentGameId != 0 &&
+           m_Computer->currentGameId != app.id;
+}
+
+QString AppModel::getRunningPlayniteGameName()
+{
+    QReadLocker lock(&m_Computer->lock);
+    return m_Computer->playniteGameName;
+}
+
+int AppModel::getRunningAppIndex()
+{
+    if (m_CurrentGameId == 0) {
+        return -1;
+    }
+    for (int i = 0; i < m_VisibleApps.count(); i++) {
+        if (m_VisibleApps[i].id == m_CurrentGameId) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+QString AppModel::getRunningAppKind()
+{
+    int index = getRunningAppIndex();
+    return index >= 0 ? kindOf(m_VisibleApps[index]) : QString();
+}
+
+QString AppModel::kindOf(const NvApp& app)
+{
+    if (app.isPlayniteGame) {
+        return QStringLiteral("game");
+    }
+    QString name = app.name.toLower();
+    if (app.isPlayniteHost || name.contains(QStringLiteral("playnite"))) {
+        return QStringLiteral("playnite");
+    }
+    if (name == QStringLiteral("desktop") || name == QStringLiteral("bureau") ||
+            name.startsWith(QStringLiteral("desktop")) || name.startsWith(QStringLiteral("bureau"))) {
+        return QStringLiteral("desktop");
+    }
+    return QStringLiteral("app");
+}
+
 int AppModel::getRunningAppId()
 {
     return m_CurrentGameId;
@@ -98,6 +151,12 @@ QVariant AppModel::data(const QModelIndex &index, int role) const
         return app.directLaunch;
     case AppCollectorGameRole:
         return app.isAppCollectorGame;
+    case PlayniteGameRole:
+        return app.isPlayniteGame;
+    case PlayniteHostRole:
+        return app.isPlayniteHost;
+    case KindRole:
+        return kindOf(app);
     default:
         return QVariant();
     }
@@ -114,6 +173,9 @@ QHash<int, QByteArray> AppModel::roleNames() const
     names[AppIdRole] = "appid";
     names[DirectLaunchRole] = "directLaunch";
     names[AppCollectorGameRole] = "appCollectorGame";
+    names[PlayniteGameRole] = "playniteGame";
+    names[PlayniteHostRole] = "playniteHost";
+    names[KindRole] = "kind";
 
     return names;
 }

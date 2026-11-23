@@ -199,6 +199,7 @@ SOURCES += \
     streaming/audio/micstreamer.cpp \
     gui/computermodel.cpp \
     gui/appmodel.cpp \
+    gui/appkindmodel.cpp \
     streaming/bandwidth.cpp \
     streaming/streamutils.cpp \
     streaming/panzoom.cpp \
@@ -261,6 +262,7 @@ HEADERS += \
     streaming/audio/micstreamer.h \
     gui/computermodel.h \
     gui/appmodel.h \
+    gui/appkindmodel.h \
     streaming/video/decoder.h \
     streaming/bandwidth.h \
     streaming/streamutils.h \

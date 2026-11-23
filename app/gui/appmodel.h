@@ -10,6 +10,8 @@ class AppModel : public QAbstractListModel
 {
     Q_OBJECT
 
+public:
+    // Public: AppKindModel filters on KindRole.
     enum Roles
     {
         NameRole = Qt::UserRole,
@@ -19,6 +21,11 @@ class AppModel : public QAbstractListModel
         AppIdRole,
         DirectLaunchRole,
         AppCollectorGameRole,
+        PlayniteGameRole,
+        PlayniteHostRole,
+        // "desktop", "playnite" (the Playnite front end), "game" (Playnite library) or "app":
+        // the sections of the redesigned home (gui/v2, AppKindModel)
+        KindRole,
     };
 
 public:
@@ -30,6 +37,22 @@ public:
     Q_INVOKABLE Session* createSessionForApp(int appIndex);
 
     Q_INVOKABLE int getDirectLaunchAppIndex();
+
+    // LavApollo Link: whether this app starts inside the host's running Playnite front end,
+    // keeping the session (no "quit the running app" first).
+    Q_INVOKABLE bool startsInsidePlaynite(int appIndex);
+
+    // The game running inside the host's Playnite (LavApollo Link), empty if none
+    Q_INVOKABLE QString getRunningPlayniteGameName();
+
+    // Row of the running app among the visible apps, -1 if none is running or it is hidden
+    Q_INVOKABLE int getRunningAppIndex();
+
+    // Section of the running app (see KindRole), empty if none
+    Q_INVOKABLE QString getRunningAppKind();
+
+    // Section of the redesigned home an app belongs to (see KindRole)
+    static QString kindOf(const NvApp& app);
 
     Q_INVOKABLE int getRunningAppId();
 

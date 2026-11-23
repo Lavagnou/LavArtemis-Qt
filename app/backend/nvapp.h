@@ -16,7 +16,9 @@ public:
                 hdrSupported == other.hdrSupported &&
                 isAppCollectorGame == other.isAppCollectorGame &&
                 hidden == other.hidden &&
-                directLaunch == other.directLaunch;
+                directLaunch == other.directLaunch &&
+                isPlayniteGame == other.isPlayniteGame &&
+                isPlayniteHost == other.isPlayniteHost;
     }
 
     bool operator!=(const NvApp& other) const
@@ -41,6 +43,11 @@ public:
     bool isAppCollectorGame = false;
     bool hidden = false;
     bool directLaunch = false;
+    // A game of the host's Playnite library (LavApollo Link): picked while the host's Playnite
+    // front end runs, it starts inside Playnite without ending the session.
+    bool isPlayniteGame = false;
+    // The host's Playnite front end (LavApollo Link), where those games start.
+    bool isPlayniteHost = false;
 };
 
 Q_DECLARE_METATYPE(NvApp)

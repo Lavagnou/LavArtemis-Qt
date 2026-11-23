@@ -1231,7 +1231,8 @@ bool Session::initialize(QQuickWindow* qtWindow)
             hostRefresh = m_Computer->currentDisplayRefreshRate;
             currentGameId = m_Computer->currentGameId;
         }
-        const bool resuming = currentGameId != 0 && currentGameId == m_App.id;
+        // A Playnite game started inside the running Playnite front end joins its display too.
+        const bool resuming = currentGameId != 0 && (currentGameId == m_App.id || m_App.isPlayniteGame);
         if (!m_MultiDisplayActive && hostW > 0 && hostH > 0 &&
                 HostDisplayFit::applies(resuming, m_Preferences->useVirtualDisplay)) {
             HostDisplayFit::Mode m = HostDisplayFit::fit(hostW, hostH, hostRefresh,
@@ -2379,8 +2380,10 @@ bool Session::startConnectionAsync()
 {
     // The UI should have ensured the old game was already quit
     // if we decide to stream a different game.
+    // (or the app is a Playnite game the host starts inside its running Playnite front end).
     Q_ASSERT(m_Computer->currentGameId == 0 ||
-             m_Computer->currentGameId == m_App.id);
+             m_Computer->currentGameId == m_App.id ||
+             m_App.isPlayniteGame);
 
     bool enableGameOptimizations;
     if (m_Computer->isNvidiaServerSoftware) {

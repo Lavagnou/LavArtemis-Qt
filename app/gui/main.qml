@@ -18,6 +18,9 @@ ApplicationWindow {
     // a retranslate() because AppView breaks for some reason.
     property bool clearOnBack: false
 
+    // The current page belongs to the redesigned interface (gui/v2): hide the legacy toolbar
+    property bool v2Page: false
+
     id: window
     width: 1280
     height: 600
@@ -123,6 +126,7 @@ ApplicationWindow {
         }
 
         onCurrentItemChanged: {
+            window.v2Page = currentItem !== null && currentItem.isV2Page === true
             // Ensure focus travels to the next view when going back
             if (currentItem) {
                 currentItem.forceActiveFocus()
@@ -239,6 +243,9 @@ ApplicationWindow {
 
     header: ToolBar {
         id: toolBar
+        // The redesigned pages (gui/v2) draw their own header. A flag set when the page
+        // changes, not a binding on stackView.currentItem: that one looped the layout.
+        visible: !window.v2Page
         height: 60
         anchors.topMargin: 5
         anchors.bottomMargin: 5

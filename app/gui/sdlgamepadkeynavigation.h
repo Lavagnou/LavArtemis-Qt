@@ -26,6 +26,11 @@ public:
 
     Q_INVOKABLE int getConnectedGamepads();
 
+signals:
+    // A gamepad drove the UI (emitted after the key event it produced): the redesigned UI
+    // (gui/v2) shows gamepad hints only then, never for a real keyboard.
+    void gamepadInput();
+
 private:
     void sendKey(QEvent::Type type, Qt::Key key, Qt::KeyboardModifiers modifiers = Qt::NoModifier);
 
