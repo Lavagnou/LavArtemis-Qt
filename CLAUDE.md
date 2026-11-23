@@ -43,7 +43,7 @@ macOS et Steam Link : le code amont est là mais **hors périmètre** — aucune
 | `app/backend/` | Découverte d'hôtes, `nvhttp` (pairing, HTTP), `computermanager`, `keymacromanager`, `autoupdatechecker` |
 | `app/streaming/` | Session de stream, entrées (clavier/souris/manette), `panzoom`, `streamutils` |
 | `app/streaming/video/` | Décodeurs, `pacingstats`, et `ffmpeg-renderers/` (un backend par API graphique) |
-| `app/gui/` | QML — `SettingsView`, `AppView`, `QuickMenu`, `PcView` |
+| `app/gui/` | QML — `main.qml`, `v2/` (toute l'interface), `QuickMenu` (menu en jeu), segues de stream, mapper de manettes, benchmark |
 | `app/settings/` | `streamingpreferences`, `artemissettings`, `profilemanager` |
 | `app/cli/` | Ligne de commande, `artlink` (liens `art://` et fichiers `.art`) |
 | `wix/` | Installeur Windows |
@@ -134,13 +134,11 @@ Trois choses qui ne se devinent pas :
 
 Un bouton de bascule est aussi posé dans la barre d'outils (`gui/main.qml`), parce que c'est le
 réglage qu'on change selon l'endroit où l'on est assis. Il **persiste lui-même**
-(`StreamingPreferences.save()`) : contrairement à `SettingsView`, ces pages n'ont pas d'événement de
+(`StreamingPreferences.save()`) : contrairement aux Réglages, l'accueil n'a pas d'événement de
 navigation sur lequel sauvegarder.
 
-Il est visible sur **l'accueil et sur la liste des applications d'un hôte** (`instanceof PcView ||
-instanceof AppView`), pas seulement sur l'accueil : le moment où l'on décide de streamer sur un ou
-plusieurs écrans est celui juste avant de lancer un jeu, et revenir en arrière pour basculer est
-exactement le détour qu'un raccourci de barre d'outils est censé éviter.
+Il est dans l'en-tête de l'accueil (pastille Multi-écran), là où l'on lance les jeux : le moment où
+l'on décide de streamer sur un ou plusieurs écrans est celui juste avant de lancer un jeu.
 
 > ⚠️ Un renoncement silencieux est pire que le renoncement lui-même : avec l'option cochée et un
 > seul écran, `detect()` sortait sans `problem()` et `session.cpp` n'avertissait que si `problem()`
@@ -254,8 +252,9 @@ Trois autres règles dont dépend la justesse des captures :
 ## 🔄 Mise à jour in-app
 
 `backend/autoupdatechecker.{h,cpp}` interroge les releases GitHub de **LavArtemis** (pas Moonlight) et,
-sous Windows, télécharge et lance l'installeur lui-même. Réglages dans **Software Update** de
-`SettingsView.qml` : « Check for updates when the app starts » et « Include CI pre-release builds ».
+sous Windows, télécharge et lance l'installeur lui-même. Réglages › Avancé : « Chercher les mises à
+jour au démarrage » et le bouton Vérifier / Installer. `main.qml` démarre le check et garde la version
+trouvée (`window.updateVersion`, `updateDownloadUrl`, `updateBrowserUrl`) pour ses deux dialogues.
 
 | | |
 |---|---|
@@ -338,9 +337,10 @@ fichier) ; `scripts/generate-ico.sh` n'est plus qu'un renvoi vers lui. Ne jamais
 La refonte (spec : `docs/superpowers/specs/2026-11-23-ui-redesign-design.md` dans LavArtemis,
 prototype de référence dans `docs/ui-redesign/prototype/`) vit dans **`app/gui/v2/`**, à côté de
 l'interface d'origine. La Dev l'ouvre toujours au démarrage (`main.cpp`, `initialView`) : le retour
-à l'ancienne interface (`uiLegacy`) a été retiré. Les anciens écrans restent pour ce que la v2 n'a pas
-encore : `PcView` (ajout par adresse, OTP, renommer, benchmark, depuis Mes PC) et l'ancien
-`SettingsView` (depuis Avancé).
+à l'ancienne interface (`uiLegacy`) a été retiré, puis **l'ancienne interface elle-même** (`PcView`,
+`AppView`, `SettingsView`, la barre d'outils et leurs briques). Restent hors de `v2/` : `main.qml`
+(fenêtre, dialogues de démarrage et de mise à jour), `QuickMenu`, les segues de stream et de CLI, le
+mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, en-tête `PageHeader`).
 
 - `Theme.qml` (singleton, `qmldir`) : jetons des thèmes Braise / Affiche / Ludique en clair et sombre,
   `ArtemisSettings.uiTheme` / `uiThemeMode` (0 Système qui suit `Qt.styleHints.colorScheme` en
@@ -360,14 +360,24 @@ encore : `PcView` (ajout par adresse, OTP, renommer, benchmark, depuis Mes PC) e
   gris, luminosité puis opacité, sur **toute** la face (jaquette et nom). ⚠️ La luminosité
   **multiplie** (calque noir) : `MultiEffect.brightness` ajoute, et noircissait les jaquettes
   sombres. `AppMenu.qml` : popover au pointeur à la souris,
-  centré sinon. `HostsView.qml` (Mes PC).
+  centré sinon (`customEntries` pour d'autres menus du même style).
+- **`HostsView.qml` (Mes PC, prototype « hosts »)** : une carte par PC appairé (état, adresse, version
+  LavApollo, ce qui tourne), puis « Ajouter un PC » (PC trouvés sur le réseau ou par adresse, puis
+  appairage par code PIN). Menu : Ouvrir, Benchmark, Réveiller, Renommer, Oublier. ⚠️ Les rôles de
+  `ComputerModel` sont lus par numéro (`roleId()`, ordre de l'enum depuis `Qt::UserRole`) : un rôle
+  ajouté ou retiré dans `computermodel.h` doit l'être dans cette liste. Et **jamais de propriété
+  `action`** sur un `AbstractButton` (elle existe déjà : le composant refuse de se charger).
+- Les jeux **masqués** (« Masquer ») se réaffichent depuis l'accueil (bouton sous la bibliothèque) et se
+  démasquent depuis leur menu.
 - **`SettingsView2.qml`** (Réglages) : pages à gauche, lignes à droite, d'après le tri Normal / Expert
   / Supprimer des réglages. Les lignes *expert* n'apparaissent qu'avec `ArtemisSettings.uiExpertMode`
   (bascule en tête de la liste des pages, propre à la machine) ; une page sans ligne visible disparaît
   (Manettes hors mode expert). Briques : `SettingRow` (+ `SettingToggle`, `SettingChoice` segmenté ou
   `LavDropdown`, `SettingSlider`, `SettingAction`), popups `LavPopup` / `LavDialog`,
-  `PyroWaveCalibration` (SDR seulement). L'ancien `SettingsView.qml` reste la référence de lecture et
-  d'écriture de chaque préférence et s'ouvre depuis Avancé (« Écran de réglages complet »).
+  `PyroWaveCalibration` (SDR seulement). Les réglages retirés par le tri sont **forcés à leur valeur
+  par défaut** dans `StreamingPreferences::reload()` (HDR, mise à l'échelle, boutons de souris inversés,
+  défilement inversé, choix de rendu ; optimisations de jeu toujours actives) : plus rien ne pourrait
+  les remettre à zéro.
 - **`Stage.qml`** : composée sur 1600 px de maquette, agrandie au-delà ; en dessous, la page rétrécit
   avec la fenêtre **mais jamais sous `minScale` (0,8)** et se compose alors sur une scène plus large
   que la fenêtre réduite. Tout réduire rendait les boutons trop petits, la taille réelle trop gros :
@@ -397,11 +407,24 @@ encore : `PcView` (ajout par adresse, OTP, renommer, benchmark, depuis Mes PC) e
   et n'est codé qu'une fois validé.
 - Polices OFL embarquées (`res/fonts/`, enregistrées dans `main.cpp`).
 
-> ⚠️ **Jamais de liaison de `header.visible`/`height` sur `stackView.currentItem`** : elle a fait
-> boucler la mise en page au démarrage (appli figée, CPU à 100 %, même en ancienne interface).
-> `main.qml` pose `window.v2Page` dans `onCurrentItemChanged`, et la barre lit ce drapeau. Il part
-> de `initialView` (et le fond de la fenêtre de `Theme.bg`) : sinon les premières images montraient
-> la barre et le gris Material de l'ancienne interface.
+> 📋 Le fond de la fenêtre est `Theme.bg` dès la première image, et les contrôles Material restants
+> prennent les couleurs et la police du thème depuis `main.qml` (`Material.*`, `font`).
+
+## 🇫🇷 Langue
+
+L'interface v2 est **écrite en français** (sources `qsTr("…")` en français). Le reste (mapper,
+benchmark, menu en jeu, messages de stream et d'erreur, C++) a des sources anglaises traduites par
+**`languages/qml_fr.ts`** (compilé en `qml_fr.qm`, embarqué par `resources.qrc`). L'utilisateur ne veut
+**aucune phrase anglaise** en français : tout texte affiché passe par `tr()`/`qsTr()` (jamais une
+chaîne nue dans un `emit …Failed("…")` ou un toast), et après un ajout :
+
+```
+lupdate -recursive app -extensions cpp,h,qml -no-obsolete -locations none -ts app/languages/qml_fr.ts
+# traduire les entrées « unfinished » dont la source est en anglais
+lrelease app/languages/qml_fr.ts -qm app/languages/qml_fr.qm
+```
+Les anglicismes courants restent tels quels (stream, benchmark, frame pacing, mapping, FPS, codec).
+⚠️ Hors classe `QObject`, `tr()` n'existe pas : `QCoreApplication::translate("Contexte", "…")`.
 
 > ⚠️ **Réglages v2 : une ligne lit la préférence, elle ne la garde jamais.** `checked`, `value` sont
 > des liaisons sur `StreamingPreferences` / `ArtemisSettings` ; un clic émet `toggled` / `chosen` /
@@ -604,8 +627,9 @@ par `tests/hostdisplay`.
 
 ## ⚠️ Pièges / Gotchas
 
-1. **`ArtemisSettings` ne persiste pas tout seul.** Les setters n'écrivent pas ; `SettingsView.qml`
-   appelle `ArtemisSettings.save()` dans `StackView.onDeactivating` et `Component.onDestruction`.
+1. **`ArtemisSettings` ne persiste pas tout seul.** Les setters n'écrivent pas ; `SettingsView2.qml`
+   appelle `persist()` à chaque changement et `ArtemisSettings.save()` dans `StackView.onDeactivating`
+   et `Component.onDestruction`.
    **Tout nouveau point d'édition doit faire pareil.**
 
 2. **Un seul helper de géométrie, deux usages.** Tous les renderers *et* le mapping des coordonnées
