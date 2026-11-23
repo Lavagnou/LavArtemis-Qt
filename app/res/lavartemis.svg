@@ -1,1 +1,12 @@
-<?xml version="1.0" standalone="no"?><!-- Generator: Gravit.io --><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="isolation:isolate" viewBox="0 0 256 256" width="256" height="256"><g><circle vector-effect="non-scaling-stroke" cx="128" cy="128" r="128" fill="rgb(0,0,0)"/><circle vector-effect="non-scaling-stroke" cx="128.00000000000003" cy="128.00000000000003" r="96" fill="rgb(255,255,255)"/><path d=" M 137.66 132 L 224 132 L 224 124 L 137.66 124 L 198.71 62.95 L 193.05 57.29 L 132 118.34 L 132 32 L 124 32 L 124 118.34 L 62.95 57.29 L 57.29 62.95 L 118.34 124 L 32 124 L 32 132 L 118.34 132 L 57.29 193.05 L 62.95 198.71 L 124 137.66 L 124 224 L 132 224 L 132 137.66 L 193.05 198.71 L 198.71 193.05 L 137.66 132 Z " fill-rule="evenodd" fill="rgb(0,0,0)"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="1024" height="1024"><defs>
+<linearGradient id="night" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#25325A"/><stop offset="1" stop-color="#0E1222"/></linearGradient>
+<linearGradient id="sun" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#FFD866"/><stop offset="1" stop-color="#F2AE1E"/></linearGradient>
+</defs><rect width="100" height="100" rx="22" fill="url(#night)"/><g fill="none" stroke="#DDE6F5" stroke-linecap="round" stroke-linejoin="round">
+<rect x="16" y="22" width="68" height="48" rx="8" stroke-width="5"/>
+<path d="M50 70 V81 M40 82 H60" stroke-width="5"/>
+</g><g transform="translate(50 46) scale(0.55) translate(-50 -50)">
+<path d="M49.62 18 A32 32 0 1 0 79.4 62.64 A27 27 0 1 1 49.62 18 Z" fill="#DDE6F5"/>
+<path d="M57 33 L57 51 L71 42 Z" fill="#8FB4FF" stroke="#8FB4FF" stroke-width="3" stroke-linejoin="round"/>
+<circle cx="22" cy="24" r="2.4" fill="#DDE6F5"/>
+<circle cx="85" cy="30" r="2" fill="#DDE6F5"/>
+</g></svg>

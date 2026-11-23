@@ -17,11 +17,15 @@
 <?define BundleUpgradeCode = "0f199e84-5a47-4311-bec5-4330a80c1095" ?>
 <?define BundleFolder = "LavArtemis Dev" ?>
 <?define BundleRegKey = "Software\LavArtemis Dev" ?>
+<?define BundleIcon = "..\..\app\lavartemis-dev.ico" ?>
+<?define BundleLogo = "..\..\app\artemis_wix-dev.png" ?>
 <?else?>
 <?define BundleName = "LavArtemis Game Streaming Client" ?>
 <?define BundleUpgradeCode = "0dc77dbb-91d2-4126-9993-558fbe74ae28" ?>
 <?define BundleFolder = "LavArtemis Game Streaming" ?>
 <?define BundleRegKey = "Software\LavArtemis" ?>
+<?define BundleIcon = "..\..\app\lavartemis.ico" ?>
+<?define BundleLogo = "..\..\app\artemis_wix.png" ?>
 <?endif?>
   <Bundle Name="$(var.BundleName)"
           Version="!(bind.PackageVersion.Artemis_x64)"
@@ -30,7 +34,7 @@
           HelpUrl="https://github.com/wjbeckett/artemis/wiki/Setup-Guide"
           UpdateUrl="https://github.com/wjbeckett/artemis/releases"
           DisableModify="yes"
-          IconSourceFile="..\..\app\lavartemis.ico">
+          IconSourceFile="$(var.BundleIcon)">
 
     <bal:Condition Message="This version of LavArtemis requires Windows 10 or later." Condition="VersionNT &gt;= v10.0" />
     <bal:Condition Message="This version of LavArtemis requires a 64-bit version of Windows." Condition="NativeMachine &lt;&gt; 332" />
@@ -60,11 +64,11 @@
     <BootstrapperApplication>
       <bal:WixStandardBootstrapperApplication ShowVersion="yes"
                                               LicenseFile="license.rtf"
-                                              LogoFile="..\..\app\artemis_wix.png"
+                                              LogoFile="$(var.BundleLogo)"
                                               LaunchTarget="[InstallFolder]\LavArtemis.exe"
                                               ThemeFile="RtfTheme.xml"
                                               Theme="rtfLicense" />
-      <Payload Name="lavartemis.ico" SourceFile="..\..\app\lavartemis.ico" Compressed="yes" />
+      <Payload Name="lavartemis.ico" SourceFile="$(var.BundleIcon)" Compressed="yes" />
     </BootstrapperApplication>
 
     <Chain>

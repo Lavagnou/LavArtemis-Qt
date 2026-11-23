@@ -716,6 +716,8 @@ LAV_VERSION_STR = $$cat(version.txt)
 LAV_VERSION_NUM = $$replace(LAV_VERSION_STR, "-dev\.", ".")
 contains(LAV_VERSION_STR, ".*-dev\..*") {
     DEFINES += LAV_DEV_CHANNEL
+    # Dev icon (blueprint tile + green DEV pill), see docs/branding in LavArtemis.
+    win32: RC_ICONS = lavartemis-dev.ico
 }
 VERSION = $$LAV_VERSION_NUM
 DEFINES += VERSION_STR=\\\"$$LAV_VERSION_STR\\\"

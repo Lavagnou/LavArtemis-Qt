@@ -2796,7 +2796,13 @@ void Session::exec()
                     "QuickMenuManager is null when trying to set geometry");
     }
 
-    QSvgRenderer svgIconRenderer(QString(":/res/lavartemis.svg"));
+    // The stream window carries the "session in progress" logo (the lit screen), the other
+    // windows the regular one: the same pair as LavApollo's tray icon (docs/branding).
+#ifdef LAV_DEV_CHANNEL
+    QSvgRenderer svgIconRenderer(QString(":/res/lavartemis-dev-session.svg"));
+#else
+    QSvgRenderer svgIconRenderer(QString(":/res/lavartemis-session.svg"));
+#endif
     QImage svgImage(ICON_SIZE, ICON_SIZE, QImage::Format_RGBA8888);
     svgImage.fill(0);
 

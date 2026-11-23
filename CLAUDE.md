@@ -319,6 +319,20 @@ Vue d'ensemble et tableau stable/dev : section « Stable / Dev » du `CLAUDE.md`
 > ⚠️ **Ne jamais modifier les valeurs stables** (organisation `LavArtemis`, UpgradeCodes, clés
 > `HKCU\Software\LavArtemis`) : les installations existantes ne se mettraient plus à jour.
 
+## 🖼️ Icônes
+
+Générées par `docs/branding/` du dépôt **LavArtemis** (README : formes, couleurs, destination de chaque
+fichier) ; `scripts/generate-ico.sh` n'est plus qu'un renvoi vers lui. Ne jamais retoucher un rendu ici.
+
+| Fichier | Rôle |
+|---|---|
+| `app/res/lavartemis.svg` / `lavartemis-dev.svg` | icône des fenêtres Qt (`main.cpp`, la Dev selon `LAV_DEV_CHANNEL`) |
+| `app/res/lavartemis-session.svg` / `lavartemis-dev-session.svg` | icône de la **fenêtre du stream** (SDL, `Session` : l'écran allumé = session en cours, comme l'icône de LavApollo) |
+| `app/lavartemis.ico` / `lavartemis-dev.ico` | icône de l'exe (`RC_ICONS`, la Dev le remplace dans le bloc `-dev.` d'`app.pro`) et de l'installeur (`Bundle.wxs`, `BundleIcon`) |
+| `app/artemis_wix.png` / `artemis_wix-dev.png` | logo 64 px de l'installeur (`BundleLogo`) |
+
+> 📋 Le `.ico` a des entrées DIB jusqu'à 128 px et PNG à 256 px : la forme que lisent `rc.exe`, WiX et NSIS.
+
 ## 🎨 Interface v2 (LavArtemis Dev)
 
 La refonte (spec : `docs/superpowers/specs/2026-11-23-ui-redesign-design.md` dans LavArtemis,

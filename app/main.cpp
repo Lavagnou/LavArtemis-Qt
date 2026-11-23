@@ -969,7 +969,11 @@ int main(int argc, char *argv[])
 #ifndef Q_OS_DARWIN
     // Set the window icon except on macOS where we want to keep the
     // modified macOS 11 style rounded corner icon.
+#ifdef LAV_DEV_CHANNEL
+    app.setWindowIcon(QIcon(":/res/lavartemis-dev.svg"));
+#else
     app.setWindowIcon(QIcon(":/res/lavartemis.svg"));
+#endif
 #endif
 
     // This is necessary to show our icon correctly on Wayland
