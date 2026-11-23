@@ -1580,6 +1580,7 @@ bool Session::initialize(QQuickWindow* qtWindow)
         
         // Connect the ServerCommandManager to the QuickMenuManager
         m_QuickMenuManager->setServerCommandManager(m_ServerCommandManager);
+        m_QuickMenuManager->setComputer(m_Computer);
         
         // Connect the ClipboardManager to the QuickMenuManager
         m_QuickMenuManager->setClipboardManager(m_ClipboardManager);

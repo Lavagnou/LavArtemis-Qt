@@ -29,6 +29,9 @@ class QuickMenuManager : public QObject
     Q_PROPERTY(bool isKeyboardCaptured READ isKeyboardCaptured NOTIFY keyboardCaptureChanged)
     Q_PROPERTY(bool isStatsVisible READ isStatsVisible NOTIFY statsVisibilityChanged)
     Q_PROPERTY(ServerCommandManager* serverCommandManager READ serverCommandManager CONSTANT)
+    // LavApollo Link: the game running inside the host's Playnite (empty if none), refreshed
+    // each time the menu opens; it offers "Quitter <jeu>", back to Playnite.
+    Q_PROPERTY(QString playniteGameName READ playniteGameName NOTIFY playniteGameChanged)
     QML_ELEMENT
 
 public:
@@ -62,6 +65,11 @@ public:
     Q_INVOKABLE void toggleKeyboardCapture();
     Q_INVOKABLE void toggleFullscreen();
 
+    // "Quitter le jeu": closes the game inside Playnite, the stream goes back to Playnite
+    Q_INVOKABLE void quitPlayniteGame();
+    QString playniteGameName() const { return m_playniteGameName; }
+    void setComputer(NvComputer *computer) { m_computer = computer; }
+
     // Integration with other managers
     void setServerCommandManager(ServerCommandManager *manager);
     void setClipboardManager(ClipboardManager *manager);
@@ -79,6 +87,7 @@ signals:
     void mouseCaptureChanged();
     void keyboardCaptureChanged();
     void statsVisibilityChanged();
+    void playniteGameChanged();
 
     // Action signals
     void disconnectRequested();
@@ -102,6 +111,10 @@ private:
     void createQuickView();
     void updateQuickView();
     void sendKeyCombo(int keyCombo);
+    void refreshPlayniteGame();
+
+    NvComputer *m_computer = nullptr;
+    QString m_playniteGameName;
 
     bool m_isVisible;
     QWindow *m_window;

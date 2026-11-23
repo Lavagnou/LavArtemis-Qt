@@ -25,6 +25,10 @@ enum KeyCombo {
 #include <QQuickView>
 #include <QQuickItem>
 #include <QWindow>
+#include <QPointer>
+#include <QThreadPool>
+
+#include "nvhttp.h"
 #include <QUrl>
 #include <QDebug>
 #include <QTimer>
@@ -103,6 +107,7 @@ void QuickMenuManager::setVisible(bool visible)
     m_isVisible = visible;
     
     if (visible) {
+        refreshPlayniteGame();
         createQuickView();
     } else {
         if (m_quickView) {
@@ -116,6 +121,58 @@ void QuickMenuManager::setVisible(bool visible)
 void QuickMenuManager::toggle()
 {
     setVisible(!m_isVisible);
+}
+
+void QuickMenuManager::refreshPlayniteGame()
+{
+    if (m_computer == nullptr) {
+        return;
+    }
+
+    // Host polling is stopped while streaming: ask the host now, off the UI thread.
+    NvComputer *computer = m_computer;
+    QPointer<QuickMenuManager> self(this);
+    QThreadPool::globalInstance()->start([computer, self]() {
+        QString name;
+        try {
+            NvHTTP http(computer);
+            name = NvHTTP::getXmlString(http.getServerInfo(NvHTTP::NVLL_NONE, true), "PlayniteGameName");
+        } catch (...) {
+            return;
+        }
+        QMetaObject::invokeMethod(qApp, [self, name]() {
+            if (self && self->m_playniteGameName != name) {
+                self->m_playniteGameName = name;
+                emit self->playniteGameChanged();
+            }
+        }, Qt::QueuedConnection);
+    });
+}
+
+void QuickMenuManager::quitPlayniteGame()
+{
+    if (m_computer == nullptr) {
+        return;
+    }
+
+    NvComputer *computer = m_computer;
+    QPointer<QuickMenuManager> self(this);
+    QThreadPool::globalInstance()->start([computer, self]() {
+        bool ok = true;
+        try {
+            NvHTTP http(computer);
+            QString reply = http.openConnectionToString(http.m_BaseUrlHttps, "playnite-quit-game", nullptr, 5000);
+            NvHTTP::verifyResponseStatus(reply);
+        } catch (...) {
+            ok = false;
+        }
+        QMetaObject::invokeMethod(qApp, [self, ok]() {
+            if (self) {
+                self->showToast(ok ? tr("Fermeture du jeu, retour à Playnite…")
+                                   : tr("Impossible de fermer le jeu dans Playnite"));
+            }
+        }, Qt::QueuedConnection);
+    });
 }
 
 void QuickMenuManager::show()

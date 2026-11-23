@@ -3,6 +3,9 @@ import QtQuick.Controls 2.2
 import QtQuick.Layouts 1.2
 import ServerCommandManager 1.0
 import KeyMacroManager 1.0
+import SystemProperties 1.0
+import ArtemisSettings 1.0
+import "v2"
 
 Rectangle {
     id: quickMenu
@@ -10,9 +13,15 @@ Rectangle {
     width: 500
     height: 400
     // Don't use anchors with SizeViewToRootObject - position manually
-    color: "#2d2d2d"
-    radius: 10
-    border.color: "#444"
+    // LavArtemis Dev, redesigned interface: the theme's colours and fonts (gui/v2/Theme.qml)
+    readonly property bool v2: SystemProperties.isDevChannel && !ArtemisSettings.uiLegacy
+    readonly property color fgColor: v2 ? Theme.fg : "white"
+    readonly property color mutedColor: v2 ? Theme.muted : "#cccccc"
+    readonly property color accentColor: v2 ? Theme.accent : "#00cccc"
+
+    color: v2 ? Theme.surface : "#2d2d2d"
+    radius: v2 ? Theme.rs : 10
+    border.color: v2 ? Theme.borderColor : "#444"
     border.width: 1
     visible: true  // Always visible when created
     opacity: 1.0
@@ -63,7 +72,8 @@ Rectangle {
             }
             font.pointSize: 24
             font.bold: true
-            color: "#00cccc"
+            font.family: quickMenu.v2 ? Theme.displayFont : ""
+            color: quickMenu.accentColor
             Layout.alignment: Qt.AlignHCenter
         }
 
@@ -86,8 +96,9 @@ Rectangle {
                 flat: true
 
                 background: Rectangle {
-                    color: parent.down ? "#333" : (parent.hovered ? "#444" : "transparent")
-                    border.color: parent.hovered ? "#00cccc" : "transparent"
+                    color: quickMenu.v2 ? (parent.down || parent.hovered ? Theme.sel : "transparent")
+                                        : (parent.down ? "#333" : (parent.hovered ? "#444" : "transparent"))
+                    border.color: parent.hovered ? quickMenu.accentColor : "transparent"
                     border.width: 2
                     radius: 5
                 }
@@ -107,7 +118,7 @@ Rectangle {
                     Text {
                         text: model.icon
                         font.pointSize: 20
-                        color: "white"
+                        color: quickMenu.fgColor
                         Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
                         Layout.preferredWidth: 40
                     }
@@ -121,13 +132,15 @@ Rectangle {
                             text: model.text
                             font.pointSize: 14
                             font.bold: true
-                            color: "white"
+                            font.family: quickMenu.v2 ? Theme.textFont : ""
+                            color: quickMenu.fgColor
                         }
 
                         Text {
                             text: model.description
                             font.pointSize: 10
-                            color: "#cccccc"
+                            font.family: quickMenu.v2 ? Theme.textFont : ""
+                            color: quickMenu.mutedColor
                         }
                     }
                 }
@@ -195,6 +208,24 @@ Rectangle {
     }
 
     // ServerCommandManager connection
+    // LavApollo Link: a game runs inside the host's Playnite -> "Quitter <jeu>", first entry
+    Connections {
+        target: quickMenuManager
+        function onPlayniteGameChanged() {
+            if (mainMenuModel.count > 0 && mainMenuModel.get(0).action === "quit_playnite_game") {
+                mainMenuModel.remove(0)
+            }
+            if (quickMenuManager.playniteGameName !== "") {
+                mainMenuModel.insert(0, {
+                    icon: "⏏",
+                    text: qsTr("Quitter %1").arg(quickMenuManager.playniteGameName),
+                    action: "quit_playnite_game",
+                    description: qsTr("Retour à Playnite, le stream continue")
+                })
+            }
+        }
+    }
+
     Connections {
         target: quickMenuManager.serverCommandManager
         function onCommandsRefreshed() {
@@ -342,6 +373,10 @@ Rectangle {
                 showActionFeedback("Server commands not available or no permission");
                 closeMenuDelayed();
             }
+            return;
+        } else if (action === "quit_playnite_game") {
+            quickMenuManager.quitPlayniteGame();
+            closeMenuDelayed();
             return;
         } else if (action === "send_keys") {
             populateSendKeys();
