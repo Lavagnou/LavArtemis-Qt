@@ -355,6 +355,13 @@ remplacé par une table Upgrade explicite. La version de comparaison est celle d
 
 - `RemoveExistingProducts After="InstallInitialize"` (1501), comme le `Schedule="afterInstallInitialize"`
   d'avant ; `FindRelatedProducts` (25) passe avant `LaunchConditions` (100).
+- ⚠️ **`REINSTALLMODE=dmus`** (Property du MSI) : un fichier est copié dès que la version installée
+  **diffère**, pas seulement quand elle est plus ancienne. Le calcul des fichiers à copier se fait **avant**
+  que `RemoveExistingProducts` retire l'ancien produit : au saut 21.x → 0.7, `LavArtemis.exe` 21.8.0.x
+  paraissait « plus récent » que 0.7.0.x, n'était pas copié, puis la désinstallation de l'ancien produit
+  le supprimait — **0.7.0-dev.1 s'est installée sans son exe** (journal MSI : `Note: 1: 2753 2:
+  LavArtemisExe`). La protection contre le retour en arrière, c'est la table Upgrade ci-dessus, pas les
+  règles de version des fichiers.
 - **Réglages gardés** : l'ancien produit est désinstallé par **ses propres tables**, avec
   `UPGRADINGPRODUCTCODE` posé par `RemoveExistingProducts` quelle que soit la ligne qui l'a trouvé. Son
   `DeleteRegistryKey` est conditionné `NOT UPGRADINGPRODUCTCODE` (vérifié sur le MSI 21.8 en cache) ; le

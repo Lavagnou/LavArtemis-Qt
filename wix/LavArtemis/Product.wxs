@@ -65,6 +65,13 @@
     </Upgrade>
     <Launch Condition="NOT LAV_NEWER_DETECTED"
             Message="Une version plus récente de [ProductName] est déjà installée." />
+
+    <!-- Copy a file whenever the installed one has a different version, not only when it is older.
+         Costing compares with the files still on disk BEFORE RemoveExistingProducts removes the
+         old product: in the one-time jump 21.x -> 0.7, LavArtemis.exe 21.8.0.x looked "newer" than
+         0.7.0.x, so it was not copied, and the old product's removal then deleted it (0.7.0-dev.1
+         installed without its exe). The downgrade protection is the Upgrade table above, not this. -->
+    <Property Id="REINSTALLMODE" Value="dmus" />
     <MediaTemplate CompressionLevel="high" EmbedCab="yes" />
 
     <Property Id="MPSSVC_START">
