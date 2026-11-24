@@ -15,7 +15,6 @@ FocusScope {
     objectName: qsTr("Mes PC")
     focus: true
 
-    readonly property bool isV2Page: true
     property var home: null
     property ComputerModel computerModel: createModel()
 

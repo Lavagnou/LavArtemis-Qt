@@ -22,8 +22,6 @@ FocusScope {
     objectName: "LavArtemis"
     focus: true
 
-    readonly property bool isV2Page: true
-
     // ---- hosts ---------------------------------------------------------------------------
     property ComputerModel computerModel: createComputerModel()
     // [{index, name, online, paired, busy, uuid, wakeable, statusUnknown, serverSupported, serverVersion}]

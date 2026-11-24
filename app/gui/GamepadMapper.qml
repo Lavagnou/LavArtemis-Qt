@@ -13,9 +13,6 @@ Item {
 
     focus: true
 
-    // Redesigned interface: its own header instead of the legacy toolbar (gone), Material
-    // controls in the theme's colours
-    readonly property bool isV2Page: true
     Material.theme: Theme.dark ? Material.Dark : Material.Light
     Material.background: Theme.bg
     Material.foreground: Theme.fg

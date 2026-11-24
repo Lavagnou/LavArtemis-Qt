@@ -1143,6 +1143,17 @@ par `tests/hostdisplay`.
 6. **`ArtemisApplication`, `artemis.png`, `artemissettings`** — le rebrand est partiel, ces noms sont
    hérités. Renommer touche le QML, le `.pro` et le WiX ensemble.
 
+7. **Un id QML supprimé ne casse rien au build, seulement à l'exécution.** Les pages et segues lisent les
+   ids de `main.qml` (`window`, `stackView`) par portée de contexte : rien ne vérifie qu'ils existent encore.
+   c37eb550 a retiré la barre d'outils (`toolBar`) en laissant `toolBar.visible = …` dans `StreamSegue`,
+   `QuitSegue` et les trois segues CLI : `ReferenceError` en tête de `StackView.onActivated`, le gestionnaire
+   s'arrête là, `session.start()` ne part jamais — **aucun stream ne démarrait** (0.7.0-dev.2 à dev.6), et
+   aucun lien `art://` n'appairait. Avant de retirer un id, une propriété ou une fonction de `main.qml`,
+   chercher son nom dans tout `app/gui` ; `qmllint --unqualified warning -I app/gui app/gui/*.qml
+   app/gui/v2/*.qml` liste chaque nom résolu hors de son fichier (les singletons, `launcher`,
+   `quickMenuManager`, `initialView`, `lavTestBuild`, `runConfigChecks` et les ids de `main.qml` sont
+   attendus).
+
 ## 🤖 CI
 
 Les minutes Actions sont comptées : **tout est manuel**, et le client est buildé en local avant chaque push.

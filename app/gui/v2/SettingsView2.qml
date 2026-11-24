@@ -27,7 +27,6 @@ FocusScope {
     objectName: qsTr("Réglages")
     focus: true
 
-    readonly property bool isV2Page: true
 
     property string currentPage: "profil"
 

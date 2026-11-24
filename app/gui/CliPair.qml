@@ -36,8 +36,6 @@ Item {
 
     StackView.onActivated: {
         if (!launcher.isExecuted()) {
-            toolBar.visible = false
-
             launcher.searchingComputer.connect(onSearchingComputer)
             launcher.pairing.connect(onPairing)
             launcher.failed.connect(onFailed)
