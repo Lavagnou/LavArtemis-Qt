@@ -256,7 +256,10 @@ signals:
 
     void pairingCompleted(NvComputer* computer, QString error);
 
-    void computerAddCompleted(QVariant success, QVariant detectedPortBlocking);
+    // uuid: the host that answered at this address (new or already known), null on failure.
+    // Always emitted after the computerStateChanged() that put a new host in the list, so a
+    // ComputerModel already has its row when this arrives (HostsView pairs it from there).
+    void computerAddCompleted(QVariant success, QVariant detectedPortBlocking, QVariant uuid);
 
     void quitAppCompleted(QVariant error);
 

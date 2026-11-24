@@ -23,11 +23,11 @@ FocusScope {
     readonly property int pairedCount: { rev; return countHosts(true) }
     readonly property int cols: Math.max(2, Math.min(5, pairedCount + 1))
 
-    // Pairing under way (index, uuid and name of the host), and the hosts known before a manual add
+    // Pairing under way (index, uuid and name of the host), and the hosts paired before a manual add
     property int pairingIndex: -1
     property string pairingUuid: ""
     property string pairingName: ""
-    property var uuidsBeforeAdd: []
+    property var pairedBeforeAdd: []
     property string addingAddress: ""
 
     function createModel() {
@@ -203,15 +203,21 @@ FocusScope {
             showError(refusal)
             return
         }
-        var known = []
-        for (var i = 0; i < computerModel.rowCount(); i++) known.push(role(i, "uuid"))
-        uuidsBeforeAdd = known
+        var paired = []
+        for (var i = 0; i < computerModel.rowCount(); i++) {
+            if (role(i, "paired")) paired.push(role(i, "uuid"))
+        }
+        pairedBeforeAdd = paired
         addingAddress = address
         toast.show(qsTr("Recherche de %1…").arg(address))
         ComputerManager.addNewHostManually(address)
     }
 
-    function addComplete(success, detectedPortBlocking) {
+    // uuid = the host that answered at this address, new or already known. ComputerManager emits
+    // this after the state change that put a new host in the model, so its row is there.
+    // Same outcome as Android's HostsActivity.onAdded(): not paired -> pair it now; paired
+    // before -> already in the list; otherwise added.
+    function addComplete(success, detectedPortBlocking, uuid) {
         if (addingAddress === "") return
         var address = addingAddress
         addingAddress = ""
@@ -223,15 +229,15 @@ FocusScope {
             showError(text)
             return
         }
-        // The new host, or the one that answered at this address if it was already known
-        for (var i = 0; i < computerModel.rowCount(); i++) {
-            if (uuidsBeforeAdd.indexOf(role(i, "uuid")) < 0) {
-                if (!role(i, "paired")) pairHost(i)
-                else toast.show(qsTr("%1 est ajouté").arg(role(i, "name")))
-                return
-            }
+        var i = indexOfUuid(uuid)
+        if (i < 0) {
+            // Forgotten meanwhile (it can't be missing otherwise)
+            console.warn("Added host", uuid, "is not in the list")
+            return
         }
-        toast.show(qsTr("Ce PC est déjà dans la liste"))
+        if (!role(i, "paired")) pairHost(i)
+        else if (pairedBeforeAdd.indexOf(uuid) >= 0) toast.show(qsTr("Ce PC est déjà dans la liste"))
+        else toast.show(qsTr("%1 est ajouté").arg(role(i, "name")))
     }
 
     function showError(text) {

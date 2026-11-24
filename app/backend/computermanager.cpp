@@ -1259,7 +1259,7 @@ void ComputerManager::addNewHostManually(QString address)
 {
 #ifdef LAV_TEST_BUILD
     if (!testGuardRefusal(address).isEmpty()) {
-        emit computerAddCompleted(false, false);
+        emit computerAddCompleted(false, false, QVariant());
         return;
     }
 #endif
@@ -1274,7 +1274,7 @@ void ComputerManager::addNewHostManually(QString address)
         addNewHost(NvAddress(address, DEFAULT_HTTP_PORT), false);
     }
     else {
-        emit computerAddCompleted(false, false);
+        emit computerAddCompleted(false, false, QVariant());
     }
 }
 
@@ -1300,7 +1300,7 @@ public:
     }
 
 signals:
-    void computerAddCompleted(QVariant success, QVariant detectedPortBlocking);
+    void computerAddCompleted(QVariant success, QVariant detectedPortBlocking, QVariant uuid);
 
     void computerStateChanged(NvComputer* computer);
 
@@ -1358,7 +1358,7 @@ private:
                 }
 #endif
 
-                emit computerAddCompleted(false, portTestResult != 0 && portTestResult != ML_TEST_RESULT_INCONCLUSIVE);
+                emit computerAddCompleted(false, portTestResult != 0 && portTestResult != ML_TEST_RESULT_INCONCLUSIVE, QVariant());
             }
             return QString();
         }
@@ -1480,20 +1480,21 @@ private:
             if (existingComputer != nullptr) {
                 // Fold it into the existing PC
                 bool changed = existingComputer->update(*newComputer);
+                QString uuid = newComputer->uuid;
                 delete newComputer;
 
                 // Drop the lock before notifying
                 m_ComputerManager->m_Lock.unlock();
 
-                // For non-mDNS clients, let them know it succeeded
-                if (!m_Mdns) {
-                    emit computerAddCompleted(true, false);
-                }
-
                 // Tell our client if something changed
                 if (changed) {
                     qInfo() << existingComputer->name << "is now at" << existingComputer->activeAddress.toString();
                     emit computerStateChanged(existingComputer);
+                }
+
+                // For non-mDNS clients, let them know it succeeded, and which host answered
+                if (!m_Mdns) {
+                    emit computerAddCompleted(true, false, uuid);
                 }
             }
             else {
@@ -1521,13 +1522,15 @@ private:
                 }
 #endif
 
-                // For non-mDNS clients, let them know it succeeded
-                if (!m_Mdns) {
-                    emit computerAddCompleted(true, false);
-                }
-
-                // Tell our client about this new PC
+                // Tell our client about this new PC. First: both signals are queued to the GUI
+                // thread in this order, so the models have the new row when the add completes
+                // (HostsView looks the host up there to pair it).
                 emit computerStateChanged(newComputer);
+
+                // For non-mDNS clients, let them know it succeeded, and which host answered
+                if (!m_Mdns) {
+                    emit computerAddCompleted(true, false, newComputer->uuid);
+                }
             }
         }
     }

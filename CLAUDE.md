@@ -763,6 +763,13 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   `ComputerModel` sont lus par numéro (`roleId()`, ordre de l'enum depuis `Qt::UserRole`) : un rôle
   ajouté ou retiré dans `computermodel.h` doit l'être dans cette liste. Et **jamais de propriété
   `action`** sur un `AbstractButton` (elle existe déjà : le composant refuse de se charger).
+  - ⚠️ **Ajout par adresse : `computerAddCompleted(success, portBlocking, uuid)` part *après* le
+    `computerStateChanged` qui met un nouveau PC dans la liste** (`PendingAddTask`, les deux signaux sont mis
+    en file vers le thread GUI dans cet ordre) et nomme le PC qui a répondu, nouveau ou déjà connu.
+    `HostsView.addComplete` le cherche par ce uuid : pas appairé → appairage tout de suite ; appairé avant
+    l'ajout → « Ce PC est déjà dans la liste » ; sinon « %1 est ajouté » (= `HostsActivity.onAdded()`
+    d'Android). Avant, la fin d'ajout arrivait avant le PC, qui n'était donc pas encore dans le modèle :
+    « Ce PC est déjà dans la liste » et aucun dialogue d'appairage, presque à chaque fois.
 - Les jeux **masqués** (« Masquer ») se réaffichent depuis l'accueil (bouton sous la bibliothèque) et se
   démasquent depuis leur menu. **« Masquer » ne s'offre que pour les jeux Playnite**, comme sur Android
   (`openMenu(…, isGame)` → `AppMenu.canHide`) ; une carte Bureau / Playnite masquée par une version
