@@ -272,12 +272,12 @@ void QuickMenuManager::quit()
     qDebug() << "QuickMenuManager: Quit requested";
     emit quitRequested();
     
-    // Set flag to exit after quit and send quit event.
-    // Upstream folded Artemis's setShouldExitAfterQuit() into setShouldExit(),
-    // where passing true forces the host app to be quit regardless of the
-    // "quit app after" preference. Same path Ctrl+Alt+Shift+E already takes.
+    // « Quitter la session »: quit the app on the host, end the stream and go back to the
+    // client's home, as Android does. Not setShouldExit(): that also exits the whole program
+    // (the quit-and-exit key combo, SIGTERM). A stream launched from the command line or an
+    // art:// link still exits once it ends (StreamSegue.quitAfter).
     if (Session::get()) {
-        Session::get()->setShouldExit(true);
+        Session::get()->setQuitHostApp();
     }
     
     SDL_Event quitEvent;

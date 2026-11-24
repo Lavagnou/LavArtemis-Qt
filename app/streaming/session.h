@@ -165,7 +165,14 @@ public:
 
     void flushWindowEvents();
 
+    // End the stream, then exit the whole program (SIGTERM, the quit-and-exit key combo).
+    // quitHostApp: also quit the app on the host, as setQuitHostApp().
     void setShouldExit(bool quitHostApp = false);
+
+    // Quit the app on the host when this stream ends, whatever "Quitter l'appli sur le PC
+    // distant à la fin" says, and go back to the client (the in-game menu's « Quitter la
+    // session »). Only this session: the preference itself is left alone.
+    void setQuitHostApp();
 
     // Benchmark (backend/benchmark): a session that measures itself and ends on its own.
     // It sends no microphone. From the first frame loop, it waits warmupSeconds, then
@@ -376,6 +383,7 @@ private:
     int m_FlushingWindowEventsRef;
     QStringList m_LaunchWarnings;
     bool m_ShouldExit;
+    bool m_QuitHostApp;
 
     // The client's monitor arrangement, mirrored onto the host as one virtual display
     // each. Only meaningful while m_MultiDisplayActive; detect() is not free and the

@@ -847,6 +847,14 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   le thread principal, comme la boucle SDL (`Session::getInputHandler()` y est sûr). Commandes du PC hôte :
   plus de liste anglaise inventée quand l'hôte n'en donne pas (`ServerCommandManager`), une ligne « Aucune
   commande » explique pourquoi, comme Android.
+  - ⚠️ **« Quitter la session » ferme l'appli sur l'hôte et revient à l'accueil, il ne ferme pas le client**
+    (comme Android) : `QuickMenuManager::quit()` → `Session::setQuitHostApp()` (drapeau de la session, lu avec
+    `quitAppAfter` à la fin du stream). **`setShouldExit()` quitte tout le programme** : il ne sert qu'à SIGTERM
+    et au raccourci « quitter et sortir » de moonlight-qt. Un stream lancé en ligne de commande ou par un lien
+    `art://` se termine toujours en fermant le client (`StreamSegue.quitAfter`). Jusqu'au 2026-11-25, le menu
+    appelait `setShouldExit(true)` (fermeture du client), qui en plus posait `quitAppAfter = true` dans les
+    préférences **partagées** (toujours vrai pour les streams suivants) : `setShouldExit(true)` passe désormais
+    aussi par le drapeau de la session.
 - **Aucun bouton Aide** (demande de l'utilisateur, comme l'Android) : `NavigableMessageDialog` n'a plus
   `helpText` / `helpUrl` / `onHelpRequested`, `ErrorMessageDialog` n'a que OK ; les phrases « Click the Help
   button… » de `main.qml` sont parties avec. Tous ouvraient un wiki Moonlight en anglais. Ne pas remettre de
