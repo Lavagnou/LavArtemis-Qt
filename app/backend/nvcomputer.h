@@ -116,6 +116,12 @@ public:
     bool isSupportedServerVersion;
     // The host runs on this PC (isThisMachine): launching a stream there is refused with a message
     bool isThisPc = false;
+#ifdef LAV_TEST_BUILD
+    // Test build: serverinfo says LavTestHost; every test host is on loopback, so "this PC"
+    // comes from LavTestHostThisPc instead of isThisMachine()
+    bool isTestHost = false;
+    bool testHostThisPc = false;
+#endif
 
     // Persisted traits
     NvAddress localAddress;

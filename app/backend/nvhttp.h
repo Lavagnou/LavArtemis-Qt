@@ -120,6 +120,11 @@ public:
     QString
     getServerInfo(NvLogLevel logLevel, bool fastFail = false);
 
+#ifdef LAV_TEST_BUILD
+    // Test build: true only for loopback and a port in 40000-44999. Checked before any request.
+    static bool isAllowedTestAddress(const QString& host, uint16_t port);
+#endif
+
     // Downloads the paired host's fixed-size PyroWave bandwidth probe over
     // pinned HTTPS. Returns the measured Mbps, or throws on an unsupported or
     // failed request.

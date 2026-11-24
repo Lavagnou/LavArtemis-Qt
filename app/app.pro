@@ -729,6 +729,8 @@ lav_test {
     QT += testlib
     TARGET = LavArtemisTest
     win32: RC_ICONS = lavartemis-dev.ico
+    SOURCES += backend/testguard.cpp
+    HEADERS += backend/testguard.h
     # app/testctl/ sources (command channel) are added by the testbench tasks.
 }
 VERSION = $$LAV_VERSION_NUM

@@ -228,6 +228,10 @@ public:
 
     Q_INVOKABLE void addNewHostManually(QString address);
 
+    // Test build: the message to show when a typed address is refused (loopback test hosts
+    // only); empty when it is allowed, and always empty in any other build.
+    Q_INVOKABLE QString testGuardRefusal(QString address);
+
     void addNewHost(NvAddress address, bool mdns, QString name = QString(), NvAddress mdnsIpv6Address = NvAddress());
 
     QString generatePinString();

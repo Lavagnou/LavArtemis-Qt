@@ -481,6 +481,22 @@ appareil. » : à l'accueil (`HomeView.launch`), au benchmark de Mes PC (`HostsV
 possible. Rôle `thisPc` de `ComputerModel` (en dernier : `HostsView` lit les rôles par numéro). Propre au
 desktop : un appareil Android n'est jamais son propre hôte.
 
+> ⚠️ **Build de test (`CONFIG+=lav_test`)** : tout hôte de test tourne sur 127.0.0.1, donc tous seraient « ce PC ».
+> `isThisPc` y vaut `testHostThisPc` (balise `LavTestHostThisPc` du `serverinfo`), jamais `isThisMachine()`.
+
+## 🧪 Build de test : garde-fous réseau
+
+`app/backend/testguard.{h,cpp}` (compilé par `lav_test` seulement, `LAV_TEST_BUILD`) : liste blanche = **bouclage
+(`127.0.0.1`, `::1`, `localhost`) et port 40000-44999**. Le vrai LavApollo de ce PC écoute sur 45989, les vrais
+hôtes sont sur le LAN : le client de test ne doit jamais leur écrire. Contrôle **avant toute requête** dans
+`NvHTTP::openConnection()` (le seul départ de tout GET : serverinfo, applist, appairage, launch/resume/cancel,
+jaquettes, sonde PyroWave, presse-papiers lu) et dans `sendClipboardContent()` (le seul POST) ; un refus lève
+une `QtNetworkReplyException` (hôte injoignable, aucune E/S) et écrit une ligne dans le journal. Les redirections
+sont désactivées. Deuxième couche : `getServerInfo()` traite un serveur sans `<LavTestHost>1</LavTestHost>`
+comme hors ligne (« Pas un hôte de test » dans le journal). L'ajout manuel d'une adresse refusée affiche un message
+(`ComputerManager::testGuardRefusal`, appelé par `HostsView.addByAddress`). Tout nouveau chemin réseau doit
+passer par `NvHTTP`, sinon il contourne la liste blanche. Tests : `tests/testguard` (`CONFIG+=tests`).
+
 ## 🎨 Interface v2 (LavArtemis Dev)
 
 La refonte (spec : `docs/superpowers/specs/2026-11-23-ui-redesign-design.md` dans LavArtemis,

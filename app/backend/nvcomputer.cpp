@@ -323,7 +323,13 @@ NvComputer::NvComputer(NvHTTP& http, QString serverInfo)
     // list, which Apollo / Sunshine / LavApollo hosts always pass
     this->isSupportedServerVersion = CompatFetcher::isGfeVersionSupported(this->gfeVersion) &&
                                      isSupportedAppVersion(this->appVersion);
+#ifdef LAV_TEST_BUILD
+    this->isTestHost = NvHTTP::getXmlString(serverInfo, "LavTestHost") == "1";
+    this->testHostThisPc = NvHTTP::getXmlString(serverInfo, "LavTestHostThisPc") == "1";
+    this->isThisPc = this->testHostThisPc;
+#else
     this->isThisPc = isThisMachine(this->macAddress, this->activeAddress.address());
+#endif
     
     // Parse server commands (Apollo/Sunshine servers only)
     this->serverCommands = NvHTTP::getXmlArray(serverInfo, "ServerCommand");
@@ -710,6 +716,10 @@ bool NvComputer::update(const NvComputer& that)
     ASSIGN_IF_CHANGED(appVersion);
     ASSIGN_IF_CHANGED(isSupportedServerVersion);
     ASSIGN_IF_CHANGED(isThisPc);
+#ifdef LAV_TEST_BUILD
+    ASSIGN_IF_CHANGED(isTestHost);
+    ASSIGN_IF_CHANGED(testHostThisPc);
+#endif
     ASSIGN_IF_CHANGED(isNvidiaServerSoftware);
     ASSIGN_IF_CHANGED(maxLumaPixelsHEVC);
     ASSIGN_IF_CHANGED(gpuModel);

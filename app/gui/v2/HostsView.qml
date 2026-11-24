@@ -198,6 +198,12 @@ FocusScope {
     function addByAddress(address) {
         address = address.trim()
         if (address.length === 0) return
+        // Test build only: a refused address (not a loopback test host) never starts a search
+        var refusal = ComputerManager.testGuardRefusal(address)
+        if (refusal !== "") {
+            showError(refusal)
+            return
+        }
         var known = []
         for (var i = 0; i < computerModel.rowCount(); i++) known.push(role(i, "uuid"))
         uuidsBeforeAdd = known

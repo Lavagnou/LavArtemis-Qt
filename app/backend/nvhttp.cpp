@@ -20,6 +20,10 @@
 #include <QRandomGenerator>
 #include <QElapsedTimer>
 
+#ifdef LAV_TEST_BUILD
+#include "testguard.h"
+#endif
+
 #define FAST_FAIL_TIMEOUT_MS 2000
 #define REQUEST_TIMEOUT_MS 5000
 #define LAUNCH_TIMEOUT_MS 120000
@@ -141,6 +145,16 @@ NvHTTP::getCurrentGame(QString serverInfo)
 QString
 NvHTTP::getServerInfo(NvLogLevel logLevel, bool fastFail)
 {
+#ifdef LAV_TEST_BUILD
+    // Second layer of the test build: only a host that says it is a test host counts as online
+    auto requireTestHost = [](const QString& xml) {
+        if (getXmlString(xml, "LavTestHost") != "1") {
+            qWarning() << "Pas un hôte de test : le serveur ne déclare pas LavTestHost, traité comme hors ligne";
+            throw QtNetworkReplyException(QNetworkReply::HostNotFoundError, "Pas un hôte de test");
+        }
+    };
+#endif
+
     QString serverInfo;
     
     // Add devicename parameter to match Android client behavior
@@ -159,6 +173,9 @@ NvHTTP::getServerInfo(NvLogLevel logLevel, bool fastFail)
                                             deviceNameParam,
                                             fastFail ? FAST_FAIL_TIMEOUT_MS : REQUEST_TIMEOUT_MS,
                                             logLevel);
+#ifdef LAV_TEST_BUILD
+        requireTestHost(serverInfo);
+#endif
         // Only log response if not suppressing output (polling requests use NVLL_NONE)
         if (logLevel != NvLogLevel::NVLL_NONE) {
             qInfo() << "getServerInfo HTTPS response:" << serverInfo;
@@ -173,6 +190,9 @@ NvHTTP::getServerInfo(NvLogLevel logLevel, bool fastFail)
                                             deviceNameParam,
                                             fastFail ? FAST_FAIL_TIMEOUT_MS : REQUEST_TIMEOUT_MS,
                                             logLevel);
+#ifdef LAV_TEST_BUILD
+        requireTestHost(serverInfo);
+#endif
         // Only log response if not suppressing output (polling requests use NVLL_NONE)
         if (logLevel != NvLogLevel::NVLL_NONE) {
             qInfo() << "getServerInfo response:" << serverInfo;
@@ -590,6 +610,13 @@ void NvHTTP::handleSslErrors(QNetworkReply* reply, const QList<QSslError>& error
     }
 }
 
+#ifdef LAV_TEST_BUILD
+bool NvHTTP::isAllowedTestAddress(const QString& host, uint16_t port)
+{
+    return TestGuard::isAllowedAddress(host, port);
+}
+#endif
+
 QString
 NvHTTP::openConnectionToString(QUrl baseUrl,
                                QString command,
@@ -630,6 +657,16 @@ NvHTTP::openConnection(QUrl baseUrl,
     // Port must be set
     Q_ASSERT(baseUrl.port(0) != 0);
 
+#ifdef LAV_TEST_BUILD
+    // Test build: the one place every GET leaves from. A refused address fails like an
+    // unreachable host, before any network I/O.
+    if (!isAllowedTestAddress(baseUrl.host(), (uint16_t)baseUrl.port(0))) {
+        qWarning() << "Test build: request" << command << "to" << baseUrl.host() << ":" << baseUrl.port(0)
+                   << "refused (loopback and ports 40000-44999 only)";
+        throw QtNetworkReplyException(QNetworkReply::ConnectionRefusedError, "Test build: address not allowed");
+    }
+#endif
+
     // Build a URL for the request
     QUrl url(baseUrl);
     url.setPath("/" + command);
@@ -653,6 +690,11 @@ NvHTTP::openConnection(QUrl baseUrl,
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     // Disable HTTP/2 (GFE 3.22 doesn't like it) and Qt 6 enables it by default
     request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+#endif
+
+#ifdef LAV_TEST_BUILD
+    // A redirect must not carry the request to an address the allowlist never saw
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
 #endif
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 3, 0)
@@ -753,6 +795,13 @@ NvHTTP::sendClipboardContent(const QString& content)
         QUrl url(m_BaseUrlHttps);
         url.setPath("/actions/clipboard");
         url.setQuery("type=text");
+
+#ifdef LAV_TEST_BUILD
+        if (!isAllowedTestAddress(url.host(), (uint16_t)url.port(0))) {
+            qWarning() << "Test build: clipboard request to" << url.host() << ":" << url.port(0) << "refused";
+            return false;
+        }
+#endif
 
         QNetworkRequest request(url);
         request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain; charset=utf-8");

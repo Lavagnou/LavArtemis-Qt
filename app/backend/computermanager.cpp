@@ -21,6 +21,10 @@
 #include <openssl/bio.h>
 #include <openssl/x509.h>
 
+#ifdef LAV_TEST_BUILD
+#include "testguard.h"
+#endif
+
 #define SER_HOSTS "hosts"
 #define SER_HOSTS_BACKUP "hostsbackup"
 
@@ -1225,8 +1229,39 @@ void ComputerManager::stopPollingAsync()
     }
 }
 
+QString ComputerManager::testGuardRefusal(QString address)
+{
+#ifdef LAV_TEST_BUILD
+    QString host;
+    int port = DEFAULT_HTTP_PORT;
+    QUrl url = QUrl::fromUserInput("art://" + address);
+    if (url.isValid() && !url.host().isEmpty() && url.scheme() == "art") {
+        host = url.host();
+        port = url.port(DEFAULT_HTTP_PORT);
+    }
+    else {
+        host = address;
+    }
+
+    if (!TestGuard::isAllowedAddress(host, (quint16)port)) {
+        qWarning() << "Test build: manual add of" << address << "refused (loopback and ports 40000-44999 only)";
+        return TestGuard::refusalMessage();
+    }
+#else
+    Q_UNUSED(address);
+#endif
+    return QString();
+}
+
 void ComputerManager::addNewHostManually(QString address)
 {
+#ifdef LAV_TEST_BUILD
+    if (!testGuardRefusal(address).isEmpty()) {
+        emit computerAddCompleted(false, false);
+        return;
+    }
+#endif
+
     QUrl url = QUrl::fromUserInput("art://" + address);
     if (url.isValid() && !url.host().isEmpty() && url.scheme() == "art") {
         // If there wasn't a port specified, use the default
