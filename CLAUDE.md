@@ -58,6 +58,7 @@ git submodule update --init --recursive
 powershell ./setup-deps.ps1            # libs prébuildées
 scripts\build-arch.bat Release         # archi = celle du kit Qt dont le qmake est dans le PATH
 scripts\generate-bundle.bat Release    # installeur WiX combiné (x64 + arm64, ou x64 seul si LAV_X64_ONLY=1)
+scripts\build-test.bat                 # client du banc de test (CONFIG+=lav_test), voir « Build de test »
 
 # Linux
 qmake6 lavartemis.pro && make -j$(nproc) release
@@ -481,104 +482,136 @@ appareil. » : à l'accueil (`HomeView.launch`), au benchmark de Mes PC (`HostsV
 possible. Rôle `thisPc` de `ComputerModel` (en dernier : `HostsView` lit les rôles par numéro). Propre au
 desktop : un appareil Android n'est jamais son propre hôte.
 
-> ⚠️ **Build de test (`CONFIG+=lav_test`)** : tout hôte de test tourne sur 127.0.0.1, donc tous seraient « ce PC ».
-> `isThisPc` y vaut `testHostThisPc` (balise `LavTestHostThisPc` du `serverinfo`), jamais `isThisMachine()`.
+> ⚠️ **Build de test (`CONFIG+=lav_test`, voir « Build de test »)** : tout hôte de test tourne sur 127.0.0.1, donc tous
+> seraient « ce PC ». `isThisPc` y vaut `testHostThisPc` (balise `LavTestHostThisPc` du `serverinfo`), jamais
+> `isThisMachine()`.
 
-## 🧪 Build de test : garde-fous réseau
+## 🧪 Build de test (`CONFIG+=lav_test`)
 
-`app/backend/testguard.{h,cpp}` (compilé par `lav_test` seulement, `LAV_TEST_BUILD`) : liste blanche = **bouclage
-(`127.0.0.1`, `::1`, `localhost`) et port 40000-44999**. Le vrai LavApollo de ce PC écoute sur 45989, les vrais
-hôtes sont sur le LAN : le client de test ne doit jamais leur écrire. Contrôle **avant toute requête** dans
-`NvHTTP::openConnection()` (le seul départ de tout GET : serverinfo, applist, appairage, launch/resume/cancel,
-jaquettes, sonde PyroWave, presse-papiers lu) et dans `sendClipboardContent()` (le seul POST) ; un refus lève
-une `QtNetworkReplyException` (hôte injoignable, aucune E/S) et écrit une ligne dans le journal. Les redirections
-sont désactivées. Deuxième couche : `getServerInfo()` traite un serveur sans `<LavTestHost>1</LavTestHost>`
-comme hors ligne (« Pas un hôte de test » dans le journal). L'ajout manuel d'une adresse refusée affiche un message
-(`ComputerManager::testGuardRefusal`, appelé par `HostsView.addByAddress`). Tout nouveau chemin réseau doit
-passer par `NvHTTP`, sinon il contourne la liste blanche. Tests : `tests/testguard` (`CONFIG+=tests`).
+Le client que pilote le banc de test (`tools/testbench/` de LavArtemis) : mêmes sources, compilées avec
+`LAV_TEST_BUILD` (+ `LAV_DEV_CHANNEL` : interface v2). **Rien de ce qui suit n'existe dans un autre build** : tout est
+sous `#ifdef LAV_TEST_BUILD` ou dans le bloc `lav_test` d'`app/app.pro` ; une release ne change pas (vérifié à chaque
+étape en compilant les `.obj` touchés dans une config normale). Jamais construit par `local-release.ps1` ni la CI.
 
-Chemins réseau **hors NvHTTP** et pourquoi ils sont sûrs dans le build de test :
+### Construire et lancer
+
+```bat
+set LAV_TEST_JOBS=2             :: jobs de jom (défaut 2 : le PC sert pendant ce temps)
+scripts\build-test.bat          :: vcvars64 + Qt 6.11.1 msvc2022_64, qmake CONFIG+=lav_test, jom, windeployqt
+```
+Dossier à part, `build\test-x64` (jamais `build-x64-release` / `deploy-x64-release`) ; exe
+`build\test-x64\deploy\LavArtemisTest.exe` (icône Dev, titre « LavArtemis Test », sous-système GUI). Tests de la
+logique : `tests/testguard` (suite opt-in, `qmake tests/tests.pro CONFIG+=tests`, ou son `.pro` seul) : liste
+blanche, protocole du canal, et `uiprobe` sur des scènes QML offscreen (rendu logiciel, aucune fenêtre à l'écran).
+
+> ⚠️ **Pas de `QT += testlib` dans `lav_test`** : il ajoute `CONFIG += console`, et un exe en sous-système console
+> ouvre une console (un onglet Windows Terminal) qui **prend le premier plan** au lancement depuis un programme
+> graphique. Le canal n'utilise pas QTest (voir plus bas) ; seule la suite `tests/testguard` le lie.
+
+### Isolation
+
+- Organisation Qt **« LavArtemis Test »** (`main.cpp`) : registre `HKCU\Software\LavArtemis Test`, dossiers
+  `%LOCALAPPDATA%` / `%APPDATA%\LavArtemis Test`. `ChannelMigration` ne tourne pas (rien n'est importé d'une autre appli).
+- Pas de découverte mDNS (`ComputerManager::startPolling`) : les PC s'ajoutent par adresse.
+- Pas de mise à jour in-app (`AutoUpdateChecker` émet `noUpdateAvailable` sans requête), ni `CompatFetcher` /
+  `MappingFetcher` (données embarquées ou en cache, comme quand le téléchargement échoue).
+- Tout hôte de test est sur 127.0.0.1 : `isThisPc` vaut `testHostThisPc` (balise `LavTestHostThisPc`), voir « Pas de
+  stream vers son propre PC ».
+
+### Garde-fous réseau
+
+`app/backend/testguard.{h,cpp}` : liste blanche = **bouclage (`127.0.0.1`, `::1`, `localhost`) et port 40000-44999**.
+Le vrai LavApollo de ce PC écoute sur 45989, les vrais hôtes sont sur le LAN : le client de test ne doit jamais leur
+écrire. Contrôle **avant toute requête** dans `NvHTTP::openConnection()` (le seul départ de tout GET : serverinfo,
+applist, appairage, launch/resume/cancel, jaquettes, sonde PyroWave, presse-papiers lu) et dans
+`sendClipboardContent()` (le seul POST) ; un refus lève une `QtNetworkReplyException` (hôte injoignable, aucune E/S) et
+écrit une ligne dans le journal (une fois par hôte:port). Redirections désactivées. Deuxième couche : `getServerInfo()`
+traite un serveur sans `<LavTestHost>1</LavTestHost>` comme hors ligne (« Pas un hôte de test »). L'ajout manuel d'une
+adresse refusée affiche un message (`ComputerManager::testGuardRefusal`, appelé par `HostsView.addByAddress`). **Tout
+nouveau chemin réseau doit passer par `NvHTTP`**, sinon il contourne la liste blanche.
+
+Chemins réseau **hors NvHTTP** et pourquoi ils sont sûrs :
 - Wake-on-LAN (`NvComputer::wake()`, paquets vers LAN / WAN / diffusion) : **désactivé**, une ligne de journal.
 - Sonde `LiTestClientConnectivity` (`PendingAddTask`, `Session::clStageFailed` / `clConnectionTerminated`) et STUN
-  `LiFindExternalAddressIP4` (`computermanager.cpp`) : **désactivés** (résultat « non concluant »).
+  `LiFindExternalAddressIP4` : **désactivés** (résultat « non concluant »).
 - Sonde de joignabilité (`NvComputer::getActiveAddressReachability`, `QTcpSocket`) : vers `activeAddress`, posée
   seulement après un `serverinfo` qui a passé la liste blanche.
-- Le stream (moonlight-common-c) : `RemoteAddr` = `activeAddress`, et il ne démarre qu'après un launch / resume gardé.
-- `NetworkBuffers::routedWiredLinkMbps` (`QUdpSocket`) : simple recherche de route, n'envoie aucun paquet.
-- Mise à jour in-app, `CompatFetcher` (`ComputerManager`) et `MappingFetcher` (`MappingManager`) : **tous désactivés**
-  par `lav_test` (le dernier trafic non bouclé : fichiers de moonlight-stream.org au démarrage, qui rendaient les
-  runs non déterministes). Les données embarquées / en cache servent, comme quand le téléchargement échoue.
+- Le stream (moonlight-common-c) : `RemoteAddr` = `activeAddress`, il ne démarre qu'après un launch / resume gardé.
+- `NetworkBuffers::routedWiredLinkMbps` (`QUdpSocket`) : simple recherche de route, aucun paquet.
+- Mise à jour, `CompatFetcher`, `MappingFetcher` : désactivés (ci-dessus) ; c'était le dernier trafic non bouclé
+  (fichiers de moonlight-stream.org au démarrage, qui rendaient les runs non déterministes).
 
-## 🤫 Build de test : mode discret
+### Mode discret
 
-Le client de test tourne sur le PC de l'utilisateur pendant qu'il travaille : fenêtres visibles mais **jamais le
-focus, jamais son pointeur, jamais de son, jamais son vrai micro**. Tout est sous `#ifdef LAV_TEST_BUILD`.
+Le client tourne sur le PC de l'utilisateur pendant qu'il travaille : fenêtres visibles mais **jamais le focus,
+jamais son pointeur, jamais de son, jamais son vrai micro**.
 - **Fenêtre du stream** (`session.cpp`) : toujours fenêtrée (`m_IsFullScreen = false`, `m_FullScreenFlag = 0`,
-  `toggleFullscreen()` sans effet), ni multi-écran (la fenêtre bordless always-on-top), ni état maximisé / minimisé
-  hérité du GUI. SDL2 ici = **sdl2-compat 2.32.70 sur SDL3**, qui n'a **aucune** correspondance pour
-  `SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN` (sans effet) : on pose les hints SDL3 par leur nom,
-  `SDL_WINDOW_ACTIVATE_WHEN_SHOWN=0` et `SDL_WINDOW_ACTIVATE_WHEN_RAISED=0`, avant `SDL_CreateWindow`. La fenêtre est
-  créée `SDL_WINDOW_HIDDEN`, reçoit `WS_EX_NOACTIVATE`, puis `ShowWindow(SW_SHOWNOACTIVATE)` (`lavTestShowNoActivate()`) ;
-  `WS_EX_NOACTIVATE` est reposé (`lavTestMakeNonActivating()`) sur `SDL_WINDOWEVENT_SHOWN` / `RESTORED` et après chaque
-  (re)création du décodeur, car le renderer peut recréer le HWND (`SDL_RecreateWindow`). Titre « … — Test ».
-  Aucun `SDL_RaiseWindow` n'existe dans le code.
-- **Pointeur / clavier** : la capture est **logique seulement** : `isCaptureActive()` vaut toujours vrai (les
-  événements injectés passent), `setCaptureActive()`, `updateKeyboardGrabState()`, `updatePointerRegionLock()` et
+  `toggleFullscreen()` sans effet), ni multi-écran (fenêtre bordless always-on-top), ni état maximisé / minimisé
+  hérité du GUI ; titre « … - Test ». SDL2 ici = **sdl2-compat 2.32.70 sur SDL3**, qui ignore
+  `SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN` : on pose les hints SDL3 par leur nom, `SDL_WINDOW_ACTIVATE_WHEN_SHOWN=0` et
+  `SDL_WINDOW_ACTIVATE_WHEN_RAISED=0`, avant `SDL_CreateWindow`. La fenêtre est créée `SDL_WINDOW_HIDDEN`, reçoit
+  `WS_EX_NOACTIVATE`, puis `ShowWindow(SW_SHOWNOACTIVATE)` (`lavTestShowNoActivate()`) ; `WS_EX_NOACTIVATE` est reposé
+  (`lavTestMakeNonActivating()`) sur `SDL_WINDOWEVENT_SHOWN` / `RESTORED` et après chaque (re)création du décodeur (le
+  renderer peut recréer le HWND, `SDL_RecreateWindow`). Aucun `SDL_RaiseWindow` dans le code.
+- **GUI** : `main.qml` reçoit le contexte `lavTestBuild` : `flags` = `Qt.Window | Qt.WindowDoesNotAcceptFocus` (Qt :
+  `SW_SHOWNOACTIVATE` + `WS_EX_NOACTIVATE`) et un simple `show()` (jamais maximisé / plein écran) ; titre « LavArtemis
+  Test ». Le menu rapide perd `raise()` / `requestActivate()` et prend `WindowDoesNotAcceptFocus`. Aucun autre
+  `requestActivate`, `raise`, `alert`, `SetForegroundWindow` dans le code.
+  - ⚠️ Sans focus OS, **Qt Quick ne donne jamais de focus actif** (`forceActiveFocus()` n'y fait rien) : le canal livre
+    lui-même les touches (voir `key`). Le menu rapide se ferme au clic.
+  - ⚠️ Les `FileDialog` natifs (export `.art` de `HomeView`, `BenchmarkView`) **s'activent** : aucun scénario ne doit les
+    ouvrir (le canal n'en ouvre aucun de lui-même ; un `click` qui en ouvrirait un, si).
+- **Pointeur / clavier** : capture **logique seulement** : `isCaptureActive()` vaut toujours vrai (les événements
+  injectés passent), `setCaptureActive()`, `updateKeyboardGrabState()`, `updatePointerRegionLock()` et
   `SDL_CaptureMouse` ne font rien côté OS (pas de mode relatif, de verrou, de curseur masqué, de warp).
-  **Seule l'entrée injectée atteint l'hôte** (`streaming/input/testinput.h`) : souris (mouvement, boutons, molette)
-  si `which == kTestInjectedMouseId` (`0x4C415654`, « LAVT ») ; **tactile désactivé** (non injectable : `SDL_GetTouchDeviceType` renvoie INVALID pour un id jamais
-  enregistré) ; manettes
-  seulement si le nom est `kTestGamepadName` (« LavArtemis Test Pad », joystick virtuel SDL de B4, reconnu par son nom seul, sans VID/PID connu) : les manettes
-  physiques ne sont ni ouvertes, ni comptées (`handleControllerDeviceEvent`, `handleJoystickArrivalEvent`,
-  `getAttachedGamepadMask`), et `ALLOW_BACKGROUND_EVENTS=1`. Le clavier n'a pas de marqueur : la fenêtre n'a jamais
-  le focus, donc aucune vraie touche n'arrive, et `handleKeyEvent` ne dépend pas du focus (seul `META` teste
-  `isSystemKeyCaptureActive`, hors sujet ici).
-- **GUI** : `main.qml` reçoit le contexte `lavTestBuild` : `flags` = `Qt.Window | Qt.WindowDoesNotAcceptFocus`
-  (Qt : `SW_SHOWNOACTIVATE` + `WS_EX_NOACTIVATE`) et un simple `show()` (jamais maximisé / plein écran). Le menu rapide
-  perd `raise()` / `requestActivate()` et prend `WindowDoesNotAcceptFocus`. Aucun autre `requestActivate`, `raise`,
-  `alert`, `SetForegroundWindow` dans le code.
-- **Son** : `SDL_AUDIODRIVER=dummy` (`qputenv` **et** hint, en tête de `main()`, avant tout `SDL_Init*` ; le
-  stream s'ouvre sur le pilote factice, il ne manque pas de périphérique).
-- **Micro** (`micstreamer.cpp`) : aucun périphérique ouvert ni énuméré ; un thread produit un sinus 440 Hz
-  (48 kHz mono, trames de 20 ms) qui passe par le même encodeur Opus et `onSamples()` / `LiSendMicrophoneData`
-  à 50 trames par seconde, de façon que le compteur de trames du micro côté hôte voie du trafic. Le thread est
-  joint dans `stop()`, avant `LiStopConnection()` (un seul appelant, comme en production).
-- ⚠️ **GUI et menu rapide sans focus** (`WindowDoesNotAcceptFocus`) : Qt Quick n'y donne **jamais** de focus actif
-  (`forceActiveFocus()` n'y fait rien) ; les commandes `key` / `text` du canal livrent donc elles-mêmes à l'élément au
-  bout de la chaîne de focus (voir « Canal de commande »). Le menu rapide se ferme au clic. Les `FileDialog` natifs
-  (export `.art` de `HomeView`, `BenchmarkView`) **s'activent** : aucun scénario ne doit les ouvrir. Titres : GUI
-  « LavArtemis Test », stream « … — Test ».
-- ⚠️ `QT += testlib` (app.pro, `lav_test`) ajoute `CONFIG += console` : un exe en sous-système console ouvre une
-  fenêtre de console (un onglet Windows Terminal) qui **prend le premier plan** au lancement depuis un programme
-  graphique. `app.pro` force `/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup` (comme les autres builds).
+- **Seule l'entrée injectée atteint l'hôte** (contrat dans `streaming/input/testinput.h`) :
+  - souris (mouvement, boutons, molette) seulement si `which == kTestInjectedMouseId` (`0x4C415654`, « LAVT ») ; le
+    mouvement lit les boutons tenus dans l'événement (`state`), la molette sa position (`mouseX/Y`), jamais la vraie
+    souris ;
+  - **tactile non injectable**, donc tout toucher est ignoré (`SDL_GetTouchDeviceType` est INVALID pour un id jamais
+    enregistré) ; pas de commande tactile ;
+  - manettes : seulement un appareil nommé `kTestGamepadName` (« LavArtemis Test Pad », la manette virtuelle du canal,
+    reconnue par son nom, sans VID/PID connu) ; les manettes physiques ne sont ni ouvertes ni comptées
+    (`handleControllerDeviceEvent`, `handleJoystickArrivalEvent`, `getAttachedGamepadMask`) ;
+    `ALLOW_BACKGROUND_EVENTS=1` ;
+  - clavier sans marqueur : aucune fenêtre n'a le focus, donc aucune vraie touche n'arrive ; `handleKeyEvent` ne
+    dépend pas du focus.
+- **Son** : `SDL_AUDIODRIVER=dummy` (`qputenv` **et** hint, en tête de `main()`, avant tout `SDL_Init*`).
+- **Micro** (`micstreamer.cpp`) : aucun périphérique ouvert ni énuméré ; un thread produit un sinus 440 Hz (48 kHz mono,
+  trames de 20 ms) qui passe par le même encodeur Opus et `LiSendMicrophoneData` à 50 trames/s (le compteur de trames
+  de l'hôte voit du trafic) ; joint dans `stop()`, avant `LiStopConnection()`.
 
-## 🎛️ Build de test : canal de commande
+### Canal de commande
 
-`app/testctl/` (`lav_test` seulement), démarré par `main.cpp` après `main.qml` : `QLocalServer` **`lavartemis-test`**
+`app/testctl/`, démarré par `main.cpp` après `main.qml` : `QLocalServer` **`lavartemis-test`**
 (`\\.\pipe\lavartemis-test`, `UserAccessOption` : cet utilisateur seulement). **Un client à la fois** : un second reçoit
 `{"id":null,"ok":false,"error":"another client is already connected"}` et est fermé ; se reconnecter après une
 déconnexion marche. Une requête JSON par ligne `{"id":n,"cmd":"…",…}` → une ligne `{"id":n,"ok":true,…}` ou
-`{"id":n,"ok":false,"error":"…"}` ; ligne illisible → `id` null, connexion gardée ; ligne de plus de 1 Mio → une seule
-erreur `"line too long"` (`id` null), le reste de la ligne est jeté jusqu'à son `\n` ; réponses dans l'ordre des requêtes.
-`testprotocol` (Qt Core : parse, dispatch, noms de touches, garde de `reset`), `uiprobe` (Qt Quick : arbre, clic,
-touches), `testcontrol` (serveur, SDL, session, réglages). Tests : `tests/testguard` (scène QML offscreen).
+`{"id":n,"ok":false,"error":"…"}` (le résultat est fusionné dans la réponse ; `id` est renvoyé tel quel). Ligne
+illisible ou sans `cmd` texte → erreur (`id` null si ce n'est pas un objet JSON), connexion gardée. Lignes découpées par
+`LineBuffer` : coupées après espaces (`\r\n` accepté), vides ignorées ; une ligne de **plus de 1 Mio** (fin de ligne
+non comprise), qu'elle arrive d'un bloc ou en morceaux, donne **une** erreur `"line too long"` (`id` null) et le reste de
+la ligne est jeté jusqu'à son `\n`. Fichiers : `testprotocol` (Qt Core : requêtes, `Dispatcher`, `LineBuffer`, noms de
+touches, garde de `reset`), `uiprobe` (Qt Quick : arbre, clic, touches, recouvrement), `testcontrol` (serveur, SDL,
+session, réglages).
 
-- **Tout sur le thread GUI**, qui fait aussi tourner la boucle SDL du stream. Qt y livre toujours timers, événements
+- **Tout sur le thread GUI**, qui fait aussi tourner la boucle SDL du stream : Qt y livre toujours timers, événements
   postés et données du pipe, car SDL pompe les messages Windows (mesuré avec sdl2-compat : QTimer 50 ms → 46 ticks,
   20/20 lignes reçues pendant 3 s de `SDL_WaitEventTimeout`). Le « Qt timers do not fire while streaming » de
-  `session.h` (benchmark) est donc faux ici.
+  `session.h` (benchmark) ne vaut donc pas ici. Pendant un stream, les commandes s'exécutent dans la pompe de SDL.
 - ⚠️ **Aucune boucle d'événements imbriquée, aucune commande dans une autre.** `readyRead` ne fait que découper les
   lignes dans une file ; chaque commande part d'un appel en file (`runNext`), une par tour de boucle, et
   `Dispatcher::isRunning()` refuse d'en démarrer une pendant qu'une autre tourne (un `runNext` livré par une boucle
-  imbriquée attend). Une commande n'appelle jamais `processEvents()` : clics, molette et touches Qt par
-  `QCoreApplication::sendEvent`, **pas QTest** (ses fonctions finissent par `processEvents()` : `Session::exec()`, la
-  boucle SDL bloquante, démarre sur un signal en file, et un clic pendant la connexion aurait fait tourner tout le stream
-  dans la commande, canal figé). La réponse va au client qui a posé la question, s'il est encore connecté ; les requêtes
-  d'un client parti sont jetées.
+  imbriquée attend). Le canal n'appelle jamais `processEvents()` : événements Qt par `QCoreApplication::sendEvent`,
+  **pas QTest** (ses fonctions finissent par `processEvents()` ; `Session::exec()`, la boucle SDL bloquante, démarre sur
+  un signal en file : un clic pendant la connexion aurait fait tourner tout le stream dans la commande, canal figé). La
+  réponse va au client qui a posé la question s'il est encore connecté ; les requêtes d'un client parti sont jetées.
+- **Horodatage** des événements synthétiques : `UiProbe::inputTimestamp()` = `GetTickCount()`, l'horloge de
+  `GetMessageTime()` que le plugin Windows de Qt met sur les vraies entrées : jamais en arrière par rapport au survol
+  réel de l'utilisateur. Appui et relâché d'un clic portent le même horodatage (un tap, pas un appui long).
 - **Coordonnées** Qt = pixels **logiques** de la fenêtre (`tree`, `click {x,y}`, `wheel`) ; une capture est en pixels
-  physiques (× `dpr`). Stream = coordonnées SDL (`w`/`h` du stream dans `windows`). Rien de réel : événements Qt par
-  `sendEvent`, entrée du stream par `SDL_PushEvent` ; le vrai curseur ne bouge pas, aucune fenêtre ne s'active (vérifié :
-  premier plan inchangé ; curseur jamais amené au point cliqué).
+  physiques (× `dpr`). Stream = coordonnées SDL (`w`/`h` du stream dans `windows`). Rien de réel : le vrai curseur ne
+  bouge pas, aucune fenêtre ne s'active (vérifié : premier plan inchangé, curseur jamais amené au point cliqué).
 - `window` = indice d'une fenêtre `kind:"qt"` de `windows` (0 = principale). Cible de `key`/`text`/`wheel` (`target`) :
   `"auto"` = le stream si sa boucle SDL tourne et que le menu rapide est fermé, sinon Qt ; `"qt"` ; `"stream"`. Fenêtre
   Qt par défaut : le menu rapide visible (`Qt::Tool`), sinon la principale.
@@ -602,32 +635,40 @@ touches), `testcontrol` (serveur, SDL, session, réglages). Tests : `tests/testg
 
 - **`tree`** : visibles seulement (`isVisible`, opacité effective > 0, partie visible non vide, coupée par la fenêtre et
   les ancêtres `clip`) ; `x,y,w,h` = cette partie visible ; `text` = la propriété `text` ; `type` = type QML (`Text`,
-  `MouseArea`, `LavPill`…) ; `focus` = sur la chaîne de focus (l'élément qui prend les touches, `keyTarget()`, et ses
-  ancêtres qui ont le focus), pas le focus actif, que personne n'a dans ces fenêtres. **`click`** : `text` exact (casse
-  comprise), `contains:true` = sous-chaîne, `objectName` exact ; `index` (défaut 0, négatif = depuis la fin) parmi les
-  correspondances dans l'ordre de l'arbre (profondeur d'abord, fenêtres dans l'ordre de `windows`) ; clic au centre de la
-  partie visible, **refusé** (`"covered: a … takes the click at its centre"`) si l'élément le plus haut qui prend la souris
-  en ce point (actif, `acceptedMouseButtons`, ordre de peinture : `z` puis ordre des enfants) n'est ni l'élément, ni un
-  de ses ancêtres ou descendants (`UiProbe::coveringItem`) ; les éléments transparents à la souris ne comptent pas, un
-  `TapHandler` seul non plus (indétectable sans API privée). `click {x,y}` et `wheel {x,y}` : refusés hors de la
-  fenêtre. ⚠️ Pendant une transition de `StackView`, la page qui arrive a une opacité nulle et l'ancienne
-  est encore à l'écran : attendre `state.pageBusy == false` avant `tree`, `click` ou `screenshot` (`page` change tout de
-  suite). `page` = type de la page du haut (`HomeView`, `SettingsView2`…), `pageTitle` = son `objectName`.
+  `MouseArea`, `LavPill`, `SettingChoice`…) ; `focus` = sur la chaîne de focus (l'élément qui prend les touches,
+  `keyTarget()`, et ses ancêtres qui ont le focus), pas le focus actif, que personne n'a dans ces fenêtres.
+- **`click`** : `text` exact (casse comprise), `contains:true` = sous-chaîne, `objectName` exact ; `index` (défaut 0,
+  négatif = depuis la fin) parmi les correspondances dans l'ordre de l'arbre (profondeur d'abord, fenêtres dans l'ordre
+  de `windows`) ; clic au centre de la partie visible. **Refusé** (`"covered: a … takes the click at its centre"`) si
+  l'élément le plus haut qui prend ce bouton en ce point (ordre de peinture : `z` puis ordre des enfants ; `clip`
+  respecté) n'est ni l'élément, ni un de ses ancêtres ou descendants (`UiProbe::coveringItem`). Prend un clic : un
+  élément avec un *pointer handler* autre que Hover / Wheel / Pinch, actif et acceptant le bouton (les cartes à
+  `TapHandler` : `AppCard`, `CoverTile`, Mes PC, `SettingRow`), une `MouseArea`, un bouton, un champ de texte, un
+  `Flickable`, une popup ; sans handler, tout élément actif qui accepte le bouton.
+  - ⚠️ Ajouter un handler, **même un `HoverHandler`**, fait accepter tous les boutons à l'élément
+    (`acceptedMouseButtons`) : c'est le type de ses handlers (`children()` qui héritent de `QQuickPointerHandler`) qui
+    décide, sinon un survol décoratif passerait pour un obstacle.
+  - L'overlay de Qt Quick Controls (popups) ne recouvre la page que **tant qu'une popup modale est ouverte** (erreur
+    `"covered: a modal popup is open (the overlay takes the click)"`) ; le contenu de la popup reste cliquable. Sans popup
+    modale, seules les popups elles-mêmes (menu, infobulle) peuvent être en travers.
+  - `click {x,y}` et `wheel {x,y}` : refusés hors de la fenêtre.
+- ⚠️ **Transitions de `StackView`** : la page qui arrive a une opacité nulle et l'ancienne est encore à l'écran ; attendre
+  `state.pageBusy == false` avant `tree`, `click` ou `screenshot` (`page` change tout de suite). `page` = type de la page
+  du haut (`HomeView`, `SettingsView2`…), `pageTitle` = son `objectName`.
 - **Touches** (noms insensibles à la casse) : `A`…`Z`, `0`…`9`, `F1`…`F12`, `Enter` (`Return`), `Escape` (`Esc`),
   `Tab`, `Backspace`, `Space`, `Delete`, `Insert`, `Home`, `End`, `PageUp`, `PageDown`, `Left`, `Right`, `Up`, `Down`,
   `Minus`, `Equals`, `LeftBracket`, `RightBracket`, `Backslash`, `Semicolon`, `Apostrophe`, `Grave` (à gauche de 1 : ²
   en AZERTY), `Comma`, `Period`, `Slash`, `CapsLock`, `PrintScreen`, `ScrollLock`, `Pause`, `Menu`, `Ctrl` (`LCtrl`),
   `RCtrl`, `Shift` (`LShift`), `RShift`, `Alt` (`LAlt`), `RAlt`, `Meta` (`LMeta`, `Win`), `RMeta`. `modifiers` :
   `"Ctrl+Shift"` ou `["Ctrl","Shift"]` (Ctrl, Shift, Alt, Meta/Win).
-  - Qt : sans focus actif (voir mode discret), l'événement va à `keyTarget()` = élément actif, sinon bout de la chaîne de
-    focus depuis la racine, puis à ses parents jusqu'à acceptation (ce que fait Qt Quick) ; `focus` de la réponse le
-    nomme. `text` Qt accepte tout Unicode.
+  - Qt : l'événement va à `keyTarget()` = élément actif, sinon bout de la chaîne de focus depuis la racine, puis à ses
+    parents jusqu'à acceptation (ce que fait Qt Quick) ; `focus` de la réponse le nomme. `text` Qt accepte tout Unicode.
   - Stream : comme un vrai clavier (modificateurs enfoncés, touche, relâchés), scancode et keycode **US fixes**, jamais la
-    disposition de ce PC : l'hôte reçoit le VK US et le lit avec sa disposition. `text` = une touche par caractère sur
-    clavier US (Maj pour majuscules et symboles) ; un caractère sans touche (accent) est refusé et rien n'est envoyé.
-    ⚠️ C'est **la touche US** qui part : sur un hôte en AZERTY, `text {"s":"a"}` tape « q » et `"1"` tape « & », comme un
-    clavier QWERTY branché sur ce PC. Pour un texte exact, l'hôte de test doit être en disposition US.
-    ⚠️ **Jamais de `SDL_TEXTINPUT` poussé** : sdl2-compat plante dessus (vérifié), et le client n'envoie que des touches.
+    disposition de ce PC. `text` = une touche par caractère sur clavier US (Maj pour majuscules et symboles) ; un
+    caractère sans touche (accent) est refusé et rien n'est envoyé. ⚠️ C'est **la touche US** qui part et l'hôte la lit
+    avec **sa** disposition : sur un hôte en AZERTY, `text {"s":"a"}` tape « q » et `"1"` tape « & », comme un clavier
+    QWERTY branché sur ce PC. Pour un texte exact, l'hôte de test doit être en disposition US.
+  - ⚠️ **Jamais de `SDL_TEXTINPUT` poussé** : sdl2-compat plante dessus (vérifié), et le client n'envoie que des touches.
 - **Souris du stream** : `which = kTestInjectedMouseId`, `state` = boutons tenus, position suivie par le canal (au centre
   de chaque nouvelle fenêtre de stream). Molette : `preciseX/Y` (sdl2-compat rend un `y` entier faux pour une molette
   poussée, `y = mouseY` observé ; le client lit `preciseY`), `mouseX/Y` = dernière position.
@@ -639,7 +680,7 @@ touches), `testcontrol` (serveur, SDL, session, réglages). Tests : `tests/testg
   axes `leftx lefty rightx righty` (-32768…32767), `lefttrigger righttrigger` (0…32767). Le canal tient sa propre
   référence au sous-système joystick (la session le quitte avant lui, ce qui détacherait la manette sous nos pieds) ;
   manette retirée à la fin du stream (contrôle toutes les 500 ms), par `detach` et à `quit`. Les deux
-  `SDL_assert(!SDL_WasInit(SDL_INIT_JOYSTICK))` d'`input.cpp` sont donc compilés hors du build de test seulement.
+  `SDL_assert(!SDL_WasInit(SDL_INIT_JOYSTICK))` d'`input.cpp` ne sont donc compilés que hors du build de test.
 - **`state.session`** : `Session::benchmarkSnapshot()` (cumul du stream, publié à chaque fenêtre de stats ≈ 1 s, 0
   avant) : `frames` envoyées par l'hôte, `decoded`, `rendered`, `dropped` = perdues réseau + jetées par le pacer ;
   `active` = une session existe (connexion comprise), `streaming` = sa boucle SDL tourne
@@ -659,8 +700,17 @@ touches), `testcontrol` (serveur, SDL, session, réglages). Tests : `tests/testg
   descendre dans sa cible. Jamais `QDir::removeRecursively()`, qui suit les jonctions.
 - **`quit`** : répond, interrompt la session s'il y en a une, attend sa fin, retire la manette, quitte. ⚠️ Au bout de
   30 s, il **cesse d'attendre** et quitte quand même, session encore en cours de nettoyage.
-- **`screenshot`** : fenêtres Qt seulement (`grabWindow`), chemin absolu sur un disque local (`\\serveur`, `//serveur`,
-  `\\?\` refusés) ; la fenêtre du stream se capture par `PrintWindow` sur son `hwnd`.
+- **`screenshot`** : fenêtres Qt seulement (`grabWindow`), chemin absolu sur un disque local : `\\serveur`, `//serveur`,
+  `\\?\` et les lecteurs réseau mappés (`GetDriveTypeW == DRIVE_REMOTE`) refusés. La fenêtre du stream se capture par
+  `PrintWindow` sur son `hwnd`.
+
+**Limites connues** :
+- `NvHTTP` attend ses réponses dans un `QEventLoop(ExcludeUserInputEvents)` sur le thread GUI (appairage OTP, commandes du
+  serveur, presse-papiers…). Lancé par l'appli hors de toute commande, cette boucle peut exécuter des commandes du canal en
+  son sein, et un stream pourrait même démarrer dans une telle commande. Peu probable, et c'est une propriété de l'appli,
+  pas du canal (dans une commande, la file attend : voir plus haut).
+- `text` vers le stream = touches US lues avec la disposition de l'hôte (ci-dessus) ; `quit` n'attend la session que
+  30 s ; pas de toucher ; un `click` peut ouvrir un `FileDialog` qui, lui, s'active.
 
 ## 🎨 Interface v2 (LavArtemis Dev)
 

@@ -5,14 +5,15 @@
 // touch screen and game controllers must never reach the test host.
 //
 // - Mouse motion / button / wheel events are used only when SDL_MouseXxxEvent::which equals
-//   kTestInjectedMouseId (touch: SDL_TouchFingerEvent::touchId equals it). The orchestrator
-//   sets it on events it pushes with SDL_PushEvent. Real devices report other ids.
+//   kTestInjectedMouseId. The command channel (app/testctl) sets it on the events it pushes
+//   with SDL_PushEvent. Real devices report other ids.
 // - Game controllers: only a device named kTestGamepadName is opened and forwarded (the
-//   orchestrator creates it as an SDL virtual joystick); physical pads are ignored.
-// - Touch is NOT injectable in the test build: handleTouchFingerEvent() also requires
+//   command channel creates it as an SDL virtual joystick); physical pads are ignored.
+// - Touch is NOT injectable in the test build, so every touch event is dropped: the filter
+//   wants touchId == kTestInjectedMouseId, but handleTouchFingerEvent() also requires
 //   SDL_GetTouchDeviceType(touchId) == SDL_TOUCH_DEVICE_DIRECT, which is INVALID for an id that
-//   SDL never registered, so every touch event is dropped.
-// - The virtual pad must be matched by NAME only: B4 must not borrow a known VID/PID (SDL would
+//   SDL never registered. The channel has no touch command.
+// - The virtual pad is matched by NAME only: it must not borrow a known VID/PID (SDL would
 //   apply that device's mapping and the name could change).
 // - Keyboard needs no marker: the windows never get keyboard focus, so real keys do not arrive.
 
