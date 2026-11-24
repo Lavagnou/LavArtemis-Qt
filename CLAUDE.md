@@ -301,6 +301,8 @@ trouvée (`window.updateVersion`, `updateDownloadUrl`, `updateBrowserUrl`) pour 
 > invisible (`CREATE_NO_WINDOW`, `setNativeArguments` pour garder les guillemets des chemins avec espaces),
 > qui **relance l'appli** une fois le bundle fini — aussi si l'élévation est refusée, pour ne jamais laisser
 > l'utilisateur sans appli. Vérifié avec des chemins à espaces : l'appli part après la fin de l'installeur.
+> La fenêtre affichée pendant ce passage est la page `ProgressPassive` du thème (« Mise à jour… », « se
+> relance à la fin ») : voir « Fenêtre de l'installeur ».
 
 > ⚠️ **L'installeur ne peut pas se supprimer lui-même.** `installAndRestart()` lui passe le fichier
 > puis quitte : le seul processus qui pourrait nettoyer est celui qu'on remplace. C'est donc le
@@ -402,9 +404,51 @@ fichier) ; `scripts/generate-ico.sh` n'est plus qu'un renvoi vers lui. Ne jamais
 | `app/res/lavartemis.svg` / `lavartemis-dev.svg` | icône des fenêtres Qt (`main.cpp`, la Dev selon `LAV_DEV_CHANNEL`) |
 | `app/res/lavartemis-session.svg` / `lavartemis-dev-session.svg` | icône de la **fenêtre du stream** (SDL, `Session` : l'écran allumé = session en cours, comme l'icône de LavApollo) |
 | `app/lavartemis.ico` / `lavartemis-dev.ico` | icône de l'exe (`RC_ICONS`, la Dev le remplace dans le bloc `-dev.` d'`app.pro`) et de l'installeur (`Bundle.wxs`, `BundleIcon`) |
-| `app/artemis_wix.png` / `artemis_wix-dev.png` | logo 64 px de l'installeur (`BundleLogo`) |
+| `wix/LavArtemisSetup/theme/<dev\|stable>/` | **fenêtre de l'installeur** : `thm.xml`, images, `payloads.wxi`, générés par `generate-installer.mjs` (voir « Fenêtre de l'installeur ») |
+
+> 📋 `app/artemis_wix*.png` (ancien logo 64 px de l'installeur) ne sert plus qu'au `wix/MoonlightSetup` hérité, que rien ne construit.
 
 > 📋 Le `.ico` a des entrées DIB jusqu'à 128 px et PNG à 256 px : la forme que lisent `rc.exe`, WiX et NSIS.
+
+## 🪟 Fenêtre de l'installeur (depuis 0.7.0-dev.6)
+
+Direction « A » du prototype (page V7, validée le 2026-11-24) : toute la fenêtre prend le fond du logo —
+**plan d'atelier** quadrillé `#1D4E89` pour la Dev, **dégradé nuit** pour la stable —, logo à gauche, textes
+clairs, boutons pilule, en français au tutoiement, **sans page de licence**. Pages : accueil (raccourci sur le
+Bureau, dossier + « Changer… »), dossier d'installation, progression, **mise à jour passive** (celle de
+l'updater, sans bouton), déjà installée (Fermer / Désinstaller / Réparer), terminé (« Lancer LavArtemis »),
+échec (lien vers le journal), aide.
+
+- **Rien n'est dessiné à la main** : `docs/branding/generate-installer.mjs` du dépôt LavArtemis écrit
+  `theme/<dev|stable>/` (thème, images, liste des payloads) depuis les mêmes SVG que les icônes. Les textes
+  sont `theme/thm.wxl` (écrits à la main, communs aux deux canaux : `[LavDisplayName]` et `[LavVersion]`
+  viennent de `Bundle.wxs`, `LAV_VERSION` posé par `generate-bundle.bat`).
+- `Theme="hyperlinkLicense"` ne sert que de plomberie (`ThemeFile` / `LocalizationFile` remplacent fenêtre et
+  textes) ; le thème n'a pas de case « J'accepte », donc pas de licence à accepter.
+
+> ⚠️ **`Theme="none"` ne démarre pas** : WiX n'écrit alors pas `WixStdbaInformation`, que WixStdBA exige,
+> et le bundle quitte sans fenêtre (`0x80070490` dans le journal Burn).
+
+> ⚠️ **Le moteur de thème (thmutil) a ses règles**, que le générateur respecte — les connaître avant de
+> retoucher la mise en page :
+> - Le fond est `Theme/@ImageFile`, sans autre résolution : il est agrandi au DPI de l'écran. Il doit faire
+>   **un pixel de plus** que la fenêtre en largeur et en hauteur (thmutil refuse `SourceX + Width` égal à la
+>   largeur de l'image : thème rejeté, aucune fenêtre).
+> - Les libellés n'ont pas de couleur de fond : leur texte est dessiné sur le fond, et **ne doit pas changer
+>   pendant qu'une page est affichée** (rien ne repeint le fond derrière : texte fantôme). D'où l'absence du
+>   texte « paquet en cours » de la progression.
+> - Boutons et logo sont des fenêtres enfants : chaque image **contient le morceau de fond** sur lequel elle
+>   est posée (rendue à 200 %), sinon ses coins transparents montreraient n'importe quoi.
+> - Une case à cocher Windows ignore sa couleur de texte (noir sur bleu) : la case seule, son texte dans un
+>   libellé à côté.
+> - Le premier contrôle d'une page qui prend le focus le reçoit à l'ouverture : le bouton principal vient en
+>   premier sur chaque page.
+> - Une barre de progression est liée **par son nom**, un seul contrôle par nom : la page interactive a
+>   `OverallCalculatedProgressbar`, la page passive `OverallProgressbar`.
+> - Couleurs des polices en **BGR** (`F5E0CF` = `#CFE0F5`).
+
+> 📋 Fermer avant la fin demande « Fermer l'installeur ? » (comportement de WixStdBA sur toutes les pages
+> avant l'installation ; le texte est neutre pour la page « déjà installée »).
 
 ## 🎨 Interface v2 (LavArtemis Dev)
 
@@ -807,8 +851,9 @@ par `tests/hostdisplay`.
    sous peine d'écraser leur installation.
 
 4. **Le thème du bootstrapper référence ses assets *par nom de fichier*.**
-   `wix/LavArtemisSetup/RtfTheme.xml` (`IconFile=`, `ImageFile=`) doit correspondre exactement aux
-   `Payload Name=` de `Bundle.wxs`. Burn résout ces noms **à l'exécution**, dans le dossier
+   `wix/LavArtemisSetup/theme/<canal>/thm.xml` (`IconFile=`, `ImageFile=`) doit correspondre exactement aux
+   `Payload Name=` de `Bundle.wxs` et de `theme/<canal>/payloads.wxi` (les deux sont générés ensemble :
+   ne jamais en retoucher un seul). Burn résout ces noms **à l'exécution**, dans le dossier
    d'extraction : un nom qui ne correspond pas fait échouer le parsing du thème avec `FILE_NOT_FOUND`
    **avant qu'aucune fenêtre n'existe** — l'installeur semble ne rien faire du tout, sans erreur ni
    SmartScreen. WiX embarque sans broncher un thème dont les références ne résolvent pas : build vert,

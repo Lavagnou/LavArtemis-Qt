@@ -53,6 +53,10 @@ set LAV_CHANNEL=
 echo %VERSION%| findstr /C:"-dev." >nul
 if not errorlevel 1 set LAV_CHANNEL=dev
 
+rem The readable version ("0.7.0-dev.3") shown by the installer window. Not VERSION: it is
+rem cleared before msbuild below, where it would become the SDK's Version property.
+set LAV_VERSION=%VERSION%
+
 rem Ensure that all architectures have been built before the final bundle
 if not exist "%BUILD_ROOT%\build-x64-%BUILD_CONFIG%\LavArtemis.msi" (
     echo Unable to build bundle - missing binaries for %BUILD_CONFIG% x64
