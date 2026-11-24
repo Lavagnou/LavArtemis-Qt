@@ -304,11 +304,12 @@ FocusScope {
                                                       StreamingPreferences.enableYUV444)
     }
     readonly property int defaultKbps: defaultBitrate()
-    // Android's row (SettingsCatalog KEY_BITRATE): 0,5 to 800 Mbit/s whatever the codec, on a cubic
-    // track, and « Saisir un débit » for any value past it (PyroWave's hundreds of Mbit/s
-    // included). A value typed or calibrated above the track is kept: the knob sits at the end.
+    // Android's row (SettingsCatalog KEY_BITRATE): 0,5 to 800 Mbit/s (3 Gbit/s with PyroWave) on a
+    // cubic track, and « Saisir un débit » for any value past it. A value typed or calibrated above
+    // the track is kept: the knob sits at the end.
     readonly property int bitrateMin: 500
-    readonly property int bitrateMax: 800000
+    // PyroWave needs hundreds of Mbit/s: its track goes much higher (same two values as Android)
+    readonly property int bitrateMax: pyroWave ? 3000000 : 800000
 
     function mbps(kbps) {
         return String(Math.round(kbps / 100) / 10).replace(".", ",")
