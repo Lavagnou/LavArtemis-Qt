@@ -83,7 +83,12 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             focus: true
-            
+            // The list scrolls in its own box: without this, the rows past its bottom were drawn
+            // over the footer button (« Fermer (Échap) » / « ← Retour ») below it
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollIndicator.vertical: ScrollIndicator { }
+
             model: {
                 if (currentMenu === "server_commands") return serverCommandsModel
                 if (currentMenu === "send_keys") return sendKeysModel
