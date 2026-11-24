@@ -561,6 +561,10 @@ jamais son pointeur, jamais de son, jamais son vrai micro**.
   `requestActivate`, `raise`, `alert`, `SetForegroundWindow` dans le code.
   - ⚠️ Sans focus OS, **Qt Quick ne donne jamais de focus actif** (`forceActiveFocus()` n'y fait rien) : le canal livre
     lui-même les touches (voir `key`). Le menu rapide se ferme au clic.
+  - ⚠️ Le sondage des PC (`ComputerManager::startPolling`) ne démarre dans l'appli que quand la fenêtre devient
+    **active**, ce qu'elle n'est jamais ici : dans le build de test, **visible compte comme active** (`main.qml`,
+    `onVisibleChanged`, pas de minuterie d'inactivité). Sans ça, aucune liste d'applis ni aucun changement d'état
+    n'arrivait jamais (accueil « Aucun PC appairé » avec un PC appairé).
   - ⚠️ Les `FileDialog` natifs (export `.art` de `HomeView`, `BenchmarkView`) **s'activent** : aucun scénario ne doit les
     ouvrir (le canal n'en ouvre aucun de lui-même ; un `click` qui en ouvrirait un, si).
 - **Pointeur / clavier** : capture **logique seulement** : `isCaptureActive()` vaut toujours vrai (les événements

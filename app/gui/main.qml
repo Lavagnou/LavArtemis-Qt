@@ -219,8 +219,10 @@ ApplicationWindow {
                 pollingActive = false
             }
         }
-        else if (active) {
-            // When we become visible and active again, start polling
+        else if (active || lavTestBuild) {
+            // When we become visible and active again, start polling.
+            // Test build: the window never becomes active (it never takes the focus), so being
+            // visible counts as active, as a real user's window would be.
             inactivityTimer.stop()
 
             // Restart polling if it was stopped
@@ -245,7 +247,7 @@ ApplicationWindow {
                 pollingActive = true
             }
         }
-        else {
+        else if (!lavTestBuild) {
             // Start the inactivity timer to stop polling
             // if focus does not return within a few minutes.
             inactivityTimer.restart()
