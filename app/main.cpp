@@ -457,7 +457,10 @@ int main(int argc, char *argv[])
     // LavArtemis Dev (a "-dev." version, see app.pro) uses its own organisation,
     // not just its own application name: uninstalling the stable app deletes
     // HKCU\Software\LavArtemis and %LOCALAPPDATA%\LavArtemis as a whole.
-#ifdef LAV_DEV_CHANNEL
+#if defined(LAV_TEST_BUILD)
+    // The testbench client (CONFIG+=lav_test) never shares settings with an installed app.
+    QCoreApplication::setOrganizationName("LavArtemis Test");
+#elif defined(LAV_DEV_CHANNEL)
     QCoreApplication::setOrganizationName("LavArtemis Dev");
 #else
     QCoreApplication::setOrganizationName("LavArtemis");

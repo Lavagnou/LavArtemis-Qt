@@ -376,7 +376,14 @@ void ComputerManager::startPolling()
         return;
     }
 
-    if (m_Prefs->enableMdns) {
+#ifdef LAV_TEST_BUILD
+    // Test build: no discovery on the network, hosts are added by address only.
+    const bool mdnsAllowed = false;
+#else
+    const bool mdnsAllowed = true;
+#endif
+
+    if (mdnsAllowed && m_Prefs->enableMdns) {
         // Start an MDNS query for GameStream hosts
         m_MdnsServer.reset(new QMdnsEngine::Server());
         m_MdnsBrowser = new QMdnsEngine::Browser(m_MdnsServer.data(), "_nvstream._tcp.local.");

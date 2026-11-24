@@ -721,5 +721,15 @@ contains(LAV_VERSION_STR, ".*-dev\..*") {
     # Dev icon (blueprint tile + green DEV pill), see docs/branding in LavArtemis.
     win32: RC_ICONS = lavartemis-dev.ico
 }
+# Testbench client (qmake CONFIG+=lav_test): same sources, own settings, no
+# discovery, no updater. Implies the Dev channel (v2 interface). Nothing here
+# is active in any other build.
+lav_test {
+    DEFINES += LAV_TEST_BUILD LAV_DEV_CHANNEL
+    QT += testlib
+    TARGET = LavArtemisTest
+    win32: RC_ICONS = lavartemis-dev.ico
+    # app/testctl/ sources (command channel) are added by the testbench tasks.
+}
 VERSION = $$LAV_VERSION_NUM
 DEFINES += VERSION_STR=\\\"$$LAV_VERSION_STR\\\"

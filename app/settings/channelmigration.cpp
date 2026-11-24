@@ -44,7 +44,8 @@ int copyTopLevelFiles(const QDir& from, const QDir& to)
 
 void importStableSettingsOnce()
 {
-#ifdef LAV_DEV_CHANNEL
+#if defined(LAV_DEV_CHANNEL) && !defined(LAV_TEST_BUILD)
+    // Not for the test build: it must start empty and never read another app's settings.
     static const char* kImportedKey = "lavDevImportedFromStable";
 
     QSettings dev;

@@ -67,6 +67,11 @@ void AutoUpdateChecker::skipVersion(QString version)
 
 void AutoUpdateChecker::performCheck()
 {
+#ifdef LAV_TEST_BUILD
+    // Test build: never contacts GitHub. A check still ends with its one signal.
+    emit noUpdateAvailable(QStringLiteral(VERSION_STR));
+    return;
+#endif
 #if defined(Q_OS_WIN32) || defined(Q_OS_DARWIN) || defined(STEAM_LINK) || defined(APP_IMAGE) // Only run update checker on platforms without auto-update
     if (m_CheckInProgress) {
         qDebug() << "Update check already in progress";
