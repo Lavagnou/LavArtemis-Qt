@@ -96,7 +96,14 @@
                                               LogoFile="theme\$(var.ThemeDir)\lav-logo.png"
                                               LicenseUrl="https://github.com/Lavagnou/LavArtemis-Qt/blob/main/LICENSE" />
       <Payload Name="lavartemis.ico" SourceFile="$(var.BundleIcon)" Compressed="yes" />
+      <!-- What the theme cannot do alone (no Windows title bar, minimize, the checkbox, the fonts of
+           the prototype with grey antialiasing): bafunctions/lavbafunctions.cpp, built by the
+           LavBuildBAFunctions target of LavArtemisSetup.wixproj. -->
+      <Payload Name="LavBAFunctions.dll" SourceFile="$(var.LavBafDll)" Compressed="yes" bal:BAFunctions="yes" />
       <?include theme\$(var.ThemeDir)\payloads.wxi ?>
+      <!-- The theme fonts (theme/fonts, subsets of Inter and Space Grotesk) travel with their licence. -->
+      <Payload Name="OFL-Inter.txt" SourceFile="..\..\app\res\fonts\OFL-Inter.txt" Compressed="yes" />
+      <Payload Name="OFL-SpaceGrotesk.txt" SourceFile="..\..\app\res\fonts\OFL-SpaceGrotesk.txt" Compressed="yes" />
     </BootstrapperApplication>
 
     <Chain>

@@ -8,9 +8,10 @@
   <PropertyGroup>
     <OutputPath>$(INSTALLER_FOLDER)\</OutputPath>
     <IntermediateOutputPath>$(BUILD_FOLDER)\</IntermediateOutputPath>
+    <LavBafDir>$(BUILD_FOLDER)\bafunctions\</LavBafDir>
   </PropertyGroup>
   <PropertyGroup>
-    <DefineConstants>$(DefineConstants);LavChannel=$(LAV_CHANNEL);X64Only=$(LAV_X64_ONLY);LavVersion=$(LAV_VERSION)</DefineConstants>
+    <DefineConstants>$(DefineConstants);LavChannel=$(LAV_CHANNEL);X64Only=$(LAV_X64_ONLY);LavVersion=$(LAV_VERSION);LavBafDll=$(LavBafDir)LavBAFunctions.dll</DefineConstants>
   </PropertyGroup>
   <PropertyGroup>
     <AcceptEula>wix7</AcceptEula>
@@ -31,5 +32,25 @@
   <ItemGroup>
     <PackageReference Include="WixToolset.Bal.wixext" Version="7.0.0" />
     <PackageReference Include="WixToolset.Util.wixext" Version="7.0.0" />
+    <!-- Headers and libraries of bafunctions/ (C++), only downloaded: their MSBuild files are for C++
+         projects, the DLL is built by the LavBuildBAFunctions target below. -->
+    <PackageReference Include="WixToolset.WixStandardBootstrapperApplicationFunctionApi" Version="7.0.0" ExcludeAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="WixToolset.BootstrapperApplicationApi" Version="7.0.0" ExcludeAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="WixToolset.DUtil" Version="7.0.0" ExcludeAssets="all" GeneratePathProperty="true" />
   </ItemGroup>
+
+  <!-- The BAFunctions DLL of the installer window (bafunctions/lavbafunctions.cpp): x86 like the bundle's
+       engine, static CRT. Needs cl/link in PATH: generate-bundle.bat runs vcvarsall x86 first. -->
+  <Target Name="LavBuildBAFunctions" BeforeTargets="CoreCompile"
+          Inputs="bafunctions\lavbafunctions.cpp;bafunctions\precomp.h;bafunctions\lavbafunctions.def"
+          Outputs="$(LavBafDir)LavBAFunctions.dll">
+    <PropertyGroup>
+      <_LavFn>$(PkgWixToolset_WixStandardBootstrapperApplicationFunctionApi)\lib\native</_LavFn>
+      <_LavBa>$(PkgWixToolset_BootstrapperApplicationApi)\build\native</_LavBa>
+      <_LavDu>$(PkgWixToolset_DUtil)\build\native</_LavDu>
+    </PropertyGroup>
+    <MakeDir Directories="$(LavBafDir)" />
+    <Exec Command='cl.exe /nologo /c /O1 /MT /EHsc /W3 /GS /DUNICODE /D_UNICODE /DWIN32 /DNDEBUG /I"$(_LavFn)\include" /I"$(_LavBa)\include" /I"$(_LavDu)\include" /Fo"$(LavBafDir)lavbafunctions.obj" bafunctions\lavbafunctions.cpp' />
+    <Exec Command='link.exe /nologo /DLL /MACHINE:X86 /OPT:REF /DEF:bafunctions\lavbafunctions.def /OUT:"$(LavBafDir)LavBAFunctions.dll" "$(LavBafDir)lavbafunctions.obj" "$(_LavFn)\v14\x86\wixstdfn.lib" "$(_LavBa)\v14\x86\balutil.lib" "$(_LavDu)\v14\x86\dutil.lib" kernel32.lib user32.lib gdi32.lib advapi32.lib ole32.lib oleaut32.lib shell32.lib shlwapi.lib comctl32.lib gdiplus.lib msimg32.lib crypt32.lib wininet.lib version.lib rpcrt4.lib dwmapi.lib msi.lib wintrust.lib uxtheme.lib urlmon.lib' />
+  </Target>
 </Project>

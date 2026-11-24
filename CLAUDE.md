@@ -410,45 +410,76 @@ fichier) ; `scripts/generate-ico.sh` n'est plus qu'un renvoi vers lui. Ne jamais
 
 > 📋 Le `.ico` a des entrées DIB jusqu'à 128 px et PNG à 256 px : la forme que lisent `rc.exe`, WiX et NSIS.
 
-## 🪟 Fenêtre de l'installeur (depuis 0.7.0-dev.6)
+## 🪟 Fenêtre de l'installeur (depuis 0.7.0-dev.7)
 
-Direction « A » du prototype (page V7, validée le 2026-11-24) : toute la fenêtre prend le fond du logo —
-**plan d'atelier** quadrillé `#1D4E89` pour la Dev, **dégradé nuit** pour la stable —, logo à gauche, textes
-clairs, boutons pilule, en français au tutoiement, **sans page de licence**. Pages : accueil (raccourci sur le
-Bureau, dossier + « Changer… »), dossier d'installation, progression, **mise à jour passive** (celle de
-l'updater, sans bouton), déjà installée (Fermer / Désinstaller / Réparer), terminé (« Lancer LavArtemis »),
-échec (lien vers le journal), aide.
+Direction « A » du prototype (page V7, validée le 2026-11-24), **au plus près de la maquette** : toute la
+fenêtre, barre de titre comprise, prend le fond du logo — **plan d'atelier** quadrillé `#1D4E89` pour la Dev,
+**dégradé nuit** pour la stable —, logo à gauche, titres en Space Grotesk, textes en Inter, boutons pilule de
+48 px, case à cocher et champ du dossier de la maquette, en français au tutoiement, **sans page de licence**.
+Pages : accueil (raccourci sur le Bureau, dossier + « Changer… »), dossier d'installation, progression,
+**mise à jour passive** (celle de l'updater), déjà installée (Désinstaller / Réparer / Fermer), terminé
+(« Lancer LavArtemis »), échec (lien vers le journal), aide. (La 0.7.0-dev.6 avait une première version, avec
+la barre de titre Windows et les polices système : refusée.)
 
-- **Rien n'est dessiné à la main** : `docs/branding/generate-installer.mjs` du dépôt LavArtemis écrit
-  `theme/<dev|stable>/` (thème, images, liste des payloads) depuis les mêmes SVG que les icônes. Les textes
-  sont `theme/thm.wxl` (écrits à la main, communs aux deux canaux : `[LavDisplayName]` et `[LavVersion]`
-  viennent de `Bundle.wxs`, `LAV_VERSION` posé par `generate-bundle.bat`).
-- `Theme="hyperlinkLicense"` ne sert que de plomberie (`ThemeFile` / `LocalizationFile` remplacent fenêtre et
-  textes) ; le thème n'a pas de case « J'accepte », donc pas de licence à accepter.
+Trois morceaux :
+- **`theme/<dev|stable>/`** (thème, images, `payloads.wxi`) et **`theme/fonts/`** (Inter 400/500/700 et Space
+  Grotesk 700, sous-ensembles latins renommés `LavInstall …`) : générés par `docs/branding/` du dépôt LavArtemis
+  (`generate-installer-fonts.py`, puis `generate-installer.mjs`), jamais retouchés à la main. Les textes des
+  boutons, de la case, du lien et de la barre de titre sont **dessinés dans les images** par le générateur.
+- **`theme/thm.wxl`** : les textes des libellés (titres, sous-titres, dossier…), écrits à la main, communs aux
+  deux canaux (`[LavDisplayName]` et `[LavVersion]` viennent de `Bundle.wxs`, `LAV_VERSION` posé par
+  `generate-bundle.bat`).
+- **`bafunctions/lavbafunctions.cpp`** : une DLL BAFunctions de WixStdBA, compilée par la cible
+  `LavBuildBAFunctions` de `LavArtemisSetup.wixproj` (cl/link x86, CRT statique ; en-têtes et bibliothèques des
+  paquets NuGet `WixToolset.WixStandardBootstrapperApplicationFunctionApi`, `…BootstrapperApplicationApi`,
+  `…DUtil`, seulement téléchargés). Elle charge les polices en privé (`AddFontResourceEx(FR_PRIVATE)`, avant que
+  le thème crée les siennes), arrondit les coins (DWM, Windows 11), fait marcher « réduire » (`LavMinimize`), la
+  case à cocher (`LavShortcutOn` / `LavShortcutOff`, deux boutons image échangés, variable
+  `AddDesktopShortcutCheckbox`), retire le cadre 3D du champ du dossier, et remplace le ClearType des libellés
+  par un lissage gris (franges colorées sur le texte clair, absentes de la maquette).
+
+`Theme="hyperlinkLicense"` ne sert que de plomberie (`ThemeFile` / `LocalizationFile` remplacent fenêtre et
+textes) ; le thème n'a pas de case « J'accepte », donc pas de licence à accepter.
 
 > ⚠️ **`Theme="none"` ne démarre pas** : WiX n'écrit alors pas `WixStdbaInformation`, que WixStdBA exige,
 > et le bundle quitte sans fenêtre (`0x80070490` dans le journal Burn).
 
 > ⚠️ **Le moteur de thème (thmutil) a ses règles**, que le générateur respecte — les connaître avant de
 > retoucher la mise en page :
+> - Fenêtre `WS_POPUP` (pas de barre Windows, déplacée en attrapant le fond) **sans `WS_SYSMENU`** : avec lui,
+>   `DpiuAdjustWindowRect` compte une barre de titre et la zone client dépasse le fond (bandes noires).
 > - Le fond est `Theme/@ImageFile`, sans autre résolution : il est agrandi au DPI de l'écran. Il doit faire
 >   **un pixel de plus** que la fenêtre en largeur et en hauteur (thmutil refuse `SourceX + Width` égal à la
 >   largeur de l'image : thème rejeté, aucune fenêtre).
 > - Les libellés n'ont pas de couleur de fond : leur texte est dessiné sur le fond, et **ne doit pas changer
 >   pendant qu'une page est affichée** (rien ne repeint le fond derrière : texte fantôme). D'où l'absence du
 >   texte « paquet en cours » de la progression.
-> - Boutons et logo sont des fenêtres enfants : chaque image **contient le morceau de fond** sur lequel elle
->   est posée (rendue à 200 %), sinon ses coins transparents montreraient n'importe quoi.
-> - Une case à cocher Windows ignore sa couleur de texte (noir sur bleu) : la case seule, son texte dans un
->   libellé à côté.
+> - Boutons, logo et images sont des fenêtres enfants : chaque image **contient le morceau de fond** sur
+>   lequel elle est posée (rendue à 200 %), sinon ses coins transparents montreraient n'importe quoi.
+> - **Un contrôle nommé sans texte reçoit `#(loc.<Nom>)`** s'il existe, et thmutil le dessine par-dessus son
+>   image : aucune chaîne de `thm.wxl` ne doit porter le nom d'un bouton (un « Valider » blanc s'affichait sur
+>   le bouton `OptionsOkButton`).
 > - Le premier contrôle d'une page qui prend le focus le reçoit à l'ouverture : le bouton principal vient en
 >   premier sur chaque page.
 > - Une barre de progression est liée **par son nom**, un seul contrôle par nom : la page interactive a
->   `OverallCalculatedProgressbar`, la page passive `OverallProgressbar`.
-> - Couleurs des polices en **BGR** (`F5E0CF` = `#CFE0F5`).
+>   `OverallCalculatedProgressbar`, la page passive `OverallProgressbar`. Ses bouts arrondis sont deux petites
+>   images de part et d'autre.
+> - Couleurs des polices en **BGR** (`F5E0CF` = `#CFE0F5`) ; chaque police du thème est sa propre famille, à
+>   la graisse 400 (GDI choisit par famille et graisse).
 
 > 📋 Fermer avant la fin demande « Fermer l'installeur ? » (comportement de WixStdBA sur toutes les pages
 > avant l'installation ; le texte est neutre pour la page « déjà installée »).
+
+## 🚫 Pas de stream vers son propre PC
+
+`NvComputer::isThisPc` (calculé à chaque `serverinfo` par `isThisMachine()`) : l'adresse du PC est une
+adresse de bouclage ou une adresse de cette machine (`QNetworkInterface::allAddresses()`), ou la MAC qu'il
+annonce est celle d'une de ses cartes réseau. Lancer ou reprendre une session vers ce PC est refusé avec
+« Impossible de streamer %1 depuis lui-même : LavApollo tourne sur ce PC. Lance le stream depuis un autre
+appareil. » : à l'accueil (`HomeView.launch`), au benchmark de Mes PC (`HostsView`), et dans
+`Session::validateLaunch`, par où passent aussi les liens `art://` et la ligne de commande. L'appairage reste
+possible. Rôle `thisPc` de `ComputerModel` (en dernier : `HostsView` lit les rôles par numéro). Propre au
+desktop : un appareil Android n'est jamais son propre hôte.
 
 ## 🎨 Interface v2 (LavArtemis Dev)
 
