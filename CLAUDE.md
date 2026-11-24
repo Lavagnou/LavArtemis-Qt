@@ -295,6 +295,13 @@ trouvée (`window.updateVersion`, `updateDownloadUrl`, `updateBrowserUrl`) pour 
 > 📋 Une correction de l'updater **ne peut pas se livrer par l'updater** : la version cassée est celle
 > qui télécharge. Prévoir une installation manuelle et le dire dans les notes de release.
 
+> 📋 **Mise à jour sans clic** (depuis 0.7.0-dev.5) : `installAndRestart()` lance le bundle en
+> **`/passive /norestart`** (barre de progression seule : ni licence, ni « Suivant », ni « Launch » ; Windows
+> demande quand même l'élévation) par un `cmd /c start "" /wait "<installeur>" … & start "" "<app>"`
+> invisible (`CREATE_NO_WINDOW`, `setNativeArguments` pour garder les guillemets des chemins avec espaces),
+> qui **relance l'appli** une fois le bundle fini — aussi si l'élévation est refusée, pour ne jamais laisser
+> l'utilisateur sans appli. Vérifié avec des chemins à espaces : l'appli part après la fin de l'installeur.
+
 > ⚠️ **L'installeur ne peut pas se supprimer lui-même.** `installAndRestart()` lui passe le fichier
 > puis quitte : le seul processus qui pourrait nettoyer est celui qu'on remplace. C'est donc le
 > **démarrage suivant** qui le fait (`cleanupDownloadedInstallers()`, appelé depuis le constructeur),

@@ -14,6 +14,10 @@
 #include <QJsonArray>
 #include <QJsonObject>
 
+#ifdef Q_OS_WIN32
+#include <windows.h> // CREATE_NO_WINDOW
+#endif
+
 AutoUpdateChecker::AutoUpdateChecker(QObject *parent) :
     QObject(parent),
     m_Nam(nullptr),
@@ -412,9 +416,20 @@ void AutoUpdateChecker::cleanupDownloadedInstallers()
 void AutoUpdateChecker::installAndRestart(QString installerPath)
 {
 #ifdef Q_OS_WIN32
-    // The WiX bundle performs a MajorUpgrade in place, so we just hand it the
-    // process and quit. startDetached keeps the installer alive after we exit.
-    if (QProcess::startDetached(installerPath, QStringList())) {
+    // The WiX bundle upgrades in place. It runs /passive (progress bar only: no licence, no
+    // "Suivant", no "Launch" to click; Windows still asks for the elevation), and a hidden cmd
+    // waits for it, then starts the app again -- also when the install was cancelled, so the
+    // user is never left without the app. cmd /c start /wait follows the bundle's own process,
+    // which exits once its elevated engine is done.
+    QString appPath = QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
+    QProcess helper;
+    helper.setProgram(QStringLiteral("cmd.exe"));
+    helper.setNativeArguments(QStringLiteral("/c start \"\" /wait \"%1\" /passive /norestart & start \"\" \"%2\"")
+                                  .arg(QDir::toNativeSeparators(installerPath), appPath));
+    helper.setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments* args) {
+        args->flags |= CREATE_NO_WINDOW;
+    });
+    if (helper.startDetached()) {
         QCoreApplication::quit();
     } else {
         emit downloadFailed(tr("Failed to launch the installer"));
