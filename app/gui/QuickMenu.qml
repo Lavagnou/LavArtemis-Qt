@@ -309,7 +309,8 @@ Rectangle {
             mainMenuModel.append({icon: "👆",
                                   text: trackpad ? qsTr("Switch to Multitouch") : qsTr("Switch to Trackpad"),
                                   action: "toggle_touch_mode",
-                                  description: qsTr("For this stream only")})
+                                  description: quickMenuManager.rememberTouchMode() ? qsTr("Kept for the next streams")
+                                                                                     : qsTr("For this stream only")})
         }
         // This PC only: the actions of the Ctrl+Alt+Shift shortcuts Z, K and X
         mainMenuModel.append({icon: "🖱", text: qsTr("Release Mouse and Keyboard"), action: "toggle_mouse",

@@ -35,14 +35,12 @@ Uint32 SdlInputHandler::dragTimerCallback(Uint32, void *param)
 {
     auto me = reinterpret_cast<SdlInputHandler*>(param);
 
-    // Check how many fingers are down now to decide
-    // which button to hold down
-    if (me->m_NumFingersDown == 2) {
-        me->m_DragButton = BUTTON_RIGHT;
+    // A long press drags with the left button, one finger only. A two-finger long press does
+    // nothing, as on Android (the user's decision, 2026-11-24): it used to hold the right button.
+    if (me->m_NumFingersDown != 1) {
+        return 0;
     }
-    else if (me->m_NumFingersDown == 1) {
-        me->m_DragButton = BUTTON_LEFT;
-    }
+    me->m_DragButton = BUTTON_LEFT;
 
     LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, me->m_DragButton);
 
@@ -136,14 +134,17 @@ void SdlInputHandler::handleRelativeFingerEvent(SDL_TouchFingerEvent* event)
         }
     }
 
-    // Start a drag timer when primary or secondary
-    // fingers go down
-    if (event->type == SDL_FINGERDOWN &&
-            (fingerIndex == 0 || fingerIndex == 1)) {
+    // Start a drag timer when the primary finger goes down; a second finger cancels it (no
+    // two-finger long press, as on Android)
+    if (event->type == SDL_FINGERDOWN && fingerIndex == 0) {
         SDL_RemoveTimer(m_DragTimer);
         m_DragTimer = SDL_AddTimer(DRAG_ACTIVATION_DELAY,
                                    dragTimerCallback,
                                    this);
+    }
+    else if (event->type == SDL_FINGERDOWN && fingerIndex == 1) {
+        SDL_RemoveTimer(m_DragTimer);
+        m_DragTimer = 0;
     }
 
     if (event->type == SDL_FINGERMOTION) {

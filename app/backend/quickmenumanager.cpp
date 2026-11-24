@@ -2,6 +2,7 @@
 #include "servercommandmanager.h"
 #include "clipboardmanager.h"
 #include "../streaming/session.h"
+#include "settings/streamingpreferences.h"
 
 // Forward declaration of KeyCombo enum values
 enum KeyCombo {
@@ -219,10 +220,17 @@ void QuickMenuManager::executeAction(const QString &action)
             Session::get()->toggleMicrophoneMute();
         }
     } else if (action == "toggle_touch_mode") {
-        // For this stream only, like Android's « Passer en trackpad / multitouch »
+        // Like Android's « Passer en trackpad / multitouch »: for this stream, and kept for the
+        // next ones with « Retenir le mode tactile choisi en jeu » (Game.switchTouchMode)
         if (Session::get() && Session::get()->getInputHandler()) {
             SdlInputHandler* input = Session::get()->getInputHandler();
             input->setAbsoluteTouchMode(!input->isAbsoluteTouchMode());
+            StreamingPreferences* prefs = StreamingPreferences::get();
+            if (prefs->rememberTouchMode) {
+                prefs->absoluteTouchMode = input->isAbsoluteTouchMode();
+                emit prefs->absoluteTouchModeChanged();
+                prefs->save();
+            }
         }
     }
 }
@@ -406,6 +414,11 @@ bool QuickMenuManager::microphoneActive() const
 bool QuickMenuManager::microphoneMuted() const
 {
     return Session::get() && Session::get()->isMicrophoneMuted();
+}
+
+bool QuickMenuManager::rememberTouchMode() const
+{
+    return StreamingPreferences::get()->rememberTouchMode;
 }
 
 bool QuickMenuManager::trackpadTouchMode() const

@@ -159,7 +159,6 @@ public:
     Q_PROPERTY(int height MEMBER height NOTIFY displayModeChanged)
     Q_PROPERTY(int fps MEMBER fps NOTIFY displayModeChanged)
     Q_PROPERTY(int bitrateKbps MEMBER bitrateKbps NOTIFY bitrateChanged)
-    Q_PROPERTY(bool unlockBitrate MEMBER unlockBitrate NOTIFY unlockBitrateChanged)
     Q_PROPERTY(bool autoAdjustBitrate MEMBER autoAdjustBitrate NOTIFY autoAdjustBitrateChanged)
     Q_PROPERTY(bool enableVsync MEMBER enableVsync NOTIFY enableVsyncChanged)
     Q_PROPERTY(bool enableVrr MEMBER enableVrr NOTIFY enableVrrChanged)
@@ -173,6 +172,9 @@ public:
     Q_PROPERTY(bool quitAppAfter MEMBER quitAppAfter NOTIFY quitAppAfterChanged)
     Q_PROPERTY(bool absoluteMouseMode MEMBER absoluteMouseMode NOTIFY absoluteMouseModeChanged)
     Q_PROPERTY(bool absoluteTouchMode MEMBER absoluteTouchMode NOTIFY absoluteTouchModeChanged)
+    // « Retenir le mode tactile choisi en jeu » (Android's checkbox_remember_mouse_mode): the
+    // in-game « Passer en trackpad / multitouch » then writes absoluteTouchMode
+    Q_PROPERTY(bool rememberTouchMode MEMBER rememberTouchMode NOTIFY rememberTouchModeChanged)
     Q_PROPERTY(bool framePacing MEMBER framePacing NOTIFY framePacingChanged)
     Q_PROPERTY(bool connectionWarnings MEMBER connectionWarnings NOTIFY connectionWarningsChanged)
     Q_PROPERTY(bool configurationWarnings MEMBER configurationWarnings NOTIFY configurationWarningsChanged)
@@ -214,7 +216,6 @@ public:
     int height;
     int fps;
     int bitrateKbps;
-    bool unlockBitrate;
     bool autoAdjustBitrate;
     bool enableVsync;
     bool enableVrr;
@@ -231,6 +232,7 @@ public:
     bool quitAppAfter;
     bool absoluteMouseMode;
     bool absoluteTouchMode;
+    bool rememberTouchMode;
     bool framePacing;
     bool connectionWarnings;
     bool configurationWarnings;
@@ -272,7 +274,6 @@ public:
 signals:
     void displayModeChanged();
     void bitrateChanged();
-    void unlockBitrateChanged();
     void autoAdjustBitrateChanged();
     void enableVsyncChanged();
     void enableVrrChanged();
@@ -287,6 +288,7 @@ signals:
     void quitAppAfterChanged();
     void absoluteMouseModeChanged();
     void absoluteTouchModeChanged();
+    void rememberTouchModeChanged();
     void audioConfigChanged();
     void videoCodecConfigChanged();
     void enableHdrChanged();

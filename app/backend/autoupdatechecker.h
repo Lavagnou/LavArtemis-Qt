@@ -23,6 +23,10 @@ public:
     // startup checks are disabled -- the user just asked for one.
     Q_INVOKABLE void checkNow();
 
+    // « Ignorer cette version » (Android's UpdateChecker.skipVersion): the startup check stops
+    // offering this version (it ends with noUpdateAvailable instead); checkNow() still offers it.
+    Q_INVOKABLE void skipVersion(QString version);
+
     // Downloads the given release asset to the temp directory, reporting
     // progress through downloadProgress. Emits downloadReady on success.
     Q_INVOKABLE void downloadUpdate(QString url);
@@ -91,6 +95,8 @@ private:
     // doesn't poll in the background between checks.
     QNetworkAccessManager* m_Nam;
     bool m_CheckInProgress;
+    // The check in progress is the startup one (start()), which honours a skipped version
+    bool m_AutomaticCheck = false;
 
     QPointer<QNetworkReply> m_DownloadReply;
     bool m_DownloadCanceled;

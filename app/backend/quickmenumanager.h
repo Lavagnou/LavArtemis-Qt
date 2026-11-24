@@ -72,6 +72,8 @@ public:
     Q_INVOKABLE bool microphoneActive() const;
     Q_INVOKABLE bool microphoneMuted() const;
     Q_INVOKABLE bool trackpadTouchMode() const;
+    // « Retenir le mode tactile choisi en jeu »: the switch is kept for the next streams
+    Q_INVOKABLE bool rememberTouchMode() const;
     QString playniteGameName() const { return m_playniteGameName; }
     void setComputer(NvComputer *computer) { m_computer = computer; }
 

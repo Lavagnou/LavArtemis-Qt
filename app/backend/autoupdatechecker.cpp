@@ -7,6 +7,7 @@
 #include <QNetworkReply>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QSysInfo>
 #include <QJsonDocument>
@@ -41,14 +42,23 @@ void AutoUpdateChecker::start()
         return;
     }
 
+    m_AutomaticCheck = true;
     performCheck();
 }
 
 void AutoUpdateChecker::checkNow()
 {
     // Deliberately ignores autoUpdateEnabled: that preference governs the check
-    // at startup, not a button the user just pressed.
+    // at startup, not a button the user just pressed. Nor a skipped version: the user asked.
+    m_AutomaticCheck = false;
     performCheck();
+}
+
+#define SKIPPED_VERSION_KEY "updateSkippedVersion"
+
+void AutoUpdateChecker::skipVersion(QString version)
+{
+    QSettings().setValue(SKIPPED_VERSION_KEY, version);
 }
 
 void AutoUpdateChecker::performCheck()
@@ -464,6 +474,11 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
         int res = compareVersionStrings(currentVersion, version);
         if (res < 0) {
             // Current version < latest version
+            if (m_AutomaticCheck && QSettings().value(SKIPPED_VERSION_KEY).toString() == version) {
+                qDebug() << "Update available but skipped by the user:" << version;
+                emit noUpdateAvailable(currentVersion);
+                return;
+            }
             qDebug() << "Update available";
             QString downloadUrl = findAssetDownloadUrl(releaseObj);
             if (!downloadUrl.isEmpty()) {

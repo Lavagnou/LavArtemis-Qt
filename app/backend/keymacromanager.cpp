@@ -305,7 +305,6 @@ QVector<KeyMacroManager::Macro> KeyMacroManager::builtInMacros()
         { "win_shift_left",   QT_TR_NOOP("Win+Shift+Left"),      { 0x5B, 0xA0, 0x25 } },
         { "ctrl_alt_shift_f1",  QT_TR_NOOP("Ctrl+Alt+Shift+F1"), { 0xA2, 0xA4, 0xA0, 0x70 } },
         { "ctrl_alt_shift_f12", QT_TR_NOOP("Ctrl+Alt+Shift+F12"),{ 0xA2, 0xA4, 0xA0, 0x7B } },
-        { "win_alt_b",        QT_TR_NOOP("Win+Alt+B (HDR toggle)"), { 0x5B, 0xA4, 0x42 } },
     };
 
     QVector<Macro> macros;

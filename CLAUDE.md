@@ -161,7 +161,7 @@ l'on décide de streamer sur un ou plusieurs écrans est celui juste avant de la
 | Feature | Où | Note |
 |---|---|---|
 | **Profils de réglages** | `settings/profilemanager.{h,cpp}` | `profiles.json` dans `AppConfigLocation`. Un profil est un **snapshot complet**, pas un patch épars. `language`, `defaultver` et les clés propres à la machine (`mdns`, `detectnetblocking`, `uidisplaymode`, `tracevrrframes`) **bypassent** les profils (`isGlobalKey()`). |
-| **Send keys + macros** | `backend/keymacromanager.{h,cpp}` | 16 presets + `keyboard-macros.json`. **Même format et mêmes noms `VK_` que l'Android** → un fichier marche sur les deux. Table des 174 noms extraite de `KeyMapper.java`, pas retapée. |
+| **Send keys + macros** | `backend/keymacromanager.{h,cpp}` | 15 presets (mêmes que l'Android Dev ; le raccourci HDR Win+Alt+B est retiré des deux) + `keyboard-macros.json`. **Même format et mêmes noms `VK_` que l'Android** → un fichier marche sur les deux. Table des 174 noms extraite de `KeyMapper.java`, pas retapée. |
 | **Liens `art://` + `.art`** | `cli/artlink.{h,cpp}` | `rewriteArguments()` **traduit le lien en ligne de commande existante** au lieu d'ajouter un chemin de lancement parallèle → hérite du host seeking, du wake-on-LAN et de l'UI de segue. Export via `AppModel::exportArtFile()`. |
 | **Pan & zoom** | `streaming/panzoom.{h,cpp}` | Combos Ctrl+Alt+Shift (`+`/`-`/`0`, flèches). |
 
@@ -286,6 +286,12 @@ trouvée (`window.updateVersion`, `updateDownloadUrl`, `updateBrowserUrl`) pour 
 > checks ; tant que `performCheck()` ne le recréait pas, le check du démarrage consommait l'unique
 > instance et **tous les suivants sortaient sans rien envoyer**.
 
+> 📋 **« Ignorer cette version »** (comme Android, `UpdateChecker.skipVersion`) : troisième bouton du
+> dialogue de mise à jour (`Dialog.Discard` renommé). `AutoUpdateChecker::skipVersion()` garde la version
+> (`QSettings`, `updateSkippedVersion`) ; le check **du démarrage** (`start()`, `m_AutomaticCheck`) finit
+> alors par `noUpdateAvailable` pour cette version, `checkNow()` la propose toujours. La pastille
+> « Mise à jour » disparaît aussitôt.
+
 > ⚠️ **Le bouton des réglages appelle `checkNow()`, pas `start()`.** `start()` respecte la case
 > « vérifier au démarrage » — décochée, elle lui faisait refuser le check qu'on venait de demander.
 
@@ -374,7 +380,23 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   ajouté ou retiré dans `computermodel.h` doit l'être dans cette liste. Et **jamais de propriété
   `action`** sur un `AbstractButton` (elle existe déjà : le composant refuse de se charger).
 - Les jeux **masqués** (« Masquer ») se réaffichent depuis l'accueil (bouton sous la bibliothèque) et se
-  démasquent depuis leur menu.
+  démasquent depuis leur menu. **« Masquer » ne s'offre que pour les jeux Playnite**, comme sur Android
+  (`openMenu(…, isGame)` → `AppMenu.canHide`) ; une carte Bureau / Playnite masquée par une version
+  antérieure garde « Ne plus masquer ».
+- **États de l'accueil, ceux d'Android** (`HomeScreen.bind`, mêmes textes) : « Aucun PC appairé », « Connexion
+  à %1… » (hôte pas encore joint, `statusUnknown`), « Chargement des applis… » (en ligne, liste d'applis pas
+  encore arrivée, `appsLoading`), « %1 est hors ligne » avec **« Réveiller »** quand le PC a donné son adresse
+  MAC (`wakeable`, mêmes messages que Mes PC). En-tête : « Recherche… » tant que l'hôte n'a pas répondu.
+  Bibliothèque vide : « Aucun jeu Playnite sur ce PC. Installe l'extension LavApollo Link… ».
+- **Ligne d'état de la Scène, celle d'Android** : « EN COURS · DANS PLAYNITE FULLSCREEN · DEPUIS 12 MIN »
+  (`home.liveLine`). L'hôte ne dit pas quand la session a commencé : la durée part de la première fois que ce
+  PC a vu l'appli tourner sur cet hôte, gardée dans `QSettings` (`uiV2SessionClock/<uuid>` =
+  `<runningId>:<ms>`, comme `SessionClock` d'Android), oubliée quand rien ne tourne ; rien sous une minute.
+- **Logiciel hôte non pris en charge** : la règle d'Android (`NvComputer::isSupportedAppVersion()` : appversion
+  en quatre nombres, génération ≥ 3 ; vide = inconnu = accepté) s'ajoute à la liste GeForce Experience de
+  moonlight-qt. Vérifié avant d'ouvrir (Mes PC), de lancer (accueil) et de lancer un benchmark, avec le
+  message d'Android et la version (`ComputerModel::ServerVersionRole`, rôle `serverVersion`, ajouté **à la fin**
+  de l'enum et de la liste `roleId()` de `HostsView`) ; `Session::validateLaunch()` garde le même texte.
 - **Quitter et Relancer la session demandent confirmation** (Scène et menu d'une appli), avec les textes
   d'Android (« Quitter %1 ? Ce qui n'est pas sauvegardé sera perdu. »). Le Bureau et Playnite Fullscreen
   sont nommés par leur titre de carte (`runningTitle`, « Bureau »), jamais par le nom brut de l'hôte
@@ -406,13 +428,16 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   même description que l'Android** (qui ne garde plus que ces deux modes en Dev). Multitouch =
   `absoluteTouchMode` vrai (`abstouch.cpp` : toucher natif si l'hôte le prend en charge, sinon souris
   émulée) ; Trackpad = faux (`reltouch.cpp` : le doigt déplace le curseur, tap = clic gauche, appui à deux
-  doigts = clic droit, appui long 650 ms = clic gauche maintenu — droit avec deux doigts — et **deux doigts
+  doigts = clic droit, appui long 650 ms = clic gauche maintenu — **un doigt seulement** : l'appui long à
+  deux doigts ne fait rien, comme sur Android (décision de l'utilisateur, 2026-11-24 ; il tenait le clic
+  droit) — et **deux doigts
   qui bougent = défilement**, porté de `RelativeTouchContext` d'Android : le doigt principal, une fois sorti
   de la zone de tap, fait défiler de 5 unités par pixel d'un écran de référence de 720 lignes, et ne bouge
   plus le curseur tant que deux doigts sont posés). Le menu en jeu a « Passer en trackpad / multitouch »
-  (`SdlInputHandler::setAbsoluteTouchMode()`, pour ce stream seulement : la préférence ne change pas, comme
-  Android sans « Retenir le mode tactile choisi en jeu »). Écarts restants avec Android : pas de zoom au
-  pincement, et l'appui long à deux doigts (clic droit maintenu ici, rien sur Android).
+  (`SdlInputHandler::setAbsoluteTouchMode()`, pour ce stream ; avec **« Retenir le mode tactile choisi en
+  jeu »** — `StreamingPreferences::rememberTouchMode`, ligne expert d'Entrées, mêmes textes qu'Android — le
+  menu écrit aussi `absoluteTouchMode` et sauvegarde, comme `Game.switchTouchMode()`). Seul écart restant
+  avec Android, **voulu** : pas de zoom au pincement sur PC (décision de l'utilisateur).
 - **Parité avec Android** (règle de l'utilisateur : tout ce que les deux clients ont en commun a le même
   libellé, la même description, les mêmes options, le même défaut, la même place et le même ordre ; seules
   les features propres à une plateforme diffèrent). État et écarts restants :
@@ -420,7 +445,7 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   d'un menu commun se fait des deux côtés.
 - **Menu en jeu (`QuickMenu.qml`)** : construit à chaque ouverture (`rebuildMainMenu()`), entrées communes
   **dans l'ordre et avec les libellés d'Android** (Quitter <jeu Playnite>, Déconnecter, Quitter la session
-  — confirmée par une sous-page « Voulez-vous vraiment quitter ? », textes d'Android —, Commandes du PC hôte,
+  — confirmée par une sous-page « Tu veux vraiment quitter ? », textes d'Android —, Commandes du PC hôte,
   Envoyer des touches, presse-papiers, Statistiques, micro seulement s'il est envoyé et libellé selon son
   état, Passer en trackpad / multitouch sur un PC tactile), puis les entrées du PC : Libérer la souris et le
   clavier, Capturer le clavier, Plein écran / fenêtre. ⚠️ Ces trois-là **ne faisaient rien** avant (un
@@ -456,6 +481,13 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   Windows 11 ; sous Windows 10 elle reste celle du système). `main.qml` la réapplique à chaque
   changement de thème (`frameKey`) ; la fenêtre SDL du
   stream reprend les mêmes couleurs (`applyWindowFrameColors()` dans `Session`).
+- **Débit vidéo, celui d'Android** (`SettingsCatalog`, `seekbar_bitrate_kbps`) : curseur de 0,5 à 800 Mbit/s
+  **quel que soit le codec**, piste cubique (`SettingSlider.curve: 3` : position = fraction^(1/3), pas de
+  500 kbit/s, flèches à 1 Mbit/s ×5 puis ×20 comme `SettingDef.stepFrom`), et « Saisir un débit » (expert)
+  pour toute valeur au-delà. « Débloquer la limite de débit » (`unlockBitrate`, 500 Mbit/s) est **retiré** :
+  rien ne borne plus la valeur enregistrée, une valeur saisie, calibrée (PyroWave) ou débloquée auparavant
+  reste telle quelle, le curseur se pose alors en bout de piste. PyroWave garde son débit par défaut et son
+  calibrage (propres au PC), pas de plage à lui. Le benchmark plafonne à 800 Mbit/s comme Android.
 - **Mise à jour** : la v2 masque la barre d'outils et son bouton de mise à jour. `main.qml` expose
   `window.updateVersion` et `openUpdateDialog()` ; l'accueil (bouton « Mise à jour ») et Réglages ›
   Avancé (« Installer ») les utilisent. Sans eux, une mise à jour s'annonçait sans pouvoir s'installer.
@@ -480,6 +512,9 @@ lupdate -recursive app -extensions cpp,h,qml -no-obsolete -locations none -ts ap
 lrelease app/languages/qml_fr.ts -qm app/languages/qml_fr.qm
 ```
 Les anglicismes courants restent tels quels (stream, benchmark, frame pacing, mapping, FPS, codec).
+**Tutoiement partout**, traductions comprises (messages de stream, avertissements de lancement, menu en
+jeu) : les dernières phrases au vouvoiement héritées de moonlight-qt ont été passées au « tu » le
+2026-11-24, comme l'Android Dev (`app/src/dev/res/values-fr/strings_tu.xml`).
 ⚠️ Hors classe `QObject`, `tr()` n'existe pas : `QCoreApplication::translate("Contexte", "…")`.
 
 > ⚠️ **Réglages v2 : une ligne lit la préférence, elle ne la garde jamais.** `checked`, `value` sont

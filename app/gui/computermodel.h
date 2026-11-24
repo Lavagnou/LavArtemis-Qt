@@ -20,7 +20,9 @@ class ComputerModel : public QAbstractListModel
         UuidRole,
         // Mes PC (gui/v2/HostsView): the address in use, and the name of what runs on the host
         AddressRole,
-        RunningAppRole
+        RunningAppRole,
+        // serverinfo's appversion, shown in « logiciel hôte non pris en charge (x.y.z.w) »
+        ServerVersionRole
     };
 
 public:

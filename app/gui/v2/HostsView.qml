@@ -49,7 +49,7 @@ FocusScope {
     // Keep this list in step with computermodel.h.
     function roleId(name) {
         var names = ["name", "online", "paired", "busy", "wakeable", "statusUnknown", "serverSupported",
-                     "apolloVersion", "uuid", "address", "runningApp"]
+                     "apolloVersion", "uuid", "address", "runningApp", "serverVersion"]
         return 256 + names.indexOf(name) // Qt::UserRole + position in ComputerModel::Roles
     }
 
@@ -69,11 +69,17 @@ FocusScope {
     }
 
     // ---- actions ------------------------------------------------------------------------------
+    // « Logiciel hôte non pris en charge » (NvComputer::isSupportedServerVersion, Android's HostSupport):
+    // asked before opening, benchmarking and launching, with Android's message and the version
+    function checkSupported(i) {
+        if (role(i, "serverSupported")) return true
+        showError(qsTr("La version du logiciel hôte de %1 n'est pas prise en charge (%2). Mets à jour LavApollo sur ce PC.")
+                  .arg(role(i, "name")).arg(role(i, "serverVersion")))
+        return false
+    }
+
     function openHost(i) {
-        if (!role(i, "serverSupported")) {
-            showError(qsTr("La version du logiciel hôte de %1 n'est pas prise en charge. Mets à jour LavApollo sur ce PC.").arg(role(i, "name")))
-            return
-        }
+        if (!checkSupported(i)) return
         if (home) home.showHost(role(i, "uuid"))
         stackView.pop()
     }
@@ -146,6 +152,7 @@ FocusScope {
         else if (action === "pair") pairHost(i)
         else if (action === "wake") wakeHost(i)
         else if (action === "bench") {
+            if (!checkSupported(i)) return
             var component = Qt.createComponent("../BenchmarkView.qml")
             stackView.push(component.createObject(stackView, {"hostUuid": role(i, "uuid"), "hostName": role(i, "name")}))
         } else if (action === "rename") {

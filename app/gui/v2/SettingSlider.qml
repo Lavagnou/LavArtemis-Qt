@@ -13,6 +13,10 @@ SettingRow {
     property real value: 0
     property string valueText: String(value)
     property real sliderWidth: 380
+    // 1 = linear. Above 1 the track gives more room to low values (the bitrate uses 3, as
+    // Android's SettingDef.curve): position = fraction^(1/curve), and Left/Right steps grow with
+    // the value (×5 past a sixteenth of the range, ×20 past a quarter), as SettingDef.stepFrom.
+    property real curve: 1
     naturalControlWidth: sliderWidth + 20 + 150
 
     signal moved(real value)
@@ -23,8 +27,26 @@ SettingRow {
         return Math.max(from, Math.min(to, v))
     }
 
+    function positionOf(v) {
+        if (to <= from) return 0
+        var p = Math.max(0, Math.min(1, (v - from) / (to - from)))
+        return curve === 1 ? p : Math.pow(p, 1 / curve)
+    }
+
+    function valueAtPosition(p) {
+        p = Math.max(0, Math.min(1, p))
+        if (curve !== 1) p = Math.pow(p, curve)
+        return snap(Math.round(from + p * (to - from)))
+    }
+
     stepHandler: function(delta) {
-        var v = snap(value + delta * keyStep)
+        var s = keyStep
+        if (curve !== 1) {
+            var span = to - from
+            if (value >= from + span / 4) s = keyStep * 20
+            else if (value >= from + span / 16) s = keyStep * 5
+        }
+        var v = snap(value + delta * s)
         if (v === value) return false
         moved(v)
         return true
@@ -38,8 +60,7 @@ SettingRow {
             width: sl.stacked ? sl.stackedControlWidth - 20 - 150 : sl.sliderWidth
             height: 40
             anchors.verticalCenter: parent.verticalCenter
-            readonly property real position: sl.to > sl.from
-                                             ? Math.max(0, Math.min(1, (sl.value - sl.from) / (sl.to - sl.from))) : 0
+            readonly property real position: sl.positionOf(sl.value)
 
             Rectangle {
                 id: groove
@@ -75,8 +96,7 @@ SettingRow {
                 enabled: sl.enabled
                 preventStealing: true
                 function valueAt(mx) {
-                    var p = Math.max(0, Math.min(1, (mx - groove.x) / groove.width))
-                    return sl.snap(sl.from + p * (sl.to - sl.from))
+                    return sl.valueAtPosition((mx - groove.x) / groove.width)
                 }
                 function update(mx) {
                     var v = valueAt(mx)

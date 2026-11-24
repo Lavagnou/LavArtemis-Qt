@@ -26,7 +26,8 @@ FocusScope {
 
     // ---- hosts ---------------------------------------------------------------------------
     property ComputerModel computerModel: createComputerModel()
-    property var hosts: []          // [{index, name, online, paired, busy, uuid}]
+    // [{index, name, online, paired, busy, uuid, wakeable, statusUnknown, serverSupported, serverVersion}]
+    property var hosts: []
     property int hostPos: 0          // position in `hosts` of the shown host
     readonly property var host: hosts.length > 0 ? hosts[Math.min(hostPos, hosts.length - 1)] : null
 
@@ -52,6 +53,10 @@ FocusScope {
             required property bool paired
             required property bool busy
             required property string uuid
+            required property bool wakeable
+            required property bool statusUnknown
+            required property bool serverSupported
+            required property string serverVersion
         }
         onObjectAdded: refreshHostsLater.restart()
         onObjectRemoved: refreshHostsLater.restart()
@@ -73,7 +78,9 @@ FocusScope {
         for (var i = 0; i < hostReader.count; i++) {
             var o = hostReader.objectAt(i)
             if (o && o.paired) {
-                list.push({index: o.index, name: o.name, online: o.online, paired: o.paired, busy: o.busy, uuid: o.uuid})
+                list.push({index: o.index, name: o.name, online: o.online, paired: o.paired, busy: o.busy, uuid: o.uuid,
+                           wakeable: o.wakeable, statusUnknown: o.statusUnknown,
+                           serverSupported: o.serverSupported, serverVersion: o.serverVersion})
             }
         }
         // Online hosts first, keeping the model order otherwise
@@ -122,6 +129,65 @@ FocusScope {
     // The cards' names, not the host's app names ("Desktop" is shown as Bureau)
     readonly property string runningTitle: runningKind === "desktop" ? qsTr("Bureau")
                                          : (runningKind === "playnite" ? qsTr("Playnite Fullscreen") : runningName)
+    // Online, but the host's app list has not arrived yet (Android: « Chargement des applis… »)
+    readonly property bool appsLoading: { rev; return appModel !== null && appModel.rowCount() === 0 && hiddenCount === 0 }
+
+    // ---- how long the session has been running (Android's SessionClock) ------------------------
+    // The host does not say when a session started: the duration counts from the first time this
+    // PC saw that app running on that host, kept across restarts ("<runningId>:<ms>" per host
+    // uuid), forgotten when nothing runs. Under a minute nothing is shown.
+    Settings {
+        id: sessionClockStore
+        category: "uiV2SessionClock"
+    }
+    property real sessionSince: 0
+    property real nowMs: Date.now()
+    readonly property int sessionMinutes: sessionSince > 0 && nowMs - sessionSince >= 60000
+                                          ? Math.floor((nowMs - sessionSince) / 60000) : -1
+
+    function observeSessionClock() {
+        nowMs = Date.now()
+        // Only with the app list in hand: an offline host says nothing about its session
+        if (!host || !host.online || !appModel) return
+        var stored = String(sessionClockStore.value(host.uuid, "") || "")
+        if (runningId === 0) {
+            if (stored !== "") sessionClockStore.setValue(host.uuid, "")
+            sessionSince = 0
+            return
+        }
+        var since = 0
+        var colon = stored.indexOf(":")
+        if (colon > 0 && parseInt(stored.substring(0, colon)) === runningId) {
+            since = parseFloat(stored.substring(colon + 1)) || 0
+        }
+        if (since <= 0) {
+            since = nowMs
+            sessionClockStore.setValue(host.uuid, runningId + ":" + since)
+        }
+        sessionSince = since
+    }
+    onRunningIdChanged: observeSessionClock()
+    onAppModelChanged: observeSessionClock()
+    onHostChanged: observeSessionClock()
+    Timer {
+        interval: 20000
+        repeat: true
+        running: home.sessionRunning
+        onTriggered: home.nowMs = Date.now()
+    }
+
+    // « EN COURS · DANS PLAYNITE FULLSCREEN · DEPUIS 12 MIN » (Android's HomeScreen line)
+    readonly property string liveLine: {
+        var line = qsTr("EN COURS")
+        if (playniteGame.length > 0) line += " · " + qsTr("dans %1").arg(runningTitle)
+        if (sessionMinutes >= 0) {
+            line += " · " + (sessionMinutes < 60
+                             ? qsTr("depuis %1 min").arg(sessionMinutes)
+                             : qsTr("depuis %1 h %2").arg(Math.floor(sessionMinutes / 60))
+                                                     .arg(String(sessionMinutes % 60).padStart(2, "0")))
+        }
+        return line.toUpperCase()
+    }
 
     function reloadApps() {
         if (appModel) {
@@ -172,6 +238,12 @@ FocusScope {
     // ---- actions ------------------------------------------------------------------------------
     function launch(row, name, appid) {
         if (!appModel || row < 0) return
+        if (host && !host.serverSupported) {
+            // As Android (V2HostActivity.launch) and Mes PC: a message instead of a launch that fails half-way
+            showError(qsTr("La version du logiciel hôte de %1 n'est pas prise en charge (%2). Mets à jour LavApollo sur ce PC.")
+                      .arg(host.name).arg(host.serverVersion))
+            return
+        }
         var inside = appModel.startsInsidePlaynite(row)
         if (runningId !== 0 && runningId !== appid && !inside) {
             quitDialog.appName = runningTitle
@@ -209,13 +281,32 @@ FocusScope {
         confirmQuitDialog.open()
     }
 
-    function openMenu(item, row, name, cover, running, x, y, appid) {
+    function showError(text) {
+        errorDialog.text = text
+        errorDialog.open()
+    }
+
+    // The home's « Réveiller », with the messages of Mes PC (as Android's home)
+    function wakeHost() {
+        if (!host) return
+        if (host.wakeable) {
+            computerModel.wakeComputer(host.index)
+            toast.show(qsTr("Réveil envoyé à %1").arg(host.name))
+        } else {
+            showError(qsTr("%1 ne peut pas être réveillé d'ici : il n'a encore jamais donné son adresse réseau matérielle (MAC). Allume-le une fois à la main pendant que LavArtemis tourne.").arg(host.name))
+        }
+    }
+
+    // isGame: « Masquer » is offered for the Playnite games only, as on Android (the button speaks
+    // of « jeux masqués »); a card hidden by an older version can still be shown again
+    function openMenu(item, row, name, cover, running, x, y, appid, isGame) {
         appMenu.row = row
         appMenu.appid = appid
         appMenu.appName = name
         appMenu.cover = cover
         appMenu.running = running
         appMenu.hidden = appModel ? appModel.isAppHidden(row) : false
+        appMenu.canHide = isGame === true || appMenu.hidden
         var p = item.mapToItem(home, x, y)
         appMenu.openAt(p.x, p.y)
     }
@@ -381,8 +472,8 @@ FocusScope {
                         }
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: !home.host ? "" : (!home.host.online ? qsTr("Hors ligne")
-                                  : (home.sessionRunning ? qsTr("Session en cours") : qsTr("En ligne")))
+                            text: !home.host ? "" : (home.host.online ? (home.sessionRunning ? qsTr("Session en cours") : qsTr("En ligne"))
+                                  : (home.host.statusUnknown ? qsTr("Recherche…") : qsTr("Hors ligne")))
                             color: Theme.muted
                             font.family: Theme.textFont
                             font.pixelSize: 14
@@ -468,39 +559,63 @@ FocusScope {
                 width: flick.width - 100
                 spacing: 26
 
-                // Nothing to show: no paired host, or it is offline
+                // Nothing to show yet, Android's states (HomeScreen.bind): no paired host, apps still
+                // loading, host offline (with « Réveiller » when it can be woken), host not answered yet
                 Column {
-                    visible: !home.host || !home.host.online
+                    id: emptyState
+                    // "none", "loading", "offline", "searching"
+                    readonly property string kind: !home.host ? "none"
+                                                   : (home.host.online ? (home.appModel === null || home.appsLoading ? "loading" : "")
+                                                      : (home.host.statusUnknown ? "searching" : "offline"))
+                    visible: kind !== ""
                     width: parent.width
                     spacing: 18
                     topPadding: 80
                     Text {
                         width: parent.width
                         horizontalAlignment: Text.AlignHCenter
-                        text: !home.host ? qsTr("Aucun PC appairé") : qsTr("%1 est hors ligne").arg(home.host.name)
+                        wrapMode: Text.WordWrap
+                        visible: text.length > 0
+                        text: emptyState.kind === "none" ? qsTr("Aucun PC appairé")
+                              : emptyState.kind === "offline" ? qsTr("%1 est hors ligne").arg(home.host.name)
+                              : emptyState.kind === "searching" ? qsTr("Connexion à %1…").arg(home.host.name) : ""
                         color: Theme.fg
                         font.family: Theme.displayFont
                         font.pixelSize: 40
                         font.weight: Theme.displayWeight
                     }
-                    // The line under the title, Android's (HomeScreen: v2_no_pc_text / v2_pc_offline_text)
+                    // The line under the title, Android's (v2_no_pc_text / v2_loading / v2_pc_offline_text)
                     Text {
                         width: parent.width
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.WordWrap
-                        text: !home.host ? qsTr("Ajoute ton PC pour lancer ton bureau et tes jeux d'ici.")
-                                         : qsTr("Allume-le ou réveille-le, il apparaîtra ici dès qu'il répond.")
+                        visible: text.length > 0
+                        text: emptyState.kind === "none" ? qsTr("Ajoute ton PC pour lancer ton bureau et tes jeux d'ici.")
+                              : emptyState.kind === "loading" ? qsTr("Chargement des applis…")
+                              : emptyState.kind === "offline" ? qsTr("Allume-le ou réveille-le, il apparaîtra ici dès qu'il répond.") : ""
                         color: Theme.muted
                         font.family: Theme.textFont
                         font.pixelSize: 20
                     }
-                    LavButton {
+                    Row {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: !home.host ? qsTr("Ajouter un PC") : qsTr("Mes PC")
-                        iconName: "monitor"
-                        onClicked: {
-                            var component = Qt.createComponent("HostsView.qml")
-                            stackView.push(component.createObject(stackView, {"home": home}))
+                        spacing: 18
+                        LavButton {
+                            id: wakeButton
+                            visible: emptyState.kind === "offline" && home.host.wakeable
+                            text: qsTr("Réveiller")
+                            iconName: "power"
+                            focus: visible
+                            onClicked: home.wakeHost()
+                        }
+                        LavButton {
+                            primary: !wakeButton.visible
+                            text: emptyState.kind === "none" ? qsTr("Ajouter un PC") : qsTr("Mes PC")
+                            iconName: "monitor"
+                            onClicked: {
+                                var component = Qt.createComponent("HostsView.qml")
+                                stackView.push(component.createObject(stackView, {"home": home}))
+                            }
                         }
                     }
                 }
@@ -515,7 +630,7 @@ FocusScope {
                         spacing: 10
                         Rectangle { width: 8; height: 8; radius: 4; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
                         Text {
-                            text: qsTr("EN COURS SUR %1").arg(home.host ? home.host.name.toUpperCase() : "")
+                            text: home.liveLine
                             color: Theme.id === "affiche" ? Theme.fg : Theme.accent
                             font.family: Theme.textFont
                             font.pixelSize: 17
@@ -549,18 +664,11 @@ FocusScope {
                             iconName: "stop"
                             onClicked: home.confirmQuit()
                         }
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: home.playniteGame.length > 0 ? qsTr("dans %1").arg(home.runningTitle) : ""
-                            color: Theme.fg
-                            font.family: Theme.textFont
-                            font.pixelSize: 18
-                        }
                     }
                 }
 
                 SectionTitle {
-                    visible: home.appModel !== null
+                    visible: home.appModel !== null && !home.appsLoading
                     text: home.host ? qsTr("Sur %1").arg(home.host.name) : ""
                 }
 
@@ -606,8 +714,17 @@ FocusScope {
                 }
 
                 SectionTitle {
-                    visible: home.appModel !== null && gamesModel.count > 0
+                    visible: home.appModel !== null && !home.appsLoading
                     text: qsTr("Bibliothèque Playnite")
+                }
+                Text {
+                    visible: home.appModel !== null && !home.appsLoading && gamesModel.count === 0 && home.hiddenCount === 0
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: qsTr("Aucun jeu Playnite sur ce PC. Installe l'extension LavApollo Link dans Playnite pour voir ta bibliothèque ici.")
+                    color: Theme.muted
+                    font.family: Theme.textFont
+                    font.pixelSize: 18
                 }
                 Flow {
                     visible: home.appModel !== null && gamesModel.count > 0
@@ -624,8 +741,8 @@ FocusScope {
                             // Shown only with "Afficher les jeux masqués"
                             opacity: model.hidden ? 0.45 : 1.0
                             onClicked: home.launch(gamesModel.sourceRow(model.index), model.name, model.appid)
-                            onMenuRequested: (x, y) => home.openMenu(this, gamesModel.sourceRow(model.index), model.name, model.boxart, model.running, x, y, model.appid)
-                            Keys.onMenuPressed: home.openMenu(this, gamesModel.sourceRow(model.index), model.name, model.boxart, model.running, width / 2, height / 2, model.appid)
+                            onMenuRequested: (x, y) => home.openMenu(this, gamesModel.sourceRow(model.index), model.name, model.boxart, model.running, x, y, model.appid, true)
+                            Keys.onMenuPressed: home.openMenu(this, gamesModel.sourceRow(model.index), model.name, model.boxart, model.running, width / 2, height / 2, model.appid, true)
                         }
                     }
                 }
@@ -697,5 +814,27 @@ FocusScope {
 
     ErrorMessageDialog {
         id: artErrorDialog
+    }
+
+    LavDialog {
+        id: errorDialog
+        title: qsTr("Oups")
+        rejectText: ""
+    }
+
+    Rectangle {
+        id: toast
+        function show(message) { toastText.text = message; opacity = 1; toastTimer.restart() }
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 40
+        width: toastText.implicitWidth + 40; height: 48
+        radius: Theme.pill
+        color: Theme.fg
+        opacity: 0
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: 200 } }
+        Text { id: toastText; anchors.centerIn: parent; color: Theme.bg; font.family: Theme.textFont; font.pixelSize: 16 }
+        Timer { id: toastTimer; interval: 2500; onTriggered: toast.opacity = 0 }
     }
 }

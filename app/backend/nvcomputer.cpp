@@ -136,6 +136,31 @@ void NvComputer::sortAppList()
     sortApps(appList);
 }
 
+bool NvComputer::isSupportedAppVersion(const QString& appVersion)
+{
+    const QString trimmed = appVersion.trimmed();
+    if (trimmed.isEmpty()) {
+        return true;
+    }
+    const QStringList parts = trimmed.split('.');
+    if (parts.size() != 4) {
+        return false;
+    }
+    int generation = 0;
+    for (int i = 0; i < 4; i++) {
+        bool ok = false;
+        // Sunshine ends its version with -1: a negative number is still a number
+        int value = parts.at(i).trimmed().toInt(&ok);
+        if (!ok) {
+            return false;
+        }
+        if (i == 0) {
+            generation = value;
+        }
+    }
+    return generation >= 3;
+}
+
 void NvComputer::sortApps(QVector<NvApp>& apps)
 {
     // By name, except the Playnite library (LavApollo Link): it keeps the host's order, most
@@ -262,7 +287,10 @@ NvComputer::NvComputer(NvHTTP& http, QString serverInfo)
     this->activeAddress = http.address();
     this->state = NvComputer::CS_ONLINE;
     this->pendingQuit = false;
-    this->isSupportedServerVersion = CompatFetcher::isGfeVersionSupported(this->gfeVersion);
+    // The same rule as Android (isSupportedAppVersion), plus moonlight-qt's GeForce Experience
+    // list, which Apollo / Sunshine / LavApollo hosts always pass
+    this->isSupportedServerVersion = CompatFetcher::isGfeVersionSupported(this->gfeVersion) &&
+                                     isSupportedAppVersion(this->appVersion);
     
     // Parse server commands (Apollo/Sunshine servers only)
     this->serverCommands = NvHTTP::getXmlArray(serverInfo, "ServerCommand");

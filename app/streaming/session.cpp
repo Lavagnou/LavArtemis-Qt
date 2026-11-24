@@ -1622,7 +1622,9 @@ void Session::emitLavArtemisWarning(QString text)
 bool Session::validateLaunch(SDL_Window* testWindow)
 {
     if (!m_Computer->isSupportedServerVersion) {
-        emit displayLaunchError(tr("The host software on %1 is not supported by this version of LavArtemis. Update LavArtemis to stream from %1.").arg(m_Computer->name));
+        // Android's message (v2_host_unsupported), with the version the host gave
+        emit displayLaunchError(tr("The host software version of %1 is not supported (%2). Update LavApollo on this PC.")
+                                .arg(m_Computer->name, m_Computer->appVersion));
         return false;
     }
 

@@ -22,7 +22,6 @@
 #define SER_HEIGHT "height"
 #define SER_FPS "fps"
 #define SER_BITRATE "bitrate"
-#define SER_UNLOCK_BITRATE "unlockbitrate"
 #define SER_AUTOADJUSTBITRATE "autoadjustbitrate"
 #define SER_FULLSCREEN "fullscreen"
 #define SER_VSYNC "vsync"
@@ -44,6 +43,7 @@
 #define SER_QUITAPPAFTER "quitAppAfter"
 #define SER_ABSMOUSEMODE "mouseacceleration"
 #define SER_ABSTOUCHMODE "abstouchmode"
+#define SER_REMEMBERTOUCHMODE "remembertouchmode"
 #define SER_STARTWINDOWED "startwindowed"
 #define SER_FRAMEPACING "framepacing"
 #define SER_CONNWARNINGS "connwarnings"
@@ -167,7 +167,6 @@ void StreamingPreferences::reload()
     fps = prefs->value(SER_FPS, 60).toInt();
     enableYUV444 = prefs->value(SER_YUV444, false).toBool();
     bitrateKbps = prefs->value(SER_BITRATE, getDefaultBitrate(width, height, fps, enableYUV444)).toInt();
-    unlockBitrate = prefs->value(SER_UNLOCK_BITRATE, false).toBool();
     autoAdjustBitrate = prefs->value(SER_AUTOADJUSTBITRATE, true).toBool();
     enableVsync = prefs->value(SER_VSYNC, true).toBool();
     enableVrr = prefs->value(SER_ENABLEVRR, false).toBool();
@@ -188,6 +187,7 @@ void StreamingPreferences::reload()
     quitAppAfter = prefs->value(SER_QUITAPPAFTER, false).toBool();
     absoluteMouseMode = prefs->value(SER_ABSMOUSEMODE, false).toBool();
     absoluteTouchMode = prefs->value(SER_ABSTOUCHMODE, true).toBool();
+    rememberTouchMode = prefs->value(SER_REMEMBERTOUCHMODE, false).toBool();
     framePacing = prefs->value(SER_FRAMEPACING, false).toBool();
     connectionWarnings = prefs->value(SER_CONNWARNINGS, true).toBool();
     configurationWarnings = prefs->value(SER_CONFWARNINGS, true).toBool();
@@ -413,7 +413,6 @@ void StreamingPreferences::save()
     prefs->setValue(SER_HEIGHT, height);
     prefs->setValue(SER_FPS, fps);
     prefs->setValue(SER_BITRATE, bitrateKbps);
-    prefs->setValue(SER_UNLOCK_BITRATE, unlockBitrate);
     prefs->setValue(SER_AUTOADJUSTBITRATE, autoAdjustBitrate);
     prefs->setValue(SER_VSYNC, enableVsync);
     prefs->setValue(SER_ENABLEVRR, enableVrr);
@@ -427,6 +426,7 @@ void StreamingPreferences::save()
     prefs->setValue(SER_QUITAPPAFTER, quitAppAfter);
     prefs->setValue(SER_ABSMOUSEMODE, absoluteMouseMode);
     prefs->setValue(SER_ABSTOUCHMODE, absoluteTouchMode);
+    prefs->setValue(SER_REMEMBERTOUCHMODE, rememberTouchMode);
     prefs->setValue(SER_FRAMEPACING, framePacing);
     prefs->setValue(SER_CONNWARNINGS, connectionWarnings);
     prefs->setValue(SER_CONFWARNINGS, configurationWarnings);

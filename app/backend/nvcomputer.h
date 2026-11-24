@@ -29,6 +29,11 @@ private:
 
     static void sortApps(QVector<NvApp>& apps);
 
+    // Android's rule (HostSupport.isSupportedVersion): serverinfo's appversion must be a version
+    // quad whose generation (first number) is at least 3, the oldest moonlight-common-c speaks.
+    // Empty (not known yet) counts as supported. Part of isSupportedServerVersion.
+    static bool isSupportedAppVersion(const QString& appVersion);
+
     bool updateAppList(QVector<NvApp> newAppList);
 
     bool pendingQuit;

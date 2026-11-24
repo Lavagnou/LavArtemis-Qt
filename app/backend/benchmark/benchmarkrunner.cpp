@@ -174,7 +174,7 @@ PlannerInput BenchmarkRunner::plannerInput(NvComputer* host, Mode mode, Goal goa
     in.defaultBitrateKbps = StreamingPreferences::getDefaultBitrate(prefs->width, prefs->height, prefs->fps, prefs->enableYUV444);
     in.pyroWaveBitrateKbps = StreamingPreferences::getDefaultPyroWaveBitrate(prefs->width, prefs->height, prefs->fps, prefs->enableYUV444, prefs->enableHdr);
     in.minBitrateKbps = 500;
-    in.maxBitrateKbps = prefs->unlockBitrate ? 500000 : 150000;
+    in.maxBitrateKbps = 800000; // the end of the bitrate track, as Android (BenchmarkController)
     return in;
 }
 

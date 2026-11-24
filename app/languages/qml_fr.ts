@@ -406,7 +406,7 @@
     </message>
     <message>
         <source>Pairing... Please enter &apos;%1&apos; on %2.</source>
-        <translation>Appareillage... Veuillez entrer &apos;%1&apos; sur %2.</translation>
+        <translation>Appairage… Saisis &apos;%1&apos; sur %2.</translation>
     </message>
     <message>
         <source>Pairing completed successfully</source>
@@ -436,7 +436,7 @@
     </message>
     <message>
         <source>Are you sure you want to quit %1? Any unsaved progress will be lost.</source>
-        <translation>Êtes-vous sûr de vouloir arrêter %1&#x202f;? Tout progrès non enregistré sera perdu.</translation>
+        <translation>Quitter %1 ? Ce qui n&apos;est pas sauvegardé sera perdu.</translation>
     </message>
 </context>
 <context>
@@ -778,10 +778,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>EN COURS SUR %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Reprendre</source>
         <translation type="unfinished"></translation>
     </message>
@@ -810,6 +806,42 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>depuis %1 min</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>depuis %1 h %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>La version du logiciel hôte de %1 n&apos;est pas prise en charge (%2). Mets à jour LavApollo sur ce PC.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Réveil envoyé à %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 ne peut pas être réveillé d&apos;ici : il n&apos;a encore jamais donné son adresse réseau matérielle (MAC). Allume-le une fois à la main pendant que LavArtemis tourne.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Recherche…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Connexion à %1…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Chargement des applis…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Réveiller</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Plein écran, choisis ton jeu à la manette</source>
         <translation type="unfinished"></translation>
     </message>
@@ -819,6 +851,10 @@
     </message>
     <message>
         <source>Bibliothèque Playnite</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Aucun jeu Playnite sur ce PC. Installe l&apos;extension LavApollo Link dans Playnite pour voir ta bibliothèque ici.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -857,6 +893,10 @@
         <source>Raccourci LavArtemis (*.art)</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Oups</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>HostsView</name>
@@ -865,7 +905,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>La version du logiciel hôte de %1 n&apos;est pas prise en charge. Mets à jour LavApollo sur ce PC.</source>
+        <source>La version du logiciel hôte de %1 n&apos;est pas prise en charge (%2). Mets à jour LavApollo sur ce PC.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1100,10 +1140,6 @@
         <translation>Ctrl+Alt+Maj+F12 (changer d&apos;écran)</translation>
     </message>
     <message>
-        <source>Win+Alt+B (HDR toggle)</source>
-        <translation>Win+Alt+B (activer/désactiver le HDR)</translation>
-    </message>
-    <message>
         <source>Unable to read %1</source>
         <translation>Impossible de lire %1</translation>
     </message>
@@ -1291,7 +1327,7 @@
     <name>PendingQuitTask</name>
     <message>
         <source>The running game wasn&apos;t started by this PC. You must quit the game on the host PC manually or use the device that originally started the game.</source>
-        <translation>Le jeu en cours d’exécution n&apos;a pas été démarré par ce PC. Vous devez le fermer manuellement sur le PC hôte ou depuis l&apos;appareil qui l&apos;a démarré.</translation>
+        <translation>Le jeu en cours n&apos;a pas été lancé par ce PC. Ferme-le à la main sur le PC hôte ou depuis l&apos;appareil qui l&apos;a lancé.</translation>
     </message>
 </context>
 <context>
@@ -1511,7 +1547,7 @@
     </message>
     <message>
         <source>Computer %1 has not been paired. Please open Moonlight to pair before streaming.</source>
-        <translation>L&apos;ordinateur %1 n&apos;a pas été couplé. Veuillez ouvrir Moonlight pour le coupler avant de streamer.</translation>
+        <translation>%1 n&apos;est pas appairé. Ouvre LavArtemis pour l&apos;appairer avant de streamer.</translation>
     </message>
     <message>
         <source>Quitting app failed, reason: %1</source>
@@ -1523,7 +1559,7 @@
     </message>
     <message>
         <source>Computer %1 has not been paired. Please open Moonlight to pair before retrieving games list.</source>
-        <translation>L&apos;ordinateur %1 n&apos;a pas été couplé. Veuillez ouvrir Moonlight pour coupler avant de récupérer la liste des jeux.</translation>
+        <translation>%1 n&apos;est pas appairé. Ouvre LavArtemis pour l&apos;appairer avant de récupérer la liste des jeux.</translation>
     </message>
     <message>
         <source>No host was specified.</source>
@@ -1677,7 +1713,7 @@
     </message>
     <message>
         <source>Are you sure you want to quit?</source>
-        <translation>Voulez-vous vraiment quitter ?</translation>
+        <translation>Tu veux vraiment quitter ?</translation>
     </message>
     <message>
         <source>No server commands</source>
@@ -1701,7 +1737,7 @@
     </message>
     <message>
         <source>Make sure your progress is saved: quitting the session closes the app running on the PC.</source>
-        <translation>Vérifiez que votre progression est enregistrée : quitter la session ferme l&apos;application qui tourne sur le PC.</translation>
+        <translation>Vérifie que ta progression est enregistrée : quitter la session ferme l&apos;application qui tourne sur le PC.</translation>
     </message>
     <message>
         <source>Unmute Microphone</source>
@@ -1718,6 +1754,10 @@
     <message>
         <source>Switch to Trackpad</source>
         <translation>Passer en trackpad</translation>
+    </message>
+    <message>
+        <source>Kept for the next streams</source>
+        <translation>Retenu pour les prochains streams</translation>
     </message>
     <message>
         <source>For this stream only</source>
@@ -2075,19 +2115,19 @@
     </message>
     <message>
         <source>Check your firewall and port forwarding rules for port(s): %1</source>
-        <translation>Vérifiez votre pare-feu et vos règles de redirection de port pour le(s) port(s) : %1</translation>
+        <translation>Vérifie ton pare-feu et tes règles de redirection de ports pour ces ports : %1</translation>
     </message>
     <message>
         <source>Your network connection isn&apos;t performing well. Reduce your video bitrate setting or try a faster connection.</source>
-        <translation>Votre connexion réseau ne fonctionne pas très bien. Réduisez votre débit vidéo ou essayez une connexion plus rapide.</translation>
+        <translation>Ta connexion réseau ne marche pas bien. Baisse le débit ou passe sur une connexion plus rapide.</translation>
     </message>
     <message>
         <source>Something went wrong on your host PC when starting the stream.</source>
-        <translation>Quelque chose s&apos;est mal passé sur votre PC hôte lors du lancement du streaming.</translation>
+        <translation>Quelque chose s&apos;est mal passé sur ton PC hôte au démarrage du stream.</translation>
     </message>
     <message>
         <source>Make sure you don&apos;t have any DRM-protected content open on your host PC. You can also try restarting your host PC.</source>
-        <translation>Vérifiez que vous n&apos;avez pas de contenu protégé par DRM ouvert sur votre PC hôte. Vous pouvez également essayer de redémarrer le PC hôte.</translation>
+        <translation>Vérifie qu&apos;aucune application protégée par DRM n&apos;est ouverte sur le PC. Tu peux aussi essayer de redémarrer le PC.</translation>
     </message>
     <message>
         <source>The host PC reported a fatal video encoding error.</source>
@@ -2095,7 +2135,7 @@
     </message>
     <message>
         <source>Try disabling HDR mode, changing the streaming resolution, or changing your host PC&apos;s display resolution.</source>
-        <translation>Essayez de désactiver le mode HDR, de modifier la résolution du stream, ou de modifier la résolution d&apos;affichage de votre PC hôte.</translation>
+        <translation>Essaie de désactiver le HDR, de changer la résolution du stream ou celle de ton PC hôte.</translation>
     </message>
     <message>
         <source>Connection terminated</source>
@@ -2107,31 +2147,31 @@
     </message>
     <message>
         <source>Your selection to enable remote desktop mouse mode may cause problems in games.</source>
-        <translation>Le mode souris pour bureau à distance que vous avez activé peut causer des problèmes dans les jeux.</translation>
+        <translation>La souris pour le bureau à distance que tu as activée peut poser problème dans les jeux.</translation>
     </message>
     <message>
         <source>Your settings selection to force software decoding may cause poor streaming performance.</source>
-        <translation>Vos réglages pour forcer le décodage logiciel peuvent causer de mauvaises performances.</translation>
+        <translation>Le décodage logiciel forcé dans tes réglages peut dégrader les performances.</translation>
     </message>
     <message>
         <source>Your host PC doesn&apos;t support encoding HEVC.</source>
-        <translation>Votre PC hôte ne prend pas en charge l&apos;encodage HEVC.</translation>
+        <translation>Ton PC hôte ne prend pas en charge l&apos;encodage HEVC.</translation>
     </message>
     <message>
         <source>Using software decoding due to your selection to force HEVC without GPU support. This may cause poor streaming performance.</source>
-        <translation>Utilisation du décodage logiciel dû à votre sélection pour forcer le codec HEVC sans support GPU. Ceci peut causer des problèmes de performances.</translation>
+        <translation>Décodage logiciel : tu as forcé le HEVC, que ton GPU ne décode pas. Les performances peuvent en souffrir.</translation>
     </message>
     <message>
         <source>Your host software or GPU doesn&apos;t support encoding AV1.</source>
-        <translation>Votre logiciel hôte ou GPU ne prend pas en charge l&apos;encodage du AV1.</translation>
+        <translation>Ton logiciel hôte ou ton GPU ne prend pas en charge l&apos;encodage AV1.</translation>
     </message>
     <message>
         <source>Using software decoding due to your selection to force AV1 without GPU support. This may cause poor streaming performance.</source>
-        <translation>Utilisation du décodage logiciel en raison de votre sélection de forcer l&apos;utilisation du codec AV1 sans prise en charge GPU. Ceci peut causer des problèmes de performances.</translation>
+        <translation>Décodage logiciel : tu as forcé l&apos;AV1, que ton GPU ne décode pas. Les performances peuvent en souffrir.</translation>
     </message>
     <message>
         <source>Your host PC doesn&apos;t support HDR streaming.</source>
-        <translation>Votre PC hôte ne prend pas en charge le streaming HDR.</translation>
+        <translation>Ton PC hôte ne prend pas en charge le stream HDR.</translation>
     </message>
     <message>
         <source>HDR is not supported using the H.264 codec.</source>
@@ -2147,7 +2187,7 @@
     </message>
     <message>
         <source>Your host PC and client PC don&apos;t support the same HDR video codecs.</source>
-        <translation>Votre PC hôte et votre PC client ne prennent pas en charge les mêmes codecs vidéo HDR.</translation>
+        <translation>Ton PC hôte et ce PC ne prennent pas en charge les mêmes codecs vidéo HDR.</translation>
     </message>
     <message>
         <source>An attached gamepad has no mapping and won&apos;t be usable. Set it up in Settings, Gamepads, Set up a gamepad.</source>
@@ -2163,7 +2203,7 @@
     </message>
     <message>
         <source>Using software decoding due to your selection to force H.264 without GPU support. This may cause poor streaming performance.</source>
-        <translation>Le décodage logiciel est utilisé car vous voulez forcer l&apos;utilisation du H.264 sans support matériel du GPU. Ceci peut causer des problèmes de performances.</translation>
+        <translation>Décodage logiciel : tu as forcé le H.264, que ton GPU ne décode pas. Les performances peuvent en souffrir.</translation>
     </message>
     <message>
         <source>warming up</source>
@@ -2205,8 +2245,8 @@
         <translation>Le stream multi-écran n&apos;a pas été utilisé : un seul écran a été trouvé sur ce PC.</translation>
     </message>
     <message>
-        <source>The host software on %1 is not supported by this version of LavArtemis. Update LavArtemis to stream from %1.</source>
-        <translation>Le logiciel hôte de %1 n&apos;est pas pris en charge par cette version de LavArtemis. Mets LavArtemis à jour pour streamer depuis %1.</translation>
+        <source>The host software version of %1 is not supported (%2). Update LavApollo on this PC.</source>
+        <translation>La version du logiciel hôte de %1 n&apos;est pas prise en charge (%2). Mets à jour LavApollo sur ce PC.</translation>
     </message>
     <message>
         <source>Your microphone won&apos;t be sent: microphone passthrough is turned off on the host (LavApollo, Audio/Video settings).</source>
@@ -2242,15 +2282,15 @@
     </message>
     <message>
         <source>Your host PC and client PC don&apos;t support the same video codecs. This may cause poor streaming performance.</source>
-        <translation>Votre PC hôte et PC client ne supportent pas les mêmes codecs vidéo. Ceci peut causer des problèmes de performance.</translation>
+        <translation>Ton PC hôte et ce PC ne prennent pas en charge les mêmes codecs vidéo. Les performances peuvent en souffrir.</translation>
     </message>
     <message>
         <source>Your client GPU doesn&apos;t support H.264 decoding. This may cause poor streaming performance.</source>
-        <translation>Le GPU de votre client ne supporte pas le décodage matériel du H.264. Ceci peut causer des problèmes de performance.</translation>
+        <translation>Le GPU de ce PC ne décode pas le H.264. Les performances peuvent en souffrir.</translation>
     </message>
     <message>
         <source>Using software decoding due to your selection to force HDR without GPU support. This may cause poor streaming performance.</source>
-        <translation>Utilisation du décodage logiciel dû à votre sélection de forcer le HDR sans support GPU. Ceci peut causer des problèmes de performances.</translation>
+        <translation>Décodage logiciel : tu as forcé le HDR, que ton GPU ne décode pas. Les performances peuvent en souffrir.</translation>
     </message>
     <message>
         <source>This PC&apos;s GPU doesn&apos;t support HEVC Main10 decoding for HDR streaming.</source>
@@ -2258,15 +2298,15 @@
     </message>
     <message>
         <source>Your host PC doesn&apos;t support YUV 4:4:4 streaming.</source>
-        <translation>Votre PC hôte ne supporte pas le streaming en YUV 4:4:4.</translation>
+        <translation>Ton PC hôte ne prend pas en charge le stream en YUV 4:4:4.</translation>
     </message>
     <message>
         <source>Your host PC doesn&apos;t support YUV 4:4:4 streaming for selected video codec.</source>
-        <translation>Votre PC hôte ne supporte pas le streaming en YUV 4:4:4 pour le codec sélectionné.</translation>
+        <translation>Ton PC hôte ne prend pas en charge le stream en YUV 4:4:4 avec le codec choisi.</translation>
     </message>
     <message>
         <source>Using software decoding due to your selection to force YUV 4:4:4 without GPU support. This may cause poor streaming performance.</source>
-        <translation>Utilisation du décodage logiciel dû à votre sélection pour forcer le YUV 4:4:4 sans support GPU. Ceci peut causer des problèmes de performances.</translation>
+        <translation>Décodage logiciel : tu as forcé le YUV 4:4:4, que ton GPU ne décode pas. Les performances peuvent en souffrir.</translation>
     </message>
     <message>
         <source>This PC&apos;s GPU doesn&apos;t support YUV 4:4:4 decoding for selected video codec.</source>
@@ -2278,7 +2318,7 @@
     </message>
     <message>
         <source>Your selected surround sound setting is not supported by the current audio device.</source>
-        <translation>Le réglage du son surround que vous avez sélectionné n&apos;est pas pris en charge par le périphérique audio actuel.</translation>
+        <translation>Le son surround que tu as choisi n&apos;est pas pris en charge par la sortie audio actuelle.</translation>
     </message>
     <message>
         <source>Failed to open audio device. Audio will be unavailable during this session.</source>
@@ -2290,7 +2330,7 @@
     </message>
     <message>
         <source>Your host PC&apos;s GPU doesn&apos;t support streaming video resolutions over 4K.</source>
-        <translation>Le GPU de votre PC hôte ne prend pas en charge le streaming dans des résolutions supérieures à la 4K.</translation>
+        <translation>Le GPU de ton PC hôte ne prend pas en charge le stream au-delà de la 4K.</translation>
     </message>
     <message>
         <source>Your selection to force hardware decoding cannot be satisfied due to missing hardware decoding support on this PC&apos;s GPU.</source>
@@ -2298,7 +2338,7 @@
     </message>
     <message>
         <source>Your codec selection and force hardware decoding setting are not compatible. This PC&apos;s GPU lacks support for decoding your chosen codec.</source>
-        <translation>Votre sélection de codecs et le réglage du décodage matériel ne sont pas compatibles. Le GPU de ce PC ne prend pas en charge le décodage du codec que vous avez choisi.</translation>
+        <translation>Le codec choisi et le réglage du décodage matériel ne vont pas ensemble : le GPU de ce PC ne décode pas le codec que tu as choisi.</translation>
     </message>
     <message>
         <source>Microphone muted</source>
@@ -2310,7 +2350,7 @@
     </message>
     <message>
         <source>Unable to initialize video decoder. Please check your streaming settings and try again.</source>
-        <translation>Impossible d&apos;initialiser le décodeur vidéo. Veuillez vérifier vos paramètres de streaming et réessayez.</translation>
+        <translation>Impossible de démarrer le décodeur vidéo. Vérifie tes réglages de stream et réessaie.</translation>
     </message>
 </context>
 <context>
@@ -2607,6 +2647,18 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Saisir un débit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Une valeur précise, même au-delà du curseur.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Saisir…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Format vidéo (codec)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2711,15 +2763,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Débloquer la limite de débit</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Un jeu de réglages de stream par usage, par exemple à la maison et à distance. Ce qui tient à ce PC reste commun : langue, apparence, micro et tampon audio, presse-papiers, recherche des PC, mises à jour.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Jusqu&apos;à 500 Mbit/s, à réserver au réseau filaire.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2788,6 +2832,14 @@
     </message>
     <message>
         <source>Curseur libre, sans capture : idéal pour le bureau, pas pour les jeux. Ctrl+Alt+Maj+M en stream.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Retenir le mode tactile choisi en jeu</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sinon, un mode choisi pendant le stream ne vaut que pour ce stream.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3190,6 +3242,10 @@
         <source>Appliquer</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>En Mbit/s, avec des décimales si besoin.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>StreamSegue</name>
@@ -3207,7 +3263,7 @@
     </message>
     <message>
         <source>Check your firewall and port forwarding rules for port(s): %1</source>
-        <translation>Vérifiez votre pare-feu et vos règles de redirection de port pour le(s) port(s) : %1</translation>
+        <translation>Vérifie ton pare-feu et tes règles de redirection de ports pour ces ports : %1</translation>
     </message>
     <message>
         <source>This PC&apos;s Internet connection is blocking LavArtemis. Streaming over the Internet may not work while connected to this network.</source>
@@ -3219,7 +3275,7 @@
     </message>
     <message>
         <source>Press %1 to disconnect your session</source>
-        <translation>Appuyez sur %1 pour déconnecter votre session</translation>
+        <translation>Appuie sur %1 pour te déconnecter</translation>
     </message>
     <message>
         <source>Start+Select+L1+R1</source>
@@ -3268,7 +3324,7 @@
     <name>main</name>
     <message>
         <source>Hardware acceleration doesn&apos;t work on XWayland. Continuing on XWayland may result in poor streaming performance. Try running with QT_QPA_PLATFORM=wayland or switch to X11.</source>
-        <translation>L&apos;accélération matérielle ne fonctionne pas sur XWayland. Continuer sur XWayland peut entraîner de mauvaises performances de streaming. Essayez de lancer LavArtemis avec QT_QPA_PLATFORM=wayland ou passez à X11.</translation>
+        <translation>L&apos;accélération matérielle ne marche pas sous XWayland : le stream risque d&apos;être lent. Lance LavArtemis avec QT_QPA_PLATFORM=wayland ou passe à X11.</translation>
     </message>
     <message>
         <source>No functioning hardware accelerated video decoder was detected by LavArtemis. Your streaming performance may be severely degraded in this configuration.</source>
@@ -3285,6 +3341,10 @@
     <message>
         <source>Open the gamepad mapper to set one up?</source>
         <translation>Ouvrir l&apos;outil de mapping des manettes pour en créer un ?</translation>
+    </message>
+    <message>
+        <source>Ignorer cette version</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>LavArtemis %1 is available. You are running version %2.</source>
@@ -3312,7 +3372,7 @@
     </message>
     <message>
         <source>Are you sure you want to quit?</source>
-        <translation>Êtes-vous sûr de vouloir quitter&#x202f;?</translation>
+        <translation>Tu veux vraiment quitter ?</translation>
     </message>
 </context>
 </TS>

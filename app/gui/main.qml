@@ -285,7 +285,18 @@ ApplicationWindow {
     // release page on platforms without self-install (macOS, Linux AppImage).
     NavigableMessageDialog {
         id: updateDialog
-        standardButtons: Dialog.Ok | Dialog.Cancel
+        // « Ignorer cette version », as Android: the startup check no longer offers it
+        // (AutoUpdateChecker::skipVersion), « Vérifier » in Réglages still does
+        standardButtons: Dialog.Ok | Dialog.Cancel | Dialog.Discard
+        onAboutToShow: {
+            var skip = standardButton(Dialog.Discard)
+            if (skip) skip.text = qsTr("Ignorer cette version")
+        }
+        onDiscarded: {
+            AutoUpdateChecker.skipVersion(window.updateVersion)
+            window.updateVersion = ""
+            close()
+        }
 
         property bool canDownload: AutoUpdateChecker.canSelfInstall() && window.updateDownloadUrl !== ""
 

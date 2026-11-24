@@ -304,8 +304,11 @@ FocusScope {
                                                       StreamingPreferences.enableYUV444)
     }
     readonly property int defaultKbps: defaultBitrate()
-    readonly property int bitrateMin: pyroWave ? 5000 : 500
-    readonly property int bitrateMax: pyroWave ? 3000000 : (StreamingPreferences.unlockBitrate ? 500000 : 150000)
+    // Android's row (SettingsCatalog KEY_BITRATE): 0,5 to 800 Mbit/s whatever the codec, on a cubic
+    // track, and « Saisir un débit » for any value past it (PyroWave's hundreds of Mbit/s
+    // included). A value typed or calibrated above the track is kept: the knob sits at the end.
+    readonly property int bitrateMin: 500
+    readonly property int bitrateMax: 800000
 
     function mbps(kbps) {
         return String(Math.round(kbps / 100) / 10).replace(".", ",")
@@ -345,8 +348,6 @@ FocusScope {
         // switching in or out resets a default
         if (pyroWave !== wasPyroWave && StreamingPreferences.autoAdjustBitrate) {
             StreamingPreferences.bitrateKbps = defaultBitrate()
-        } else if (StreamingPreferences.bitrateKbps > bitrateMax) {
-            StreamingPreferences.bitrateKbps = bitrateMax
         }
         persist()
     }
@@ -984,8 +985,9 @@ FocusScope {
                             description: qsTr("Baisse-le si le réseau est lent, monte-le pour une image plus nette.")
                             from: settingsPage.bitrateMin
                             to: settingsPage.bitrateMax
-                            stepSize: settingsPage.pyroWave ? 5000 : 500
-                            keyStep: settingsPage.pyroWave ? 50000 : 5000
+                            stepSize: 500
+                            keyStep: 1000
+                            curve: 3
                             value: StreamingPreferences.bitrateKbps
                             valueText: qsTr("%1 Mbit/s").arg(settingsPage.mbps(StreamingPreferences.bitrateKbps))
                             onMoved: (v) => {
@@ -1008,18 +1010,13 @@ FocusScope {
                             }
                         }
 
-                        SettingToggle {
-                            label: qsTr("Débloquer la limite de débit")
+                        // Android's « Saisir un débit » (edit_diy_bitrate): any value, past the track's end
+                        SettingAction {
+                            label: qsTr("Saisir un débit")
                             expert: true
-                            // PyroWave has its own range (bitrateMax): the limit does not apply
-                            available: !settingsPage.pyroWave
-                            description: qsTr("Jusqu'à 500 Mbit/s, à réserver au réseau filaire.")
-                            checked: StreamingPreferences.unlockBitrate
-                            onToggled: (v) => {
-                                StreamingPreferences.unlockBitrate = v
-                                StreamingPreferences.bitrateKbps = Math.min(StreamingPreferences.bitrateKbps, settingsPage.bitrateMax)
-                                settingsPage.persist()
-                            }
+                            description: qsTr("Une valeur précise, même au-delà du curseur.")
+                            buttonText: qsTr("Saisir…")
+                            onTriggered: customBitrateDialog.open()
                         }
 
                         SettingChoice {
@@ -1244,6 +1241,17 @@ FocusScope {
                             description: qsTr("Curseur libre, sans capture : idéal pour le bureau, pas pour les jeux. Ctrl+Alt+Maj+M en stream.")
                             checked: StreamingPreferences.absoluteMouseMode
                             onToggled: (v) => { StreamingPreferences.absoluteMouseMode = v; settingsPage.persist() }
+                        }
+
+                        // Android's row (checkbox_remember_mouse_mode), same texts: the menu's
+                        // « Passer en trackpad / multitouch » then writes « Écran tactile »
+                        SettingToggle {
+                            label: qsTr("Retenir le mode tactile choisi en jeu")
+                            expert: true
+                            available: SystemProperties.hasTouchScreen || StreamingPreferences.rememberTouchMode
+                            description: qsTr("Sinon, un mode choisi pendant le stream ne vaut que pour ce stream.")
+                            checked: StreamingPreferences.rememberTouchMode
+                            onToggled: (v) => { StreamingPreferences.rememberTouchMode = v; settingsPage.persist() }
                         }
 
                         SettingChoice {
@@ -1850,6 +1858,38 @@ FocusScope {
                 if (changed) settingsPage.applyDefaultBitrateIfAuto()
                 settingsPage.persist()
             }
+        }
+    }
+
+    // « Saisir un débit », Android's texts (SettingsActivity.askBitrate)
+    LavDialog {
+        id: customBitrateDialog
+        title: qsTr("Saisir un débit")
+        text: qsTr("En Mbit/s, avec des décimales si besoin.")
+        acceptText: qsTr("Appliquer")
+        initialFocus: bitrateField.input
+        function kbps() {
+            var m = parseFloat(bitrateField.text.replace(",", "."))
+            return isNaN(m) ? 0 : Math.round(m * 1000)
+        }
+        acceptEnabled: kbps() > 0
+        fields: [
+            LavTextField {
+                id: bitrateField
+                width: 220
+                maximumLength: 7
+                placeholderText: "40"
+                validator: RegularExpressionValidator { regularExpression: /^[0-9]{0,4}([.,][0-9]{0,1})?$/ }
+                onAccepted: customBitrateDialog.accept()
+            }
+        ]
+        onAboutToShow: bitrateField.text = settingsPage.mbps(StreamingPreferences.bitrateKbps)
+        onAccepted: {
+            var v = kbps()
+            if (v <= 0) return
+            StreamingPreferences.bitrateKbps = v
+            StreamingPreferences.autoAdjustBitrate = false
+            settingsPage.persist()
         }
     }
 
