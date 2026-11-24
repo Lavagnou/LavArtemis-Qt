@@ -743,7 +743,10 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   Projecteur (`dimmed`) et halo (`LiveHalo`). Les autres applis de l'hôte (`app`, ex. « Virtual
   Desktop » d'Apollo) ne sont **pas** affichées, à la demande de l'utilisateur. La bibliothèque
   Playnite garde **l'ordre de l'hôte**, du plus récemment joué au plus ancien
-  (`NvComputer::sortApps()` : nom pour le reste). Une jaquette absente (`no_app_image.png`, ou 404
+  (`NvComputer::sortApps()` : nom pour le reste). ⚠️ `AppModel::updateAppList()` **suit l'ordre de
+  la liste de l'ordinateur** (ajouts à leur place, `beginMoveRows` quand un jeu joué remonte) : il
+  insérait par nom, hérité de moonlight-qt, et la bibliothèque sortait triée par nom malgré `sortApps()`
+  jusqu'au 2026-11-25. Une jaquette absente (`no_app_image.png`, ou 404
   de LavApollo pour un jeu Playnite sans jaquette, mémorisé par `BoxArtManager::m_Missing`) affiche
   le nom du jeu.
 - **Projecteur = `Theme.dim()`**, les valeurs `dimOff` / `dimFocus` du prototype par thème et mode :

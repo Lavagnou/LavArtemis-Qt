@@ -230,27 +230,32 @@ void AppModel::updateAppList(QVector<NvApp> newList)
         }
     }
 
-    // Process additions now
-    for (const NvApp& newApp : std::as_const(newVisibleList)) {
-        int insertionIndex = m_VisibleApps.size();
-        bool found = false;
+    // Then moves and additions, in the order of the new list: the computer's own order
+    // (NvComputer::sortApps), by name except the Playnite library, which keeps the host's
+    // order, most recently played first, and moves when a game is played. Inserting by name
+    // here sorted the library alphabetically.
+    for (int i = 0; i < newVisibleList.count(); i++) {
+        const NvApp& newApp = newVisibleList.at(i);
+        if (i < m_VisibleApps.count() && m_VisibleApps.at(i).id == newApp.id) {
+            continue;
+        }
 
-        for (int i = 0; i < m_VisibleApps.count(); i++) {
-            const NvApp& existingApp = m_VisibleApps.at(i);
-
-            if (existingApp.id == newApp.id) {
-                found = true;
-                break;
-            }
-            else if (existingApp.name.toLower() > newApp.name.toLower()) {
-                insertionIndex = i;
+        int existingIndex = -1;
+        for (int j = i + 1; j < m_VisibleApps.count(); j++) {
+            if (m_VisibleApps.at(j).id == newApp.id) {
+                existingIndex = j;
                 break;
             }
         }
 
-        if (!found) {
-            beginInsertRows(QModelIndex(), insertionIndex, insertionIndex);
-            m_VisibleApps.insert(insertionIndex, newApp);
+        if (existingIndex >= 0) {
+            beginMoveRows(QModelIndex(), existingIndex, existingIndex, QModelIndex(), i);
+            m_VisibleApps.move(existingIndex, i);
+            endMoveRows();
+        }
+        else {
+            beginInsertRows(QModelIndex(), i, i);
+            m_VisibleApps.insert(i, newApp);
             endInsertRows();
         }
     }
