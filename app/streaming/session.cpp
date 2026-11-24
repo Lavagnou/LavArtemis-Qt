@@ -1621,6 +1621,13 @@ void Session::emitLavArtemisWarning(QString text)
 
 bool Session::validateLaunch(SDL_Window* testWindow)
 {
+    if (m_Computer->isThisPc) {
+        // Every launch path goes through here (home, Mes PC benchmark, art:// links, command line)
+        emit displayLaunchError(tr("You can't stream %1 from itself: LavApollo runs on this PC. Start the stream from another device.")
+                                .arg(m_Computer->name));
+        return false;
+    }
+
     if (!m_Computer->isSupportedServerVersion) {
         // Android's message (v2_host_unsupported), with the version the host gave
         emit displayLaunchError(tr("The host software version of %1 is not supported (%2). Update LavApollo on this PC.")

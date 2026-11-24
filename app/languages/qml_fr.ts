@@ -818,6 +818,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Impossible de streamer %1 depuis lui-même : LavApollo tourne sur ce PC. Lance le stream depuis un autre appareil.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Réveil envoyé à %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -942,6 +946,10 @@
     </message>
     <message>
         <source>Oublier ce PC</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Impossible de streamer %1 depuis lui-même : LavApollo tourne sur ce PC. Lance le stream depuis un autre appareil.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2243,6 +2251,10 @@
     <message>
         <source>Multi-display streaming was skipped: only one display was found on this PC.</source>
         <translation>Le stream multi-écran n&apos;a pas été utilisé : un seul écran a été trouvé sur ce PC.</translation>
+    </message>
+    <message>
+        <source>You can&apos;t stream %1 from itself: LavApollo runs on this PC. Start the stream from another device.</source>
+        <translation>Impossible de streamer %1 depuis lui-même : LavApollo tourne sur ce PC. Lance le stream depuis un autre appareil.</translation>
     </message>
     <message>
         <source>The host software version of %1 is not supported (%2). Update LavApollo on this PC.</source>

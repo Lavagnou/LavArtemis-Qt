@@ -49,7 +49,7 @@ FocusScope {
     // Keep this list in step with computermodel.h.
     function roleId(name) {
         var names = ["name", "online", "paired", "busy", "wakeable", "statusUnknown", "serverSupported",
-                     "apolloVersion", "uuid", "address", "runningApp", "serverVersion"]
+                     "apolloVersion", "uuid", "address", "runningApp", "serverVersion", "thisPc"]
         return 256 + names.indexOf(name) // Qt::UserRole + position in ComputerModel::Roles
     }
 
@@ -153,6 +153,11 @@ FocusScope {
         else if (action === "wake") wakeHost(i)
         else if (action === "bench") {
             if (!checkSupported(i)) return
+            if (role(i, "thisPc")) {
+                // A benchmark streams: same refusal as a launch (Session::validateLaunch)
+                showError(qsTr("Impossible de streamer %1 depuis lui-même : LavApollo tourne sur ce PC. Lance le stream depuis un autre appareil.").arg(role(i, "name")))
+                return
+            }
             var component = Qt.createComponent("../BenchmarkView.qml")
             stackView.push(component.createObject(stackView, {"hostUuid": role(i, "uuid"), "hostName": role(i, "name")}))
         } else if (action === "rename") {

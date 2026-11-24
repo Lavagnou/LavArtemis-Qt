@@ -57,6 +57,7 @@ FocusScope {
             required property bool statusUnknown
             required property bool serverSupported
             required property string serverVersion
+            required property bool thisPc
         }
         onObjectAdded: refreshHostsLater.restart()
         onObjectRemoved: refreshHostsLater.restart()
@@ -80,7 +81,7 @@ FocusScope {
             if (o && o.paired) {
                 list.push({index: o.index, name: o.name, online: o.online, paired: o.paired, busy: o.busy, uuid: o.uuid,
                            wakeable: o.wakeable, statusUnknown: o.statusUnknown,
-                           serverSupported: o.serverSupported, serverVersion: o.serverVersion})
+                           serverSupported: o.serverSupported, serverVersion: o.serverVersion, thisPc: o.thisPc})
             }
         }
         // Online hosts first, keeping the model order otherwise
@@ -242,6 +243,11 @@ FocusScope {
             // As Android (V2HostActivity.launch) and Mes PC: a message instead of a launch that fails half-way
             showError(qsTr("La version du logiciel hôte de %1 n'est pas prise en charge (%2). Mets à jour LavApollo sur ce PC.")
                       .arg(host.name).arg(host.serverVersion))
+            return
+        }
+        if (host && host.thisPc) {
+            // Same check as Session::validateLaunch, before the stream screen opens
+            showError(qsTr("Impossible de streamer %1 depuis lui-même : LavApollo tourne sur ce PC. Lance le stream depuis un autre appareil.").arg(host.name))
             return
         }
         var inside = appModel.startsInsidePlaynite(row)

@@ -22,7 +22,10 @@ class ComputerModel : public QAbstractListModel
         AddressRole,
         RunningAppRole,
         // serverinfo's appversion, shown in « logiciel hôte non pris en charge (x.y.z.w) »
-        ServerVersionRole
+        ServerVersionRole,
+        // The host is this PC (NvComputer::isThisPc): no stream to itself. Keep new roles last,
+        // HostsView reads them by number.
+        ThisPcRole
     };
 
 public:

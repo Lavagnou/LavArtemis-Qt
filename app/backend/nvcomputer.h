@@ -34,6 +34,10 @@ private:
     // Empty (not known yet) counts as supported. Part of isSupportedServerVersion.
     static bool isSupportedAppVersion(const QString& appVersion);
 
+    // True when the host is this very PC: its address is a loopback or local one, or the MAC it
+    // reports is one of this machine's adapters. Streaming a PC to itself is refused (isThisPc).
+    static bool isThisMachine(const QByteArray& mac, const QString& address);
+
     bool updateAppList(QVector<NvApp> newAppList);
 
     bool pendingQuit;
@@ -110,6 +114,8 @@ public:
     uint32_t pyrowaveHostLinkMbps = 0;
     QString gpuModel;
     bool isSupportedServerVersion;
+    // The host runs on this PC (isThisMachine): launching a stream there is refused with a message
+    bool isThisPc = false;
 
     // Persisted traits
     NvAddress localAddress;

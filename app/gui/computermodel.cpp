@@ -76,6 +76,8 @@ QVariant ComputerModel::data(const QModelIndex& index, int role) const
     }
     case ServerVersionRole:
         return computer->appVersion;
+    case ThisPcRole:
+        return computer->isThisPc;
     default:
         return QVariant();
     }
@@ -108,6 +110,7 @@ QHash<int, QByteArray> ComputerModel::roleNames() const
     names[AddressRole] = "address";
     names[RunningAppRole] = "runningApp";
     names[ServerVersionRole] = "serverVersion";
+    names[ThisPcRole] = "thisPc";
 
     return names;
 }

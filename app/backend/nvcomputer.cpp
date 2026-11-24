@@ -136,6 +136,38 @@ void NvComputer::sortAppList()
     sortApps(appList);
 }
 
+bool NvComputer::isThisMachine(const QByteArray& mac, const QString& address)
+{
+    QHostAddress host(address);
+    if (!host.isNull()) {
+        if (host.isLoopback()) {
+            return true;
+        }
+        const QList<QHostAddress> locals = QNetworkInterface::allAddresses();
+        for (const QHostAddress& local : locals) {
+            if (local.isEqual(host, QHostAddress::TolerantConversion)) {
+                return true;
+            }
+        }
+    }
+    else if (address.compare(QStringLiteral("localhost"), Qt::CaseInsensitive) == 0) {
+        return true;
+    }
+
+    // The host reports the MAC of the adapter the client reached (an unknown one is left empty):
+    // it also catches this PC reached by a host name or through another of its addresses.
+    if (mac.size() == 6) {
+        const QList<QNetworkInterface> nics = QNetworkInterface::allInterfaces();
+        for (const QNetworkInterface& nic : nics) {
+            QByteArray hw = QByteArray::fromHex(nic.hardwareAddress().remove(QLatin1Char(':')).toLatin1());
+            if (hw == mac) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 bool NvComputer::isSupportedAppVersion(const QString& appVersion)
 {
     const QString trimmed = appVersion.trimmed();
@@ -291,6 +323,7 @@ NvComputer::NvComputer(NvHTTP& http, QString serverInfo)
     // list, which Apollo / Sunshine / LavApollo hosts always pass
     this->isSupportedServerVersion = CompatFetcher::isGfeVersionSupported(this->gfeVersion) &&
                                      isSupportedAppVersion(this->appVersion);
+    this->isThisPc = isThisMachine(this->macAddress, this->activeAddress.address());
     
     // Parse server commands (Apollo/Sunshine servers only)
     this->serverCommands = NvHTTP::getXmlArray(serverInfo, "ServerCommand");
@@ -676,6 +709,7 @@ bool NvComputer::update(const NvComputer& that)
     ASSIGN_IF_CHANGED(gfeVersion);
     ASSIGN_IF_CHANGED(appVersion);
     ASSIGN_IF_CHANGED(isSupportedServerVersion);
+    ASSIGN_IF_CHANGED(isThisPc);
     ASSIGN_IF_CHANGED(isNvidiaServerSoftware);
     ASSIGN_IF_CHANGED(maxLumaPixelsHEVC);
     ASSIGN_IF_CHANGED(gpuModel);
