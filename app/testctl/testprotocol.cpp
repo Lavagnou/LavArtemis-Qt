@@ -6,6 +6,13 @@
 #include <QJsonDocument>
 #include <QJsonParseError>
 
+#ifdef Q_OS_WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#endif
+
 namespace TestProtocol {
 
 bool parseRequest(const QByteArray& line, Request& out, QString& error)
@@ -85,6 +92,51 @@ QByteArray Dispatcher::handleLine(const QByteArray& line)
         return errorLine(request.id, error.isEmpty() ? QStringLiteral("failed") : error);
     }
     return okLine(request.id, result);
+}
+
+QList<LineBuffer::Line> LineBuffer::feed(const QByteArray& data)
+{
+    QList<Line> lines;
+    m_Buffer += data;
+    for (;;) {
+        const int newline = m_Buffer.indexOf('\n');
+        if (m_Discarding) {
+            // The rest of a line already refused: dropped up to its end, no second entry
+            if (newline < 0) {
+                m_Buffer.clear();
+                break;
+            }
+            m_Buffer.remove(0, newline + 1);
+            m_Discarding = false;
+            continue;
+        }
+        if (newline < 0) {
+            if (m_Buffer.size() > kMaxLine) {
+                lines.append({QByteArray(), true});
+                m_Buffer.clear();
+                m_Discarding = true;
+            }
+            break;
+        }
+        if (newline > kMaxLine) {
+            // Complete in this read, but too long all the same
+            lines.append({QByteArray(), true});
+            m_Buffer.remove(0, newline + 1);
+            continue;
+        }
+        const QByteArray line = m_Buffer.left(newline).trimmed();
+        m_Buffer.remove(0, newline + 1);
+        if (!line.isEmpty()) {
+            lines.append({line, false});
+        }
+    }
+    return lines;
+}
+
+void LineBuffer::clear()
+{
+    m_Buffer.clear();
+    m_Discarding = false;
 }
 
 QStringList Dispatcher::commands() const
@@ -383,9 +435,13 @@ bool isLocalAbsolutePath(const QString& path)
         return false;
     }
 #ifdef Q_OS_WIN32
-    // A drive letter, then a separator
-    return path.size() >= 3 && path[0].isLetter() && path[0].unicode() < 128 && path[1] == ':' &&
-           (path[2] == '/' || path[2] == '\\');
+    // A drive letter, then a separator, and not a mapped network drive
+    if (!(path.size() >= 3 && path[0].isLetter() && path[0].unicode() < 128 && path[1] == ':' &&
+          (path[2] == '/' || path[2] == '\\'))) {
+        return false;
+    }
+    const QString drive = path.left(2) + QLatin1Char('\\');
+    return GetDriveTypeW(reinterpret_cast<LPCWSTR>(drive.utf16())) != DRIVE_REMOTE;
 #else
     return QDir::isAbsolutePath(path);
 #endif

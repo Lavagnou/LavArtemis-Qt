@@ -9,6 +9,13 @@
 #include <QSet>
 
 #include <algorithm>
+
+#ifdef Q_OS_WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#endif
 #include <QWheelEvent>
 
 namespace UiProbe {
@@ -179,10 +186,68 @@ bool isRelated(QQuickItem* a, QQuickItem* b)
     return false;
 }
 
+bool isClickHandler(QObject* handler, Qt::MouseButton button)
+{
+    if (!handler->property("enabled").toBool()) {
+        return false;
+    }
+    // Hovering, wheel and two-finger handlers never take a click
+    if (handler->inherits("QQuickHoverHandler") || handler->inherits("QQuickWheelHandler") ||
+        handler->inherits("QQuickPinchHandler")) {
+        return false;
+    }
+    const QVariant buttons = handler->property("acceptedButtons");
+    return !buttons.isValid() || qvariant_cast<Qt::MouseButtons>(buttons).testFlag(button);
+}
+
+// Whether `item` takes a click of `button`. Adding any pointer handler (even a HoverHandler)
+// makes Qt Quick set acceptedMouseButtons to all buttons, so with handlers it is their kinds
+// that decide, plus the types that take clicks by themselves.
+bool takesClick(QQuickItem* item, Qt::MouseButton button)
+{
+    if (!item->isEnabled()) {
+        return false;
+    }
+    bool hasHandlers = false;
+    const QObjectList children = item->children();
+    for (QObject* child : children) {
+        if (child->inherits("QQuickPointerHandler")) {
+            hasHandlers = true;
+            if (isClickHandler(child, button)) {
+                return true;
+            }
+        }
+    }
+    if (hasHandlers) {
+        for (const char* type : {"QQuickMouseArea", "QQuickAbstractButton", "QQuickTextInput", "QQuickTextEdit",
+                                 "QQuickFlickable", "QQuickPopupItem"}) {
+            if (item->inherits(type)) {
+                return item->acceptedMouseButtons().testFlag(button);
+            }
+        }
+        return false;
+    }
+    return item->acceptedMouseButtons().testFlag(button);
+}
+
+bool modalPopupOpen(QQuickWindow* window)
+{
+    const QList<QObject*> objects = window->findChildren<QObject*>();
+    for (QObject* object : objects) {
+        if (object->inherits("QQuickPopup") && object->property("visible").toBool() &&
+            object->property("modal").toBool()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Topmost first: children above the item (z >= 0, last painted first), the item, then the
 // children below it (z < 0). Stops at the target's family (reachable) or at an unrelated item
-// that takes mouse buttons (covering).
-bool hitTest(QQuickItem* item, const QPointF& scenePos, QQuickItem* target, QQuickItem*& cover)
+// that takes the click (covering). The Qt Quick Controls overlay (popups) covers everything
+// under it only while a modal popup is open; its popups are ordinary items above the page.
+bool hitTest(QQuickItem* item, const QPointF& scenePos, QQuickItem* target, Qt::MouseButton button,
+             QQuickItem*& cover)
 {
     if (!item->isVisible() || item->opacity() <= 0) {
         return false;
@@ -196,8 +261,32 @@ bool hitTest(QQuickItem* item, const QPointF& scenePos, QQuickItem* target, QQui
     QList<QQuickItem*> children = item->childItems();
     std::stable_sort(children.begin(), children.end(),
                      [](QQuickItem* a, QQuickItem* b) { return a->z() < b->z(); });
+
+    if (item->inherits("QQuickOverlay")) {
+        // Its children are the popups and their dimmers. With a modal popup open, anything
+        // that stops the click there (dimmer included) is "the modal popup"; without one, only
+        // the popups themselves can be in the way (a dimmer of a non-modal popup lets clicks by)
+        const bool modal = item->window() != nullptr && modalPopupOpen(item->window());
+        for (int i = children.size() - 1; i >= 0; i--) {
+            if (!modal && !children[i]->inherits("QQuickPopupItem")) {
+                continue;
+            }
+            if (hitTest(children[i], scenePos, target, button, cover)) {
+                if (cover != nullptr && modal) {
+                    cover = item;
+                }
+                return true;
+            }
+        }
+        if (modal && inside) {
+            cover = item;
+            return true;
+        }
+        return false;
+    }
+
     for (int i = children.size() - 1; i >= 0; i--) {
-        if (children[i]->z() >= 0 && hitTest(children[i], scenePos, target, cover)) {
+        if (children[i]->z() >= 0 && hitTest(children[i], scenePos, target, button, cover)) {
             return true;
         }
     }
@@ -206,13 +295,13 @@ bool hitTest(QQuickItem* item, const QPointF& scenePos, QQuickItem* target, QQui
             cover = nullptr;
             return true;
         }
-        if (item->isEnabled() && item->acceptedMouseButtons() != Qt::NoButton) {
+        if (takesClick(item, button)) {
             cover = item;
             return true;
         }
     }
     for (int i = children.size() - 1; i >= 0; i--) {
-        if (children[i]->z() < 0 && hitTest(children[i], scenePos, target, cover)) {
+        if (children[i]->z() < 0 && hitTest(children[i], scenePos, target, button, cover)) {
             return true;
         }
     }
@@ -221,13 +310,13 @@ bool hitTest(QQuickItem* item, const QPointF& scenePos, QQuickItem* target, QQui
 
 }
 
-QQuickItem* coveringItem(const QList<QQuickWindow*>& windows, const Item& item)
+QQuickItem* coveringItem(const QList<QQuickWindow*>& windows, const Item& item, Qt::MouseButton button)
 {
     if (item.window < 0 || item.window >= windows.size() || item.item == nullptr) {
         return nullptr;
     }
     QQuickItem* cover = nullptr;
-    hitTest(windows[item.window]->contentItem(), item.rect.center(), item.item, cover);
+    hitTest(windows[item.window]->contentItem(), item.rect.center(), item.item, button, cover);
     return cover;
 }
 
@@ -241,20 +330,31 @@ QQuickWindow* defaultInputWindow(const QList<QQuickWindow*>& windows)
     return windows.isEmpty() ? nullptr : windows.first();
 }
 
-void click(QQuickWindow* window, const QPointF& pos, Qt::MouseButton button)
+quint64 inputTimestamp()
 {
-    // Sent straight to the window, like wheel(): no QTest (it ends with processEvents(), and a
-    // nested event loop could start a whole stream inside the command), no OS cursor move
+#ifdef Q_OS_WIN32
+    // The Windows platform plugin stamps real input with GetMessageTime(): the same clock
+    return GetTickCount();
+#else
     static QElapsedTimer clock;
     if (!clock.isValid()) {
         clock.start();
     }
+    return static_cast<quint64>(clock.elapsed());
+#endif
+}
+
+void click(QQuickWindow* window, const QPointF& pos, Qt::MouseButton button)
+{
+    // Sent straight to the window, like wheel(): no QTest (it ends with processEvents(), and a
+    // nested event loop could start a whole stream inside the command), no OS cursor move
     const QPointF global = window->mapToGlobal(pos);
+    const quint64 timestamp = inputTimestamp();
     QMouseEvent press(QEvent::MouseButtonPress, pos, pos, global, button, button, Qt::NoModifier);
-    press.setTimestamp(static_cast<quint64>(clock.elapsed()));
+    press.setTimestamp(timestamp);
     QCoreApplication::sendEvent(window, &press);
     QMouseEvent release(QEvent::MouseButtonRelease, pos, pos, global, button, Qt::NoButton, Qt::NoModifier);
-    release.setTimestamp(static_cast<quint64>(clock.elapsed()) + 1);
+    release.setTimestamp(timestamp);  // a tap, not a press-and-hold
     QCoreApplication::sendEvent(window, &release);
 }
 
@@ -282,6 +382,7 @@ void deliverKey(QQuickWindow* window, QEvent::Type type, int qtKey, Qt::Keyboard
 {
     QQuickItem* item = keyTarget(window);
     QKeyEvent event(type, qtKey, modifiers, text);
+    event.setTimestamp(inputTimestamp());
     while (item != nullptr) {
         event.accept();
         QCoreApplication::sendEvent(item, &event);
@@ -348,6 +449,7 @@ void wheel(QQuickWindow* window, const QPointF& pos, const QPoint& angleDelta)
 {
     QWheelEvent event(pos, window->mapToGlobal(pos), QPoint(), angleDelta, Qt::NoButton, Qt::NoModifier,
                       Qt::NoScrollPhase, false);
+    event.setTimestamp(inputTimestamp());
     QCoreApplication::sendEvent(window, &event);
 }
 

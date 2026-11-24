@@ -54,13 +54,22 @@ QJsonObject toJson(const Item& item);
 bool find(const QList<Item>& items, const QJsonObject& spec, Item& out, QString& error);
 
 // Whether a click at the centre of item.rect reaches the item: the topmost enabled item that
-// takes mouse buttons at that point (paint order: z, then child order) must be the item, one of
-// its ancestors or descendants, or there must be none. Returns that covering item, else nullptr.
-QQuickItem* coveringItem(const QList<QQuickWindow*>& windows, const Item& item);
+// takes that button at that point (paint order: z, then child order) must be the item, one of
+// its ancestors or descendants, or there must be none. Takes clicks: an item with a pointer
+// handler other than Hover/Wheel/Pinch (TapHandler cards...), a MouseArea, a button, a text
+// field, a Flickable, a popup; anything accepting mouse buttons when it has no handler. The
+// Controls overlay counts only while a modal popup is open. Returns the cover, else nullptr.
+QQuickItem* coveringItem(const QList<QQuickWindow*>& windows, const Item& item,
+                         Qt::MouseButton button = Qt::LeftButton);
 
 // The window that takes `key`/`text`/`wheel` when none is named: the visible in-stream quick
 // menu (a Qt::Tool window) if any, else the first window.
 QQuickWindow* defaultInputWindow(const QList<QQuickWindow*>& windows);
+
+// The timestamp synthetic events carry: on Windows the clock of real input (GetMessageTime(),
+// i.e. GetTickCount() in ms), so that they never go back in time relative to the user's real
+// mouse events reaching the same windows.
+quint64 inputTimestamp();
 
 // A click (press + release) at pos, delivered synchronously, without running the event loop.
 void click(QQuickWindow* window, const QPointF& pos, Qt::MouseButton button);

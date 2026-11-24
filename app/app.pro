@@ -726,11 +726,9 @@ contains(LAV_VERSION_STR, ".*-dev\..*") {
 # is active in any other build.
 lav_test {
     DEFINES += LAV_TEST_BUILD LAV_DEV_CHANNEL
-    QT += testlib
-    # QT += testlib adds CONFIG += console: a console-subsystem exe opens a console window (a
-    # Windows Terminal tab here) that takes the foreground when launched from a GUI program.
-    # Keep the GUI subsystem like every other build (main() attaches to the parent console).
-    win32-msvc*: QMAKE_LFLAGS_CONSOLE = /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup
+    # No QT += testlib: it adds CONFIG += console, and a console-subsystem exe opens a console
+    # window that takes the foreground when launched from a GUI program. app/testctl sends its
+    # events itself (QTest would also run nested event loops).
     TARGET = LavArtemisTest
     win32: RC_ICONS = lavartemis-dev.ico
     # Testbench command channel (app/testctl): QLocalServer "lavartemis-test"

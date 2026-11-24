@@ -258,8 +258,7 @@ void TestControl::onNewConnection()
             continue;
         }
         m_Socket = socket;
-        m_Buffer.clear();
-        m_Discarding = false;
+        m_Lines.clear();
         connect(socket, &QLocalSocket::readyRead, this, &TestControl::onReadyRead);
         connect(socket, &QLocalSocket::disconnected, this, &TestControl::onSocketDisconnected);
     }
@@ -270,7 +269,7 @@ void TestControl::onSocketDisconnected()
     auto* socket = qobject_cast<QLocalSocket*>(sender());
     if (socket == m_Socket) {
         m_Socket = nullptr;
-        m_Buffer.clear();
+        m_Lines.clear();
         // Requests of a client that left are dropped; one that is running answers nobody
         m_Pending.erase(std::remove_if(m_Pending.begin(), m_Pending.end(),
                                        [socket](const PendingLine& pending) { return pending.socket == socket; }),
@@ -295,35 +294,15 @@ void TestControl::onReadyRead()
     if (m_Socket == nullptr) {
         return;
     }
-    m_Buffer += m_Socket->readAll();
-
     // Only splits lines: commands never run here, so that none can start inside another
     // command's nested event loop (readyRead is delivered from any event loop)
-    constexpr int kMaxLine = 1 << 20;
-    for (;;) {
-        const int newline = m_Buffer.indexOf('\n');
-        if (m_Discarding) {
-            // The rest of a line that was too long: dropped up to its end, no second error
-            if (newline < 0) {
-                m_Buffer.clear();
-                break;
-            }
-            m_Buffer.remove(0, newline + 1);
-            m_Discarding = false;
-            continue;
+    const QList<LineBuffer::Line> lines = m_Lines.feed(m_Socket->readAll());
+    for (const LineBuffer::Line& line : lines) {
+        if (line.tooLong) {
+            sendLine(m_Socket, errorLine(QJsonValue(QJsonValue::Null), QStringLiteral("line too long")));
         }
-        if (newline < 0) {
-            if (m_Buffer.size() > kMaxLine) {
-                m_Buffer.clear();
-                m_Discarding = true;
-                sendLine(m_Socket, errorLine(QJsonValue(QJsonValue::Null), QStringLiteral("line too long")));
-            }
-            break;
-        }
-        const QByteArray line = m_Buffer.left(newline).trimmed();
-        m_Buffer.remove(0, newline + 1);
-        if (!line.isEmpty()) {
-            m_Pending.append({m_Socket, line});
+        else {
+            m_Pending.append({m_Socket, line.text});
         }
     }
     scheduleNext();
@@ -494,10 +473,15 @@ bool TestControl::cmdClick(const QJsonObject& args, QJsonObject& result, QString
         if (!UiProbe::find(UiProbe::collect(windows), args, item, error)) {
             return false;
         }
-        if (QQuickItem* cover = UiProbe::coveringItem(windows, item)) {
-            error = QStringLiteral("covered: a %1%2 takes the click at its centre")
-                        .arg(UiProbe::typeName(cover),
-                             cover->objectName().isEmpty() ? QString() : " (" + cover->objectName() + ")");
+        if (QQuickItem* cover = UiProbe::coveringItem(windows, item, button)) {
+            if (cover->inherits("QQuickOverlay")) {
+                error = QStringLiteral("covered: a modal popup is open (the overlay takes the click)");
+            }
+            else {
+                error = QStringLiteral("covered: a %1%2 takes the click at its centre")
+                            .arg(UiProbe::typeName(cover),
+                                 cover->objectName().isEmpty() ? QString() : " (" + cover->objectName() + ")");
+            }
             return false;
         }
         window = windows[item.window];

@@ -93,8 +93,7 @@ private:
     QQmlApplicationEngine* m_Engine;
     QLocalServer* m_Server;
     QLocalSocket* m_Socket = nullptr;
-    QByteArray m_Buffer;
-    bool m_Discarding = false;   // dropping the rest of a line over 1 MiB
+    TestProtocol::LineBuffer m_Lines;   // the connected client's bytes, split into lines
 
     struct PendingLine
     {

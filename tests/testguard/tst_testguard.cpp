@@ -27,6 +27,10 @@
 #include <QProcess>
 #include <QTemporaryDir>
 
+#ifdef Q_OS_WIN32
+#include <Windows.h>
+#endif
+
 namespace {
 int failures = 0;
 
@@ -207,6 +211,32 @@ void protocolTests()
     check(!isLocalAbsolutePath("//server/share/shot.png"), "uncSlashPathRefused");
     check(!isLocalAbsolutePath("\\\\server\\share\\shot.png"), "uncBackslashPathRefused");
     check(!isLocalAbsolutePath("\\\\?\\C:\\shot.png"), "devicePathRefused");
+
+    // Request lines: at most 1 MiB, whether the line comes in one read or in pieces
+    {
+        LineBuffer buffer;
+        QList<LineBuffer::Line> lines = buffer.feed("{\"cmd\":\"a\"}\r\n\n  \n{\"cmd\":\"b\"}\n{\"cm");
+        check(lines.size() == 2 && lines[0].text == "{\"cmd\":\"a\"}" && !lines[0].tooLong &&
+              lines[1].text == "{\"cmd\":\"b\"}", "linesSplitTrimmedEmptySkipped");
+        lines = buffer.feed("d\":\"c\"}\n");
+        check(lines.size() == 1 && lines[0].text == "{\"cmd\":\"c\"}", "linePartialThenCompleted");
+
+        const QByteArray big(LineBuffer::kMaxLine + 100, 'x');
+        lines = buffer.feed(big + "\n{\"cmd\":\"d\"}\n");
+        check(lines.size() == 2 && lines[0].tooLong && lines[1].text == "{\"cmd\":\"d\"}",
+              "longLineInOneReadRefusedOnce");
+
+        lines = buffer.feed(big);
+        bool oneError = lines.size() == 1 && lines[0].tooLong;
+        lines = buffer.feed(big);
+        oneError = oneError && lines.isEmpty();
+        lines = buffer.feed("tail\n{\"cmd\":\"e\"}\n");
+        check(oneError && lines.size() == 1 && lines[0].text == "{\"cmd\":\"e\"}", "longLineInPiecesRefusedOnce");
+
+        const QByteArray exact(LineBuffer::kMaxLine, 'y');
+        lines = buffer.feed(exact + "\n");
+        check(lines.size() == 1 && !lines[0].tooLong, "lineAtTheLimitAccepted");
+    }
 }
 
 // reset deletes a tree without ever following a junction or symbolic link out of it
@@ -242,7 +272,8 @@ import QtQuick
 import QtQuick.Window
 Window {
     id: root
-    width: 400; height: 300
+    width: 400; height: 360
+    property int taps: 0
     flags: Qt.Window | Qt.WindowDoesNotAcceptFocus
     property int clicks: 0
     property int rightClicks: 0
@@ -273,6 +304,15 @@ Window {
     Text { text: "Bonjour"; x: 40; y: 260 }
     Text { text: "Covered"; x: 250; y: 200 }
     MouseArea { objectName: "cover"; x: 240; y: 190; width: 120; height: 40 }
+    Rectangle {
+        objectName: "tapCard"; x: 250; y: 250; width: 120; height: 40
+        TapHandler { onTapped: root.taps++ }
+        Text { anchors.centerIn: parent; text: "TapCard" }
+    }
+    Text { text: "UnderTap"; x: 20; y: 310 }
+    Item { objectName: "tapCover"; x: 10; y: 300; width: 100; height: 40; TapHandler {} }
+    Text { text: "UnderHover"; x: 150; y: 310 }
+    Item { objectName: "hoverOnly"; x: 140; y: 300; width: 90; height: 40; HoverHandler {} }
 }
 )QML";
 
@@ -337,6 +377,24 @@ void uiTests()
     QQuickItem* cover = UiProbe::coveringItem(windows, covered);
     check(cover != nullptr && cover->objectName() == "cover", "coveredTextReportsItsCover");
 
+    // Pointer handlers take clicks too (TapHandler cards); a HoverHandler does not
+    UiProbe::Item underTap, underHover, tapCard;
+    check(UiProbe::find(items, QJsonObject{{"text", "UnderTap"}}, underTap, error) &&
+          UiProbe::find(items, QJsonObject{{"text", "UnderHover"}}, underHover, error) &&
+          UiProbe::find(items, QJsonObject{{"text", "TapCard"}}, tapCard, error), "findHandlerItems");
+    cover = UiProbe::coveringItem(windows, underTap);
+    check(cover != nullptr && cover->objectName() == "tapCover", "coveredByTapHandler");
+    check(UiProbe::coveringItem(windows, underHover) == nullptr, "hoverHandlerDoesNotCover");
+    check(UiProbe::coveringItem(windows, tapCard) == nullptr, "tapCardNotCovered");
+    UiProbe::click(window, tapCard.rect.center(), Qt::LeftButton);
+    check(root->property("taps").toInt() == 1, "clickTapsTapHandler");
+
+#ifdef Q_OS_WIN32
+    // Synthetic input on the clock of real Windows input (GetMessageTime / GetTickCount)
+    const qint64 drift = qint64(UiProbe::inputTimestamp()) - qint64(GetTickCount());
+    check(drift > -1000 && drift < 1000, "inputTimestampOnTheWindowsClock");
+#endif
+
     // The click must not pump the event loop: a command never runs inside another one
     bool queuedRan = false;
     QMetaObject::invokeMethod(QCoreApplication::instance(), [&queuedRan]() { queuedRan = true; }, Qt::QueuedConnection);
@@ -399,6 +457,60 @@ ApplicationWindow {
 }
 )QML";
 
+// The Qt Quick Controls overlay covers the page only while a modal popup is open
+const char* kPopupScene = R"QML(
+import QtQuick
+import QtQuick.Controls
+ApplicationWindow {
+    width: 400; height: 300
+    flags: Qt.Window | Qt.WindowDoesNotAcceptFocus
+    Text { text: "Behind"; x: 20; y: 20 }
+    Popup {
+        objectName: "popup"; x: 200; y: 150; width: 100; height: 80; modal: true; closePolicy: Popup.NoAutoClose
+        Text { text: "InPopup" }
+    }
+}
+)QML";
+
+void popupTests()
+{
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData(kPopupScene, QUrl());
+    std::unique_ptr<QObject> root(component.create());
+    auto* window = qobject_cast<QQuickWindow*>(root.get());
+    check(window != nullptr, "popupSceneLoads");
+    if (window == nullptr) {
+        std::fprintf(stderr, "%s\n", qPrintable(component.errorString()));
+        return;
+    }
+    window->show();
+    QCoreApplication::processEvents();
+    const QList<QQuickWindow*> windows{window};
+    QString error;
+    UiProbe::Item behind;
+    check(UiProbe::find(UiProbe::collect(windows), QJsonObject{{"text", "Behind"}}, behind, error) &&
+          UiProbe::coveringItem(windows, behind) == nullptr, "noPopupNotCovered");
+
+    QObject* popup = root->findChild<QObject*>("popup");
+    check(popup != nullptr, "popupFound");
+    if (popup == nullptr) {
+        return;
+    }
+    popup->setProperty("visible", true);
+    QCoreApplication::processEvents();
+    check(UiProbe::find(UiProbe::collect(windows), QJsonObject{{"text", "Behind"}}, behind, error), "behindStillListed");
+    QQuickItem* cover = UiProbe::coveringItem(windows, behind);
+    check(cover != nullptr && cover->inherits("QQuickOverlay"), "modalPopupCoversThePage");
+    UiProbe::Item inPopup;
+    check(UiProbe::find(UiProbe::collect(windows), QJsonObject{{"text", "InPopup"}}, inPopup, error) &&
+          UiProbe::coveringItem(windows, inPopup) == nullptr, "modalPopupContentClickable");
+
+    popup->setProperty("modal", false);
+    QCoreApplication::processEvents();
+    check(UiProbe::coveringItem(windows, behind) == nullptr, "nonModalPopupDoesNotCover");
+}
+
 void pageTests()
 {
     QQmlEngine engine;
@@ -433,6 +545,7 @@ int main(int argc, char** argv)
     QGuiApplication app(argc, argv);
     uiTests();
     pageTests();
+    popupTests();
     removeTreeTests();
 
     if (failures == 0) {

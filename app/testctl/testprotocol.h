@@ -12,6 +12,7 @@
 #include <QHash>
 #include <QJsonObject>
 #include <QJsonValue>
+#include <QList>
 #include <QString>
 #include <QStringList>
 
@@ -54,6 +55,29 @@ public:
 private:
     QHash<QString, Handler> m_Handlers;
     bool m_Running = false;
+};
+
+// Splits the byte stream of one client into request lines. A line longer than kMaxLine bytes
+// (newline excluded) is never returned: it gives one entry with tooLong set, whether it came in
+// one read or in pieces, and the rest of it is dropped up to its newline. Lines are trimmed
+// (so "\r\n" works); empty lines are skipped.
+class LineBuffer
+{
+public:
+    static constexpr int kMaxLine = 1 << 20;
+
+    struct Line
+    {
+        QByteArray text;
+        bool tooLong = false;
+    };
+
+    QList<Line> feed(const QByteArray& data);
+    void clear();
+
+private:
+    QByteArray m_Buffer;
+    bool m_Discarding = false;
 };
 
 // A key by name. Values are plain ints so that this file needs neither Qt GUI nor SDL:
