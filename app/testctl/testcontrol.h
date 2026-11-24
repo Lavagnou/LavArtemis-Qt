@@ -9,7 +9,9 @@
 #include "testprotocol.h"
 
 #include <QByteArray>
+#include <QList>
 #include <QObject>
+#include <QPointer>
 #include <QStringList>
 
 #include <functional>
@@ -43,8 +45,13 @@ private slots:
 
 private:
     void registerCommands();
-    void sendLine(const QByteArray& line);
+    void sendLine(QLocalSocket* socket, const QByteArray& line);
     void shutdown();
+
+    // Requests run one at a time from a queued call, never from readyRead and never inside
+    // another command (a nested event loop delivers runNext(), which then waits)
+    void scheduleNext();
+    void runNext();
 
     QQuickWindow* mainWindow() const;
     SDL_Window* streamWindow() const;
@@ -87,7 +94,15 @@ private:
     QLocalServer* m_Server;
     QLocalSocket* m_Socket = nullptr;
     QByteArray m_Buffer;
-    bool m_Busy = false;
+    bool m_Discarding = false;   // dropping the rest of a line over 1 MiB
+
+    struct PendingLine
+    {
+        QPointer<QLocalSocket> socket;   // the answer goes back to this client only
+        QByteArray line;
+    };
+    QList<PendingLine> m_Pending;
+    bool m_Scheduled = false;
     bool m_Quitting = false;
     std::function<void()> m_AfterReply;
     TestProtocol::Dispatcher m_Dispatcher;

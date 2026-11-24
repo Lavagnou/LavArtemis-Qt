@@ -558,7 +558,8 @@ focus, jamais son pointeur, jamais de son, jamais son vrai micro**. Tout est sou
 (`\\.\pipe\lavartemis-test`, `UserAccessOption` : cet utilisateur seulement). **Un client à la fois** : un second reçoit
 `{"id":null,"ok":false,"error":"another client is already connected"}` et est fermé ; se reconnecter après une
 déconnexion marche. Une requête JSON par ligne `{"id":n,"cmd":"…",…}` → une ligne `{"id":n,"ok":true,…}` ou
-`{"id":n,"ok":false,"error":"…"}` ; ligne illisible → `id` null, connexion gardée ; réponses dans l'ordre des requêtes.
+`{"id":n,"ok":false,"error":"…"}` ; ligne illisible → `id` null, connexion gardée ; ligne de plus de 1 Mio → une seule
+erreur `"line too long"` (`id` null), le reste de la ligne est jeté jusqu'à son `\n` ; réponses dans l'ordre des requêtes.
 `testprotocol` (Qt Core : parse, dispatch, noms de touches, garde de `reset`), `uiprobe` (Qt Quick : arbre, clic,
 touches), `testcontrol` (serveur, SDL, session, réglages). Tests : `tests/testguard` (scène QML offscreen).
 
@@ -566,10 +567,18 @@ touches), `testcontrol` (serveur, SDL, session, réglages). Tests : `tests/testg
   postés et données du pipe, car SDL pompe les messages Windows (mesuré avec sdl2-compat : QTimer 50 ms → 46 ticks,
   20/20 lignes reçues pendant 3 s de `SDL_WaitEventTimeout`). Le « Qt timers do not fire while streaming » de
   `session.h` (benchmark) est donc faux ici.
+- ⚠️ **Aucune boucle d'événements imbriquée, aucune commande dans une autre.** `readyRead` ne fait que découper les
+  lignes dans une file ; chaque commande part d'un appel en file (`runNext`), une par tour de boucle, et
+  `Dispatcher::isRunning()` refuse d'en démarrer une pendant qu'une autre tourne (un `runNext` livré par une boucle
+  imbriquée attend). Une commande n'appelle jamais `processEvents()` : clics, molette et touches Qt par
+  `QCoreApplication::sendEvent`, **pas QTest** (ses fonctions finissent par `processEvents()` : `Session::exec()`, la
+  boucle SDL bloquante, démarre sur un signal en file, et un clic pendant la connexion aurait fait tourner tout le stream
+  dans la commande, canal figé). La réponse va au client qui a posé la question, s'il est encore connecté ; les requêtes
+  d'un client parti sont jetées.
 - **Coordonnées** Qt = pixels **logiques** de la fenêtre (`tree`, `click {x,y}`, `wheel`) ; une capture est en pixels
-  physiques (× `dpr`). Stream = coordonnées SDL (`w`/`h` du stream dans `windows`). Rien de réel : clics par
-  `QTest::mouseClick` (`QWindowSystemInterface`), touches par `sendEvent`, entrée du stream par `SDL_PushEvent` ; le vrai
-  curseur ne bouge pas, aucune fenêtre ne s'active (vérifié : premier plan et curseur inchangés).
+  physiques (× `dpr`). Stream = coordonnées SDL (`w`/`h` du stream dans `windows`). Rien de réel : événements Qt par
+  `sendEvent`, entrée du stream par `SDL_PushEvent` ; le vrai curseur ne bouge pas, aucune fenêtre ne s'active (vérifié :
+  premier plan inchangé ; curseur jamais amené au point cliqué).
 - `window` = indice d'une fenêtre `kind:"qt"` de `windows` (0 = principale). Cible de `key`/`text`/`wheel` (`target`) :
   `"auto"` = le stream si sa boucle SDL tourne et que le menu rapide est fermé, sinon Qt ; `"qt"` ; `"stream"`. Fenêtre
   Qt par défaut : le menu rapide visible (`Qt::Tool`), sinon la principale.
@@ -583,8 +592,8 @@ touches), `testcontrol` (serveur, SDL, session, réglages). Tests : `tests/testg
 | `text` | `s`, `target?`, `window?` | `{target}` |
 | `wheel` | `dx?`, `dy?` (crans, `dy > 0` = vers le haut) ; Qt : `text`/`objectName` ou `x`,`y` (défaut : centre) ; stream : `x`,`y` | `{target}` |
 | `mouse` (stream) | `{action:"move", x, y}` ; `{action:"button", button?, down}` ; `{action:"click", button?, x?, y?}` | `{x, y, buttons, windowW, windowH}` |
-| `gamepad` (stream) | `{attach:true}` ; `{button, value}` (bool ou 0/1) ; `{axis, value}` ; `{detach:true}` | `{pad, instance, attached, …}` |
-| `screenshot` | `path` (absolu, PNG), `window?` (0) | `{path, width, height, dpr}` |
+| `gamepad` (stream) | `{attach:true}` d'abord ; puis `{button, value}` (bool ou 0/1), `{axis, value}` ; `{detach:true}` | `{pad, instance, attached?, …}` |
+| `screenshot` | `path` (absolu, disque local, PNG), `window?` (0) | `{path, width, height, dpr}` |
 | `state` | — | `{page, pageTitle, pageBusy, quickMenu, pad, computers:[{name, uuid, address, online, state, paired, testHost, thisPc, currentGameId, apps:[noms]}], session:{active, streaming, frames, received, decoded, rendered, dropped}}` |
 | `setting` | `action:"get"/"set"/"reset"/"list"`, `key`, `value` | `{key, source:"streaming"/"artemis", value}` ; `list` → `{streaming:{…}, artemis:{…}}` |
 | `reset` | — | `{folders, registry, notYetRemoved, quitting:true}`, puis le client quitte |
@@ -593,10 +602,15 @@ touches), `testcontrol` (serveur, SDL, session, réglages). Tests : `tests/testg
 
 - **`tree`** : visibles seulement (`isVisible`, opacité effective > 0, partie visible non vide, coupée par la fenêtre et
   les ancêtres `clip`) ; `x,y,w,h` = cette partie visible ; `text` = la propriété `text` ; `type` = type QML (`Text`,
-  `MouseArea`, `LavPill`…). **`click`** : `text` exact (casse comprise), `contains:true` = sous-chaîne, `objectName`
-  exact ; `index` (défaut 0, négatif = depuis la fin) parmi les correspondances dans l'ordre de l'arbre (profondeur
-  d'abord, fenêtres dans l'ordre de `windows`) ; clic au centre de la partie visible. (0,0) n'est pas cliquable (QTest
-  le lit comme « centre »). ⚠️ Pendant une transition de `StackView`, la page qui arrive a une opacité nulle et l'ancienne
+  `MouseArea`, `LavPill`…) ; `focus` = sur la chaîne de focus (l'élément qui prend les touches, `keyTarget()`, et ses
+  ancêtres qui ont le focus), pas le focus actif, que personne n'a dans ces fenêtres. **`click`** : `text` exact (casse
+  comprise), `contains:true` = sous-chaîne, `objectName` exact ; `index` (défaut 0, négatif = depuis la fin) parmi les
+  correspondances dans l'ordre de l'arbre (profondeur d'abord, fenêtres dans l'ordre de `windows`) ; clic au centre de la
+  partie visible, **refusé** (`"covered: a … takes the click at its centre"`) si l'élément le plus haut qui prend la souris
+  en ce point (actif, `acceptedMouseButtons`, ordre de peinture : `z` puis ordre des enfants) n'est ni l'élément, ni un
+  de ses ancêtres ou descendants (`UiProbe::coveringItem`) ; les éléments transparents à la souris ne comptent pas, un
+  `TapHandler` seul non plus (indétectable sans API privée). `click {x,y}` et `wheel {x,y}` : refusés hors de la
+  fenêtre. ⚠️ Pendant une transition de `StackView`, la page qui arrive a une opacité nulle et l'ancienne
   est encore à l'écran : attendre `state.pageBusy == false` avant `tree`, `click` ou `screenshot` (`page` change tout de
   suite). `page` = type de la page du haut (`HomeView`, `SettingsView2`…), `pageTitle` = son `objectName`.
 - **Touches** (noms insensibles à la casse) : `A`…`Z`, `0`…`9`, `F1`…`F12`, `Enter` (`Return`), `Escape` (`Esc`),
@@ -611,17 +625,21 @@ touches), `testcontrol` (serveur, SDL, session, réglages). Tests : `tests/testg
   - Stream : comme un vrai clavier (modificateurs enfoncés, touche, relâchés), scancode et keycode **US fixes**, jamais la
     disposition de ce PC : l'hôte reçoit le VK US et le lit avec sa disposition. `text` = une touche par caractère sur
     clavier US (Maj pour majuscules et symboles) ; un caractère sans touche (accent) est refusé et rien n'est envoyé.
+    ⚠️ C'est **la touche US** qui part : sur un hôte en AZERTY, `text {"s":"a"}` tape « q » et `"1"` tape « & », comme un
+    clavier QWERTY branché sur ce PC. Pour un texte exact, l'hôte de test doit être en disposition US.
     ⚠️ **Jamais de `SDL_TEXTINPUT` poussé** : sdl2-compat plante dessus (vérifié), et le client n'envoie que des touches.
 - **Souris du stream** : `which = kTestInjectedMouseId`, `state` = boutons tenus, position suivie par le canal (au centre
   de chaque nouvelle fenêtre de stream). Molette : `preciseX/Y` (sdl2-compat rend un `y` entier faux pour une molette
   poussée, `y = mouseY` observé ; le client lit `preciseY`), `mouseX/Y` = dernière position.
 - **Manette** : joystick virtuel SDL « LavArtemis Test Pad » (`SDL_JoystickAttachVirtualEx`, type GAMECONTROLLER, 6 axes,
   15 boutons, aucun VID/PID) : SDL en fait une manette avec un mapping automatique (`a:b0` … `dpright:b14`, `leftx:a0` …
-  `righttrigger:a5`), nom intact (vérifié). Pendant un stream seulement ; **`{attach:true}` d'abord**, puis laisser le
-  client l'ouvrir (~0,5 s) : un bouton pressé avant serait perdu. Boutons `a b x y back guide start leftstick rightstick
-  leftshoulder rightshoulder dpup dpdown dpleft dpright` ; axes `leftx lefty rightx righty` (-32768…32767),
-  `lefttrigger righttrigger` (0…32767). Le canal tient sa propre référence au sous-système joystick (la session le
-  quitte avant lui) ; manette retirée à la fin du stream (contrôle toutes les 500 ms), par `detach` et à `quit`.
+  `righttrigger:a5`), nom intact (vérifié). Pendant un stream seulement ; **`{attach:true}` d'abord** (un `button`/`axis`
+  sans manette est refusé, il ne la crée pas), puis laisser le client l'ouvrir (~0,5 s) : un bouton pressé avant serait
+  perdu. Boutons `a b x y back guide start leftstick rightstick leftshoulder rightshoulder dpup dpdown dpleft dpright` ;
+  axes `leftx lefty rightx righty` (-32768…32767), `lefttrigger righttrigger` (0…32767). Le canal tient sa propre
+  référence au sous-système joystick (la session le quitte avant lui, ce qui détacherait la manette sous nos pieds) ;
+  manette retirée à la fin du stream (contrôle toutes les 500 ms), par `detach` et à `quit`. Les deux
+  `SDL_assert(!SDL_WasInit(SDL_INIT_JOYSTICK))` d'`input.cpp` sont donc compilés hors du build de test seulement.
 - **`state.session`** : `Session::benchmarkSnapshot()` (cumul du stream, publié à chaque fenêtre de stats ≈ 1 s, 0
   avant) : `frames` envoyées par l'hôte, `decoded`, `rendered`, `dropped` = perdues réseau + jetées par le pacer ;
   `active` = une session existe (connexion comprise), `streaming` = sa boucle SDL tourne
@@ -636,10 +654,13 @@ touches), `testcontrol` (serveur, SDL, session, réglages). Tests : `tests/testg
   `HKCU\Software\LavArtemis Test` et les dossiers d'organisation de ce nom au-dessus de `AppConfigLocation`,
   `AppDataLocation`, `AppLocalDataLocation`, `CacheLocation` (nom revérifié avant chaque suppression), tout de suite
   **et** à la sortie (`atexit` : quitter réenregistre des réglages), puis quitte : relancer le client pour repartir de
-  zéro. Vérifié : `LavArtemis` et `LavArtemis Dev` intacts.
-- **`quit`** : répond, interrompt la session s'il y en a une, attend sa fin (30 s au plus), retire la manette, quitte.
-- **`screenshot`** : fenêtres Qt seulement (`grabWindow`) ; la fenêtre du stream se capture par `PrintWindow` sur son
-  `hwnd`.
+  zéro. Vérifié : `LavArtemis` et `LavArtemis Dev` intacts. ⚠️ Suppression par `removeTreeNoFollow` : un dossier racine
+  qui est un lien (jonction, lien symbolique) est refusé, et un lien à l'intérieur est supprimé comme lien, sans
+  descendre dans sa cible. Jamais `QDir::removeRecursively()`, qui suit les jonctions.
+- **`quit`** : répond, interrompt la session s'il y en a une, attend sa fin, retire la manette, quitte. ⚠️ Au bout de
+  30 s, il **cesse d'attendre** et quitte quand même, session encore en cours de nettoyage.
+- **`screenshot`** : fenêtres Qt seulement (`grabWindow`), chemin absolu sur un disque local (`\\serveur`, `//serveur`,
+  `\\?\` refusés) ; la fenêtre du stream se capture par `PrintWindow` sur son `hwnd`.
 
 ## 🎨 Interface v2 (LavArtemis Dev)
 

@@ -237,7 +237,11 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
     // SDL doesn't have a built-in mapping. By starting joystick first, we
     // can allow mapping manager to update the mappings before GC attach
     // events are generated.
+#ifndef LAV_TEST_BUILD
+    // (Test build: the command channel's virtual pad holds its own reference to the joystick
+    // subsystem for up to 500 ms after a stream, app/testctl/testcontrol.cpp attachPad())
     SDL_assert(!SDL_WasInit(SDL_INIT_JOYSTICK));
+#endif
     if (SDL_InitSubSystem(SDL_INIT_JOYSTICK) != 0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                      "SDL_InitSubSystem(SDL_INIT_JOYSTICK) failed: %s",
@@ -338,7 +342,9 @@ SdlInputHandler::~SdlInputHandler()
     SDL_assert(!SDL_WasInit(SDL_INIT_GAMECONTROLLER));
 
     SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
-    SDL_assert(!SDL_WasInit(SDL_INIT_JOYSTICK));
+#ifndef LAV_TEST_BUILD
+    SDL_assert(!SDL_WasInit(SDL_INIT_JOYSTICK)); // test build: the virtual pad may still hold it
+#endif
 
     // Return background event handling to off
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "0");

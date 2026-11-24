@@ -28,6 +28,7 @@
 #include <QTimer>
 #include <QtDebug>
 
+#include <algorithm>
 #include <cstdlib>
 #include <memory>
 
@@ -62,8 +63,8 @@ QStringList wipeTestOrganization()
             failures.append(folder);
             continue;
         }
-        QDir dir(folder);
-        if (dir.exists() && !dir.removeRecursively()) {
+        // Never QDir::removeRecursively(): it follows junctions out of the folder
+        if (!removeTreeNoFollow(folder)) {
             failures.append(folder);
         }
     }
@@ -232,6 +233,7 @@ bool TestControl::start()
 void TestControl::shutdown()
 {
     detachPad();
+    m_Pending.clear();
     if (m_Socket != nullptr) {
         m_Socket->flush();
         if (m_Socket->bytesToWrite() > 0) {
@@ -248,14 +250,16 @@ void TestControl::onNewConnection()
     while (m_Server->hasPendingConnections()) {
         QLocalSocket* socket = m_Server->nextPendingConnection();
         if (m_Socket != nullptr) {
+            // Connected first: disconnectFromServer() may emit disconnected() right away
+            connect(socket, &QLocalSocket::disconnected, socket, &QObject::deleteLater);
             socket->write(errorLine(QJsonValue(QJsonValue::Null), QStringLiteral("another client is already connected")));
             socket->flush();
             socket->disconnectFromServer();
-            connect(socket, &QLocalSocket::disconnected, socket, &QObject::deleteLater);
             continue;
         }
         m_Socket = socket;
         m_Buffer.clear();
+        m_Discarding = false;
         connect(socket, &QLocalSocket::readyRead, this, &TestControl::onReadyRead);
         connect(socket, &QLocalSocket::disconnected, this, &TestControl::onSocketDisconnected);
     }
@@ -267,17 +271,22 @@ void TestControl::onSocketDisconnected()
     if (socket == m_Socket) {
         m_Socket = nullptr;
         m_Buffer.clear();
+        // Requests of a client that left are dropped; one that is running answers nobody
+        m_Pending.erase(std::remove_if(m_Pending.begin(), m_Pending.end(),
+                                       [socket](const PendingLine& pending) { return pending.socket == socket; }),
+                        m_Pending.end());
     }
     if (socket != nullptr) {
         socket->deleteLater();
     }
 }
 
-void TestControl::sendLine(const QByteArray& line)
+void TestControl::sendLine(QLocalSocket* socket, const QByteArray& line)
 {
-    if (m_Socket != nullptr) {
-        m_Socket->write(line);
-        m_Socket->flush();
+    // Only to the client that sent the request, and only while it is still connected
+    if (socket != nullptr && socket == m_Socket) {
+        socket->write(line);
+        socket->flush();
     }
 }
 
@@ -288,44 +297,66 @@ void TestControl::onReadyRead()
     }
     m_Buffer += m_Socket->readAll();
 
-    // A command can run a nested event loop (QTest's processEvents): lines that arrive meanwhile
-    // wait for it, so that answers keep the order of the requests
-    if (m_Busy) {
-        return;
-    }
-
+    // Only splits lines: commands never run here, so that none can start inside another
+    // command's nested event loop (readyRead is delivered from any event loop)
     constexpr int kMaxLine = 1 << 20;
     for (;;) {
         const int newline = m_Buffer.indexOf('\n');
+        if (m_Discarding) {
+            // The rest of a line that was too long: dropped up to its end, no second error
+            if (newline < 0) {
+                m_Buffer.clear();
+                break;
+            }
+            m_Buffer.remove(0, newline + 1);
+            m_Discarding = false;
+            continue;
+        }
         if (newline < 0) {
             if (m_Buffer.size() > kMaxLine) {
                 m_Buffer.clear();
-                sendLine(errorLine(QJsonValue(QJsonValue::Null), QStringLiteral("line too long")));
+                m_Discarding = true;
+                sendLine(m_Socket, errorLine(QJsonValue(QJsonValue::Null), QStringLiteral("line too long")));
             }
             break;
         }
         const QByteArray line = m_Buffer.left(newline).trimmed();
         m_Buffer.remove(0, newline + 1);
-        if (line.isEmpty()) {
-            continue;
+        if (!line.isEmpty()) {
+            m_Pending.append({m_Socket, line});
         }
-
-        m_Busy = true;
-        const QByteArray response = m_Dispatcher.handleLine(line);
-        m_Busy = false;
-        sendLine(response);
-
-        if (m_AfterReply) {
-            auto action = std::move(m_AfterReply);
-            m_AfterReply = nullptr;
-            action();
-        }
-        if (m_Socket == nullptr) {
-            break;
-        }
-        // Data that arrived during the command
-        m_Buffer += m_Socket->readAll();
     }
+    scheduleNext();
+}
+
+void TestControl::scheduleNext()
+{
+    if (!m_Pending.isEmpty() && !m_Scheduled) {
+        m_Scheduled = true;
+        QMetaObject::invokeMethod(this, &TestControl::runNext, Qt::QueuedConnection);
+    }
+}
+
+void TestControl::runNext()
+{
+    m_Scheduled = false;
+    // Delivered from a nested event loop of the running command: it waits for that command,
+    // which schedules the next one when it ends
+    if (m_Dispatcher.isRunning() || m_Pending.isEmpty()) {
+        return;
+    }
+
+    const PendingLine pending = m_Pending.takeFirst();
+    const QByteArray response = m_Dispatcher.handleLine(pending.line);
+    sendLine(pending.socket, response);
+
+    if (m_AfterReply) {
+        auto action = std::move(m_AfterReply);
+        m_AfterReply = nullptr;
+        action();
+    }
+    // One command per turn of the event loop: the GUI updates between commands
+    scheduleNext();
 }
 
 void TestControl::registerCommands()
@@ -463,6 +494,12 @@ bool TestControl::cmdClick(const QJsonObject& args, QJsonObject& result, QString
         if (!UiProbe::find(UiProbe::collect(windows), args, item, error)) {
             return false;
         }
+        if (QQuickItem* cover = UiProbe::coveringItem(windows, item)) {
+            error = QStringLiteral("covered: a %1%2 takes the click at its centre")
+                        .arg(UiProbe::typeName(cover),
+                             cover->objectName().isEmpty() ? QString() : " (" + cover->objectName() + ")");
+            return false;
+        }
         window = windows[item.window];
         pos = item.rect.center();
         result["item"] = UiProbe::toJson(item);
@@ -578,6 +615,10 @@ bool TestControl::cmdWheel(const QJsonObject& args, QJsonObject& result, QString
         pos = (args.contains("x") || args.contains("y"))
                   ? QPointF(args.value("x").toDouble(), args.value("y").toDouble())
                   : QPointF(window->width() / 2.0, window->height() / 2.0);
+        if (pos.x() < 0 || pos.y() < 0 || pos.x() >= window->width() || pos.y() >= window->height()) {
+            error = QStringLiteral("x/y outside the window (%1x%2)").arg(window->width()).arg(window->height());
+            return false;
+        }
     }
     result["target"] = "qt";
     UiProbe::wheel(window, pos, QPoint(qRound(dx * 120), qRound(dy * 120)));
@@ -652,16 +693,24 @@ bool TestControl::cmdGamepad(const QJsonObject& args, QJsonObject& result, QStri
         return true;
     }
 
-    const bool wasAttached = m_Pad != nullptr;
-    if (!attachPad(error)) {
+    if (args.value("attach").toBool(false)) {
+        const bool wasAttached = m_Pad != nullptr;
+        if (!attachPad(error)) {
+            return false;
+        }
+        result["pad"] = kTestGamepadName;
+        result["instance"] = m_PadInstance;
+        result["attached"] = !wasAttached;
+        return true;
+    }
+    // A press sent before the client has opened the pad would be lost: attaching is its own step
+    if (m_Pad == nullptr) {
+        error = QStringLiteral("no pad: send {\"cmd\":\"gamepad\",\"attach\":true} first, then give the client "
+                               "about 0.5 s to open it");
         return false;
     }
     result["pad"] = kTestGamepadName;
     result["instance"] = m_PadInstance;
-    result["attached"] = !wasAttached;
-    if (args.value("attach").toBool(false)) {
-        return true;
-    }
 
     if (args.contains("button")) {
         const QString name = args.value("button").toString();
@@ -705,8 +754,8 @@ bool TestControl::cmdGamepad(const QJsonObject& args, QJsonObject& result, QStri
 bool TestControl::cmdScreenshot(const QJsonObject& args, QJsonObject& result, QString& error)
 {
     const QString path = args.value("path").toString();
-    if (path.isEmpty() || !QDir::isAbsolutePath(path)) {
-        error = QStringLiteral("path must be absolute");
+    if (!isLocalAbsolutePath(path)) {
+        error = QStringLiteral("path must be absolute, on a local drive (no network path)");
         return false;
     }
     QQuickWindow* window = qtWindowArg(args.contains("window") ? args : QJsonObject{{"window", 0}}, error);

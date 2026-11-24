@@ -72,9 +72,16 @@ QByteArray Dispatcher::handleLine(const QByteArray& line)
     if (it == m_Handlers.constEnd()) {
         return errorLine(request.id, QStringLiteral("unknown command \"%1\"").arg(request.cmd));
     }
+    if (m_Running) {
+        // Called from a nested event loop of the running command: the caller queues instead
+        return errorLine(request.id, QStringLiteral("another command is running"));
+    }
 
     QJsonObject result;
-    if (!it.value()(request.args, result, error)) {
+    m_Running = true;
+    const bool ok = it.value()(request.args, result, error);
+    m_Running = false;
+    if (!ok) {
         return errorLine(request.id, error.isEmpty() ? QStringLiteral("failed") : error);
     }
     return okLine(request.id, result);
@@ -326,6 +333,62 @@ QString organizationFolder(const QString& standardPath, const QString& organizat
         current = parent;
     }
     return {};
+}
+
+namespace {
+
+bool isLink(const QFileInfo& info)
+{
+    // A junction is not a symbolic link for Qt, and both look like the folder they point to
+    return info.isSymLink() || info.isJunction();
+}
+
+bool removeEntry(const QFileInfo& info)
+{
+    const QString path = info.absoluteFilePath();
+    if (isLink(info)) {
+        // The link itself: RemoveDirectory on a directory link / junction, DeleteFile otherwise
+        return QDir().rmdir(path) || QFile::remove(path);
+    }
+    if (info.isDir()) {
+        bool ok = true;
+        const QFileInfoList entries = QDir(path).entryInfoList(QDir::AllEntries | QDir::NoDotAndDotDot |
+                                                               QDir::Hidden | QDir::System);
+        for (const QFileInfo& entry : entries) {
+            ok = removeEntry(entry) && ok;
+        }
+        return ok && QDir().rmdir(path);
+    }
+    QFile::setPermissions(path, QFile::permissions(path) | QFileDevice::WriteOwner);
+    return QFile::remove(path);
+}
+
+}
+
+bool removeTreeNoFollow(const QString& path)
+{
+    const QFileInfo root(path);
+    if (isLink(root)) {
+        return false;
+    }
+    if (!root.exists()) {
+        return true;
+    }
+    return removeEntry(root);
+}
+
+bool isLocalAbsolutePath(const QString& path)
+{
+    if (path.startsWith(QLatin1String("//")) || path.startsWith(QLatin1String("\\\\"))) {
+        return false;
+    }
+#ifdef Q_OS_WIN32
+    // A drive letter, then a separator
+    return path.size() >= 3 && path[0].isLetter() && path[0].unicode() < 128 && path[1] == ':' &&
+           (path[2] == '/' || path[2] == '\\');
+#else
+    return QDir::isAbsolutePath(path);
+#endif
 }
 
 QString registryKeyFor(const QString& organization)

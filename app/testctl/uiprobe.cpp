@@ -4,7 +4,11 @@
 #include <QKeyEvent>
 #include <QQuickItem>
 #include <QQuickWindow>
-#include <QTest>
+#include <QElapsedTimer>
+#include <QMouseEvent>
+#include <QSet>
+
+#include <algorithm>
 #include <QWheelEvent>
 
 namespace UiProbe {
@@ -46,7 +50,7 @@ QString typeName(const QObject* object)
 namespace {
 
 void visit(QQuickItem* item, int windowIndex, qreal parentOpacity, const QRectF& clip, bool textOnly,
-           QList<Item>& out)
+           const QSet<QQuickItem*>& focusChain, QList<Item>& out)
 {
     if (!item->isVisible()) {
         return;
@@ -69,7 +73,7 @@ void visit(QQuickItem* item, int windowIndex, qreal parentOpacity, const QRectF&
         if (text.isValid() && text.canConvert<QString>()) {
             entry.text = text.toString();
         }
-        entry.focus = item->hasActiveFocus();
+        entry.focus = focusChain.contains(item);
         entry.enabled = item->isEnabled();
         if (!textOnly || !entry.text.isEmpty() || !entry.objectName.isEmpty()) {
             out.append(entry);
@@ -80,7 +84,7 @@ void visit(QQuickItem* item, int windowIndex, qreal parentOpacity, const QRectF&
     const QRectF childClip = item->clip() ? clip.intersected(sceneRect) : clip;
     const QList<QQuickItem*> children = item->childItems();
     for (QQuickItem* child : children) {
-        visit(child, windowIndex, opacity, childClip, textOnly, out);
+        visit(child, windowIndex, opacity, childClip, textOnly, focusChain, out);
     }
 }
 
@@ -94,7 +98,16 @@ QList<Item> collect(const QList<QQuickWindow*>& windows, bool textOnly)
         if (window == nullptr || window->contentItem() == nullptr) {
             continue;
         }
-        visit(window->contentItem(), i, 1.0, QRectF(0, 0, window->width(), window->height()), textOnly, items);
+        // Where keys go: keyTarget() and its ancestors that have the focus (focus scopes)
+        QSet<QQuickItem*> focusChain;
+        QQuickItem* target = keyTarget(window);
+        for (QQuickItem* chain = target; chain != nullptr; chain = chain->parentItem()) {
+            if (chain == target || chain->hasFocus()) {
+                focusChain.insert(chain);
+            }
+        }
+        visit(window->contentItem(), i, 1.0, QRectF(0, 0, window->width(), window->height()), textOnly,
+              focusChain, items);
     }
     return items;
 }
@@ -153,6 +166,71 @@ bool find(const QList<Item>& items, const QJsonObject& spec, Item& out, QString&
     return true;
 }
 
+namespace {
+
+bool isRelated(QQuickItem* a, QQuickItem* b)
+{
+    for (QQuickItem* up = a; up != nullptr; up = up->parentItem()) {
+        if (up == b) return true;
+    }
+    for (QQuickItem* up = b; up != nullptr; up = up->parentItem()) {
+        if (up == a) return true;
+    }
+    return false;
+}
+
+// Topmost first: children above the item (z >= 0, last painted first), the item, then the
+// children below it (z < 0). Stops at the target's family (reachable) or at an unrelated item
+// that takes mouse buttons (covering).
+bool hitTest(QQuickItem* item, const QPointF& scenePos, QQuickItem* target, QQuickItem*& cover)
+{
+    if (!item->isVisible() || item->opacity() <= 0) {
+        return false;
+    }
+    const QPointF local = item->mapFromScene(scenePos);
+    const bool inside = QRectF(0, 0, item->width(), item->height()).contains(local);
+    if (item->clip() && !inside) {
+        return false;
+    }
+
+    QList<QQuickItem*> children = item->childItems();
+    std::stable_sort(children.begin(), children.end(),
+                     [](QQuickItem* a, QQuickItem* b) { return a->z() < b->z(); });
+    for (int i = children.size() - 1; i >= 0; i--) {
+        if (children[i]->z() >= 0 && hitTest(children[i], scenePos, target, cover)) {
+            return true;
+        }
+    }
+    if (inside) {
+        if (isRelated(item, target)) {
+            cover = nullptr;
+            return true;
+        }
+        if (item->isEnabled() && item->acceptedMouseButtons() != Qt::NoButton) {
+            cover = item;
+            return true;
+        }
+    }
+    for (int i = children.size() - 1; i >= 0; i--) {
+        if (children[i]->z() < 0 && hitTest(children[i], scenePos, target, cover)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+}
+
+QQuickItem* coveringItem(const QList<QQuickWindow*>& windows, const Item& item)
+{
+    if (item.window < 0 || item.window >= windows.size() || item.item == nullptr) {
+        return nullptr;
+    }
+    QQuickItem* cover = nullptr;
+    hitTest(windows[item.window]->contentItem(), item.rect.center(), item.item, cover);
+    return cover;
+}
+
 QQuickWindow* defaultInputWindow(const QList<QQuickWindow*>& windows)
 {
     for (QQuickWindow* window : windows) {
@@ -165,8 +243,19 @@ QQuickWindow* defaultInputWindow(const QList<QQuickWindow*>& windows)
 
 void click(QQuickWindow* window, const QPointF& pos, Qt::MouseButton button)
 {
-    // Synthesized through QWindowSystemInterface: the OS cursor stays where the user left it
-    QTest::mouseClick(window, button, Qt::NoModifier, pos.toPoint());
+    // Sent straight to the window, like wheel(): no QTest (it ends with processEvents(), and a
+    // nested event loop could start a whole stream inside the command), no OS cursor move
+    static QElapsedTimer clock;
+    if (!clock.isValid()) {
+        clock.start();
+    }
+    const QPointF global = window->mapToGlobal(pos);
+    QMouseEvent press(QEvent::MouseButtonPress, pos, pos, global, button, button, Qt::NoModifier);
+    press.setTimestamp(static_cast<quint64>(clock.elapsed()));
+    QCoreApplication::sendEvent(window, &press);
+    QMouseEvent release(QEvent::MouseButtonRelease, pos, pos, global, button, Qt::NoButton, Qt::NoModifier);
+    release.setTimestamp(static_cast<quint64>(clock.elapsed()) + 1);
+    QCoreApplication::sendEvent(window, &release);
 }
 
 QQuickItem* keyTarget(QQuickWindow* window)

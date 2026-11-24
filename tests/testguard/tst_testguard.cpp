@@ -21,6 +21,12 @@
 #include <cstdio>
 #include <memory>
 
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QProcess>
+#include <QTemporaryDir>
+
 namespace {
 int failures = 0;
 
@@ -87,6 +93,18 @@ void protocolTests()
 
     r = response(dispatcher.handleLine(R"({"id": 4, "cmd": "echo", "say": "salut"})"));
     check(r["id"] == 4 && r["ok"] == true && r["said"] == "salut", "commandResultIsMerged");
+
+    // No command runs inside another one (a nested event loop of the first)
+    QJsonObject inner;
+    dispatcher.add("nest", [&dispatcher, &inner](const QJsonObject&, QJsonObject& result, QString&) {
+        check(dispatcher.isRunning(), "dispatcherRunningDuringCommand");
+        inner = response(dispatcher.handleLine(R"({"id": 6, "cmd": "echo", "say": "x"})"));
+        result["done"] = true;
+        return true;
+    });
+    r = response(dispatcher.handleLine(R"({"id": 5, "cmd": "nest"})"));
+    check(r["ok"] == true && inner["id"] == 6 && inner["ok"] == false, "nestedCommandRefused");
+    check(!dispatcher.isRunning(), "dispatcherIdleAfterCommand");
 
     r = response(dispatcher.handleLine(R"({"id": "abc", "cmd": "fail"})"));
     check(r["id"] == "abc" && r["ok"] == false && r["error"] == "no luck", "handlerErrorIsReported");
@@ -182,6 +200,41 @@ void protocolTests()
     check(registryKeyFor("LavArtemis Test") == "Software\\LavArtemis Test", "registryKeyForTestOrg");
     check(registryKeyFor("LavArtemis").isEmpty() && registryKeyFor("LavArtemis Dev").isEmpty(),
           "registryKeyRefusedForOthers");
+
+    // screenshot paths: absolute and local only
+    check(isLocalAbsolutePath("C:/Users/x/shot.png"), "localAbsolutePathAccepted");
+    check(!isLocalAbsolutePath("shot.png"), "relativePathRefused");
+    check(!isLocalAbsolutePath("//server/share/shot.png"), "uncSlashPathRefused");
+    check(!isLocalAbsolutePath("\\\\server\\share\\shot.png"), "uncBackslashPathRefused");
+    check(!isLocalAbsolutePath("\\\\?\\C:\\shot.png"), "devicePathRefused");
+}
+
+// reset deletes a tree without ever following a junction or symbolic link out of it
+void removeTreeTests()
+{
+#ifdef Q_OS_WIN32
+    QTemporaryDir tree;
+    QTemporaryDir victim;
+    QFile keep(victim.filePath("keep.txt"));
+    check(keep.open(QIODevice::WriteOnly), "victimFileCreated");
+    keep.write("keep");
+    keep.close();
+    QDir(tree.path()).mkpath("sub/deeper");
+    QFile inside(tree.filePath("sub/deeper/file.txt"));
+    check(inside.open(QIODevice::WriteOnly), "treeFileCreated");
+    inside.close();
+    const QString link = QDir::toNativeSeparators(tree.filePath("sub/link"));
+    const int made = QProcess::execute("cmd", {"/c", "mklink", "/J", link, QDir::toNativeSeparators(victim.path())});
+    check(made == 0 && QFileInfo(tree.filePath("sub/link")).isJunction(), "junctionCreated");
+
+    // A junction as the root is refused, and its target untouched
+    check(!TestProtocol::removeTreeNoFollow(tree.filePath("sub/link")), "junctionRootRefused");
+    check(QFile::exists(victim.filePath("keep.txt")), "junctionRootTargetKept");
+
+    check(TestProtocol::removeTreeNoFollow(tree.path()), "treeRemoved");
+    check(!QFileInfo::exists(tree.path()), "treeGone");
+    check(QFile::exists(victim.filePath("keep.txt")), "junctionTargetKept");
+#endif
 }
 
 const char* kScene = R"QML(
@@ -218,6 +271,8 @@ Window {
         TextInput { id: input; objectName: "input"; anchors.fill: parent; focus: true }
     }
     Text { text: "Bonjour"; x: 40; y: 260 }
+    Text { text: "Covered"; x: 250; y: 200 }
+    MouseArea { objectName: "cover"; x: 240; y: 190; width: 120; height: 40 }
 }
 )QML";
 
@@ -276,7 +331,19 @@ void uiTests()
     check(UiProbe::find(items, QJsonObject{{"objectName", "bonjourArea"}}, area, error) &&
           UiProbe::typeName(area.item) == "MouseArea", "findByObjectName");
 
+    check(UiProbe::coveringItem(windows, bonjour) == nullptr, "bonjourNotCovered");
+    UiProbe::Item covered;
+    check(UiProbe::find(items, QJsonObject{{"text", "Covered"}}, covered, error), "findCovered");
+    QQuickItem* cover = UiProbe::coveringItem(windows, covered);
+    check(cover != nullptr && cover->objectName() == "cover", "coveredTextReportsItsCover");
+
+    // The click must not pump the event loop: a command never runs inside another one
+    bool queuedRan = false;
+    QMetaObject::invokeMethod(QCoreApplication::instance(), [&queuedRan]() { queuedRan = true; }, Qt::QueuedConnection);
     UiProbe::click(window, bonjour.rect.center(), Qt::LeftButton);
+    check(!queuedRan, "clickDoesNotRunTheEventLoop");
+    QCoreApplication::processEvents();
+    check(queuedRan, "queuedCallRunsAfterwards");
     check(root->property("clicks").toInt() == 1, "clickOnTextTriggersParentMouseArea");
     UiProbe::click(window, area.rect.center(), Qt::RightButton);
     check(root->property("rightClicks").toInt() == 1, "rightClick");
@@ -292,6 +359,17 @@ void uiTests()
     thief.requestActivate();
     QCoreApplication::processEvents();
     check(window->activeFocusItem() == nullptr, "sceneWindowLostActiveFocus");
+    {
+        // tree.focus: the focus chain (where keys go), not the active focus nobody has
+        bool inputFocus = false;
+        bool bonjourFocus = true;
+        for (const UiProbe::Item& item : UiProbe::collect(windows)) {
+            if (item.objectName == "input") inputFocus = item.focus;
+            if (item.text == "Bonjour") bonjourFocus = bonjourFocus && item.focus;
+        }
+        check(inputFocus, "treeFocusFollowsTheFocusChain");
+        check(!bonjourFocus, "treeFocusFalseOutsideTheChain");
+    }
     UiProbe::typeText(window, "abc");
     check(root->property("typed").toString() == "abc", "textTypedIntoFocusedInput");
     UiProbe::key(window, Qt::Key_Backspace, Qt::NoModifier, UiProbe::KeyState::Click);
@@ -355,6 +433,7 @@ int main(int argc, char** argv)
     QGuiApplication app(argc, argv);
     uiTests();
     pageTests();
+    removeTreeTests();
 
     if (failures == 0) {
         std::printf("tst_testguard: all passed\n");

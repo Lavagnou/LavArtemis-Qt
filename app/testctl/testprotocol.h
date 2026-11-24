@@ -47,8 +47,13 @@ public:
 
     QStringList commands() const;
 
+    // True while a command runs. handleLine() refuses to start a command then: a handler that
+    // runs a nested event loop must never see another command execute inside it.
+    bool isRunning() const { return m_Running; }
+
 private:
     QHash<QString, Handler> m_Handlers;
+    bool m_Running = false;
 };
 
 // A key by name. Values are plain ints so that this file needs neither Qt GUI nor SDL:
@@ -101,5 +106,13 @@ QString organizationFolder(const QString& standardPath, const QString& organizat
 
 // "Software\\LavArtemis Test" for the test organisation, empty for any other.
 QString registryKeyFor(const QString& organization);
+
+// Deletes `path` and everything under it without following links: a symbolic link or a
+// junction inside is removed as a link, its target untouched. False (nothing deleted) when
+// `path` itself is a link; false when something could not be removed.
+bool removeTreeNoFollow(const QString& path);
+
+// `screenshot` paths: absolute and on a local drive (no \\server\share, //server, \\?\ ...)
+bool isLocalAbsolutePath(const QString& path);
 
 }

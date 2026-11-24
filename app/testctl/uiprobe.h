@@ -5,8 +5,9 @@
 // small QML scene.
 //
 // Coordinates are window coordinates in logical (device-independent) pixels, those of
-// QQuickItem::mapToScene and QTest; a screenshot is in device pixels (x devicePixelRatio).
-// Input is synthesized (QTest / QCoreApplication::sendEvent): the real cursor never moves and
+// QQuickItem::mapToScene; a screenshot is in device pixels (x devicePixelRatio).
+// Input is sent to the window or item (QCoreApplication::sendEvent): no event loop runs inside
+// a call (no QTest, whose helpers end with processEvents()), the real cursor never moves and
 // no window is activated.
 
 #include <QJsonArray>
@@ -30,7 +31,7 @@ struct Item
     QString type;
     QString objectName;
     QString text;
-    bool focus = false;           // active focus
+    bool focus = false;           // on the focus chain: keyTarget() or a focused ancestor of it
     bool enabled = true;
 };
 
@@ -52,11 +53,16 @@ QJsonObject toJson(const Item& item);
 // end). False with an error when nothing matches.
 bool find(const QList<Item>& items, const QJsonObject& spec, Item& out, QString& error);
 
+// Whether a click at the centre of item.rect reaches the item: the topmost enabled item that
+// takes mouse buttons at that point (paint order: z, then child order) must be the item, one of
+// its ancestors or descendants, or there must be none. Returns that covering item, else nullptr.
+QQuickItem* coveringItem(const QList<QQuickWindow*>& windows, const Item& item);
+
 // The window that takes `key`/`text`/`wheel` when none is named: the visible in-stream quick
 // menu (a Qt::Tool window) if any, else the first window.
 QQuickWindow* defaultInputWindow(const QList<QQuickWindow*>& windows);
 
-// A click (press + release) at pos. QTest treats (0, 0) as "the centre of the window".
+// A click (press + release) at pos, delivered synchronously, without running the event loop.
 void click(QQuickWindow* window, const QPointF& pos, Qt::MouseButton button);
 
 // The item that takes `key` / `text`: the active focus item, or, in a window that never had
