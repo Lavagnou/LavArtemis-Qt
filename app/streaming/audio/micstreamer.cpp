@@ -95,6 +95,10 @@ bool MicStreamer::start(const QString& deviceName)
             }
             onSamples(frame.data(), kFrameSamples);
             next += std::chrono::milliseconds(20);
+            auto now = std::chrono::steady_clock::now();
+            if (now - next > std::chrono::milliseconds(100)) {
+                next = now; // fell far behind (PC busy): re-anchor, no catch-up burst
+            }
             std::this_thread::sleep_until(next);
         }
     });

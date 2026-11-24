@@ -22,6 +22,48 @@
 #include <Limelight.h>
 #include "SDL_compat.h"
 #include <SDL_syswm.h>
+
+namespace {
+#ifdef LAV_TEST_BUILD
+constexpr bool kTestBuild = true;
+
+#ifdef Q_OS_WIN32
+// Test build: the stream window must never become the foreground window. Applied after every
+// (re)creation of the native window; harmless to repeat.
+void lavTestMakeNonActivating(SDL_Window* window)
+{
+    SDL_SysWMinfo info;
+    SDL_VERSION(&info.version);
+    if (window != nullptr && SDL_GetWindowWMInfo(window, &info) && info.subsystem == SDL_SYSWM_WINDOWS) {
+        HWND hwnd = info.info.win.window;
+        LONG_PTR style = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+        if (!(style & WS_EX_NOACTIVATE)) {
+            SetWindowLongPtr(hwnd, GWL_EXSTYLE, style | WS_EX_NOACTIVATE);
+        }
+    }
+}
+
+void lavTestShowNoActivate(SDL_Window* window)
+{
+    lavTestMakeNonActivating(window);
+    SDL_SysWMinfo info;
+    SDL_VERSION(&info.version);
+    if (SDL_GetWindowWMInfo(window, &info) && info.subsystem == SDL_SYSWM_WINDOWS) {
+        ShowWindow(info.info.win.window, SW_SHOWNOACTIVATE);
+    }
+    if (!(SDL_GetWindowFlags(window) & SDL_WINDOW_SHOWN)) {
+        // SDL has not seen the show yet: the decoder is created on its SHOWN event
+        SDL_ShowWindow(window);
+    }
+}
+#else
+void lavTestMakeNonActivating(SDL_Window*) {}
+void lavTestShowNoActivate(SDL_Window* window) { SDL_ShowWindow(window); }
+#endif
+#else
+constexpr bool kTestBuild = false;
+#endif
+}
 #include "utils.h"
 
 #ifdef HAVE_FFMPEG
@@ -1121,12 +1163,8 @@ bool Session::initialize(QQuickWindow* qtWindow)
     // stream becomes the arrangement's bounding box, and the host emulates one display per
     // monitor inside it. This has to happen before the window is sized, since the window
     // then has to cover the arrangement rather than one screen.
-#ifdef LAV_TEST_BUILD
     // Test build: no borderless always-on-top window spanning the monitors
-    if (false) {
-#else
-    if (m_Preferences->useVirtualDisplay && m_Preferences->useMultiDisplay) {
-#endif
+    if (!kTestBuild && m_Preferences->useVirtualDisplay && m_Preferences->useMultiDisplay) {
         if (m_Preferences->enableResolutionScaling && m_Preferences->resolutionScaleFactor != 100) {
             // Scaling changes every display's size and therefore every origin in the
             // layout, so the host refuses the combination. Say so here rather than let it
@@ -2771,12 +2809,8 @@ void Session::exec()
     // Never when the window has to span the monitor layout: it is windowed only because
     // fullscreen is a single-output mode, and a maximized window is just as much a
     // single-output mode -- it would snap straight back onto one screen.
-#ifdef LAV_TEST_BUILD
     // Test build: do not inherit a maximized or minimized state from the GUI window
-    if (false) {
-#else
-    if (!m_IsFullScreen && !m_MultiDisplayActive && m_QtWindow != nullptr) {
-#endif
+    if (!kTestBuild && !m_IsFullScreen && !m_MultiDisplayActive && m_QtWindow != nullptr) {
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
         // Qt 5.10+ can propagate multiple states together
         if (m_QtWindow->windowStates() & Qt::WindowMaximized) {
@@ -2805,11 +2839,15 @@ void Session::exec()
 #endif
 
 #ifdef LAV_TEST_BUILD
-    // Test build: show the stream window without activating it (SDL2 here is sdl2-compat over
-    // SDL3: the hint becomes SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN=0, i.e. SW_SHOWNOACTIVATE),
-    // and never force-raise it.
+    // Test build: the stream window is created hidden and shown without activation. SDL2 here is
+    // sdl2-compat over SDL3, which has no rename for the SDL2 NO_ACTIVATION hint: the SDL3 hints
+    // are set by name. Windows re-created by SDL later (renderer creation) honour them too.
+    SDL_SetHint("SDL_WINDOW_ACTIVATE_WHEN_SHOWN", "0");
+    SDL_SetHint("SDL_WINDOW_ACTIVATE_WHEN_RAISED", "0");
     SDL_SetHint(SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN, "1");
     SDL_SetHint(SDL_HINT_FORCE_RAISEWINDOW, "0");
+    defaultWindowFlags |= SDL_WINDOW_HIDDEN;
+    windowName += " â Test";
 #endif
 
     m_Window = SDL_CreateWindow(windowName.c_str(),
@@ -2844,17 +2882,10 @@ void Session::exec()
 
     m_InputHandler->setWindow(m_Window);
 
-#if defined(LAV_TEST_BUILD) && defined(Q_OS_WIN32)
-    // Test build: the window can never become the foreground window, not even by a click
-    // (WS_EX_NOACTIVATE), so it cannot take the keyboard focus from what the user is doing.
-    {
-        SDL_SysWMinfo noActivateInfo;
-        SDL_VERSION(&noActivateInfo.version);
-        if (SDL_GetWindowWMInfo(m_Window, &noActivateInfo) && noActivateInfo.subsystem == SDL_SYSWM_WINDOWS) {
-            HWND hwnd = noActivateInfo.info.win.window;
-            SetWindowLongPtr(hwnd, GWL_EXSTYLE, GetWindowLongPtr(hwnd, GWL_EXSTYLE) | WS_EX_NOACTIVATE);
-        }
-    }
+#ifdef LAV_TEST_BUILD
+    // Test build: WS_EX_NOACTIVATE first (the window can never become the foreground window,
+    // not even by a click), then show it with SW_SHOWNOACTIVATE.
+    lavTestShowNoActivate(m_Window);
 #endif
 
     // Set window geometry for QuickMenuManager
@@ -3085,6 +3116,9 @@ void Session::exec()
                 break;
             case SDL_WINDOWEVENT_RESTORED:
             case SDL_WINDOWEVENT_SHOWN:
+                if (kTestBuild) {
+                    lavTestMakeNonActivating(m_Window);
+                }
                 notifyDecoderWindowState(WINDOW_STATE_CHANGE_RESTORED);
                 break;
             }
@@ -3307,6 +3341,12 @@ void Session::exec()
                 goto DispatchDeferredCleanup;
             }
 
+            // The renderer may have re-created the native window (SDL_RecreateWindow): its
+            // style is new, so the test build's no-activate style is applied again.
+            if (kTestBuild) {
+                lavTestMakeNonActivating(m_Window);
+            }
+
             // As of SDL 2.0.12, SDL_RecreateWindow() doesn't carry over mouse capture
             // or mouse hiding state to the new window. By capturing after the decoder
             // is set up, this ensures the window re-creation is already done.
@@ -3427,12 +3467,8 @@ DispatchDeferredCleanup:
     // routinely maximize the streaming window simply to view the stream
     // in a larger window, but they don't necessarily want the UI in such
     // a large window.
-#ifdef LAV_TEST_BUILD
     // Test build: never touch the GUI window's state from the stream window
-    if (false) {
-#else
-    if (!m_IsFullScreen && m_QtWindow != nullptr && m_Window != nullptr) {
-#endif
+    if (!kTestBuild && !m_IsFullScreen && m_QtWindow != nullptr && m_Window != nullptr) {
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
         if (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_MINIMIZED) {
             m_QtWindow->setWindowStates(m_QtWindow->windowStates() | Qt::WindowMinimized);

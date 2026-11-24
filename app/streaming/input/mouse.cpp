@@ -1,11 +1,19 @@
 #include "input.h"
 
 #include <Limelight.h>
+#ifdef LAV_TEST_BUILD
+#include "testinput.h"
+#endif
 #include "SDL_compat.h"
 #include "streaming/streamutils.h"
 
 void SdlInputHandler::handleMouseButtonEvent(SDL_MouseButtonEvent* event)
 {
+#ifdef LAV_TEST_BUILD
+    if (event->which != kTestInjectedMouseId) {
+        return; // test build: only injected mouse input reaches the host
+    }
+#endif
     int button;
 
     if (event->which == SDL_TOUCH_MOUSEID) {
@@ -70,6 +78,11 @@ void SdlInputHandler::handleMouseButtonEvent(SDL_MouseButtonEvent* event)
 
 void SdlInputHandler::handleMouseMotionEvent(SDL_MouseMotionEvent* event)
 {
+#ifdef LAV_TEST_BUILD
+    if (event->which != kTestInjectedMouseId) {
+        return;
+    }
+#endif
     if (!isCaptureActive()) {
         // Not capturing
         return;
@@ -162,6 +175,11 @@ void SdlInputHandler::handleMouseMotionEvent(SDL_MouseMotionEvent* event)
 
 void SdlInputHandler::handleMouseWheelEvent(SDL_MouseWheelEvent* event)
 {
+#ifdef LAV_TEST_BUILD
+    if (event->which != kTestInjectedMouseId) {
+        return;
+    }
+#endif
     if (!isCaptureActive()) {
         // Not capturing
         return;
@@ -266,6 +284,9 @@ bool SdlInputHandler::isMouseInVideoRegion(int mouseX, int mouseY, int windowWid
 
 void SdlInputHandler::updatePointerRegionLock()
 {
+#ifdef LAV_TEST_BUILD
+    return; // test build: never confine the user's cursor
+#endif
     // Pointer region lock is irrelevant in relative mouse mode
     if (SDL_GetRelativeMouseMode()) {
         return;

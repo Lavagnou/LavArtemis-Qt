@@ -1,6 +1,9 @@
 #include "streaming/session.h"
 
 #include <Limelight.h>
+#ifdef LAV_TEST_BUILD
+#include "testinput.h"
+#endif
 #include "SDL_compat.h"
 #include "settings/mappingmanager.h"
 
@@ -507,6 +510,15 @@ void SdlInputHandler::handleControllerDeviceEvent(SDL_ControllerDeviceEvent* eve
         char guidStr[33];
         uint32_t hapticCaps;
 
+#ifdef LAV_TEST_BUILD
+        // Test build: only the orchestrator's virtual pad; physical controllers are never opened
+        {
+            const char* deviceName = SDL_GameControllerNameForIndex(event->which);
+            if (deviceName == nullptr || strcmp(deviceName, kTestGamepadName) != 0) {
+                return;
+            }
+        }
+#endif
         controller = SDL_GameControllerOpen(event->which);
         if (controller == NULL) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
@@ -782,6 +794,14 @@ void SdlInputHandler::handleJoystickArrivalEvent(SDL_JoyDeviceEvent* event)
 {
     SDL_assert(event->type == SDL_JOYDEVICEADDED);
 
+#ifdef LAV_TEST_BUILD
+    {
+        const char* deviceName = SDL_JoystickNameForIndex(event->which);
+        if (deviceName == nullptr || strcmp(deviceName, kTestGamepadName) != 0) {
+            return; // test build: never even open physical joysticks
+        }
+    }
+#endif
     if (!SDL_IsGameController(event->which)) {
         char guidStr[33];
         SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(event->which),
@@ -1011,6 +1031,14 @@ int SdlInputHandler::getAttachedGamepadMask()
     count = mask = 0;
     int numJoysticks = SDL_NumJoysticks();
     for (int i = 0; i < numJoysticks; i++) {
+#ifdef LAV_TEST_BUILD
+        {
+            const char* deviceName = SDL_JoystickNameForIndex(i);
+            if (deviceName == nullptr || strcmp(deviceName, kTestGamepadName) != 0) {
+                continue; // test build: physical pads are not counted
+            }
+        }
+#endif
         if (SDL_IsGameController(i)) {
             char guidStr[33];
             SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(i),

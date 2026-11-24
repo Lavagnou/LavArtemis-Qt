@@ -528,7 +528,7 @@ void QuickMenuManager::createQuickView()
         }
         
         // Make it a popup overlay
-        #ifdef LAV_TEST_BUILD
+#ifdef LAV_TEST_BUILD
         m_quickView->setFlags(Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint | Qt::Tool | Qt::WindowDoesNotAcceptFocus);
 #else
         m_quickView->setFlags(Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint | Qt::Tool);

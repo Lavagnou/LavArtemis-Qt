@@ -2,6 +2,7 @@
 #include <QFontDatabase>
 #include <QStyleHints>
 #include <QQmlApplicationEngine>
+#include <QQuickWindow>
 #include <QQmlContext>
 #include <QIcon>
 #include <QQuickStyle>
@@ -1171,6 +1172,12 @@ int main(int argc, char *argv[])
         engine.load(QUrl(QStringLiteral("qrc:/gui/main.qml")));
         if (engine.rootObjects().isEmpty())
             return -1;
+#ifdef LAV_TEST_BUILD
+        // Test build: windows must be told apart from the real app's by their title
+        if (auto* mainWindow = qobject_cast<QQuickWindow*>(engine.rootObjects().first())) {
+            mainWindow->setTitle("LavArtemis Test");
+        }
+#endif
     }
 
     int err = app.exec();

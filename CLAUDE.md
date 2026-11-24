@@ -515,13 +515,23 @@ Le client de test tourne sur le PC de l'utilisateur pendant qu'il travaille : fe
 focus, jamais son pointeur, jamais de son, jamais son vrai micro**. Tout est sous `#ifdef LAV_TEST_BUILD`.
 - **Fenêtre du stream** (`session.cpp`) : toujours fenêtrée (`m_IsFullScreen = false`, `m_FullScreenFlag = 0`,
   `toggleFullscreen()` sans effet), ni multi-écran (la fenêtre bordless always-on-top), ni état maximisé / minimisé
-  hérité du GUI. SDL2 ici = **sdl2-compat 2.32.70 sur SDL3** : `SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN=1` (devient
-  `SW_SHOWNOACTIVATE`) et `SDL_HINT_FORCE_RAISEWINDOW=0` avant `SDL_CreateWindow`, puis `WS_EX_NOACTIVATE` sur le
-  HWND : la fenêtre ne peut plus devenir la fenêtre active, même par un clic. Aucun `SDL_RaiseWindow` n'existe dans le code.
-- **Pointeur / clavier** : `SdlInputHandler::setCaptureActive(true)` ne fait rien (pas de mode relatif, pas de
-  curseur masqué, pas de verrou de région `SDL_SetWindowMouseRect`/`SetWindowMouseGrab`, pas de
-  `SDL_SetWindowKeyboardGrab`) ; `SDL_ShowCursor(DISABLE)` (mouvement souris, raccourci de curseur) neutralisé.
-  Conséquence : le test n'injecte jamais la souris de l'utilisateur dans le stream.
+  hérité du GUI. SDL2 ici = **sdl2-compat 2.32.70 sur SDL3**, qui n'a **aucune** correspondance pour
+  `SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN` (sans effet) : on pose les hints SDL3 par leur nom,
+  `SDL_WINDOW_ACTIVATE_WHEN_SHOWN=0` et `SDL_WINDOW_ACTIVATE_WHEN_RAISED=0`, avant `SDL_CreateWindow`. La fenêtre est
+  créée `SDL_WINDOW_HIDDEN`, reçoit `WS_EX_NOACTIVATE`, puis `ShowWindow(SW_SHOWNOACTIVATE)` (`lavTestShowNoActivate()`) ;
+  `WS_EX_NOACTIVATE` est reposé (`lavTestMakeNonActivating()`) sur `SDL_WINDOWEVENT_SHOWN` / `RESTORED` et après chaque
+  (re)création du décodeur, car le renderer peut recréer le HWND (`SDL_RecreateWindow`). Titre « … — Test ».
+  Aucun `SDL_RaiseWindow` n'existe dans le code.
+- **Pointeur / clavier** : la capture est **logique seulement** : `isCaptureActive()` vaut toujours vrai (les
+  événements injectés passent), `setCaptureActive()`, `updateKeyboardGrabState()`, `updatePointerRegionLock()` et
+  `SDL_CaptureMouse` ne font rien côté OS (pas de mode relatif, de verrou, de curseur masqué, de warp).
+  **Seule l'entrée injectée atteint l'hôte** (`streaming/input/testinput.h`) : souris (mouvement, boutons, molette)
+  si `which == kTestInjectedMouseId` (`0x4C415654`, « LAVT »), tactile si `touchId == kTestInjectedMouseId`, manettes
+  seulement si le nom est `kTestGamepadName` (« LavArtemis Test Pad », joystick virtuel SDL de B4) : les manettes
+  physiques ne sont ni ouvertes, ni comptées (`handleControllerDeviceEvent`, `handleJoystickArrivalEvent`,
+  `getAttachedGamepadMask`), et `ALLOW_BACKGROUND_EVENTS=1`. Le clavier n'a pas de marqueur : la fenêtre n'a jamais
+  le focus, donc aucune vraie touche n'arrive, et `handleKeyEvent` ne dépend pas du focus (seul `META` teste
+  `isSystemKeyCaptureActive`, hors sujet ici).
 - **GUI** : `main.qml` reçoit le contexte `lavTestBuild` : `flags` = `Qt.Window | Qt.WindowDoesNotAcceptFocus`
   (Qt : `SW_SHOWNOACTIVATE` + `WS_EX_NOACTIVATE`) et un simple `show()` (jamais maximisé / plein écran). Le menu rapide
   perd `raise()` / `requestActivate()` et prend `WindowDoesNotAcceptFocus`. Aucun autre `requestActivate`, `raise`,
@@ -532,6 +542,10 @@ focus, jamais son pointeur, jamais de son, jamais son vrai micro**. Tout est sou
   (48 kHz mono, trames de 20 ms) qui passe par le même encodeur Opus et `onSamples()` / `LiSendMicrophoneData`
   à 50 trames par seconde, de façon que le compteur de trames du micro côté hôte voie du trafic. Le thread est
   joint dans `stop()`, avant `LiStopConnection()` (un seul appelant, comme en production).
+- ⚠️ **GUI et menu rapide sans focus** (`WindowDoesNotAcceptFocus`) : les commandes `key` / `text` de B4 sur les
+  fenêtres Qt doivent donner le focus actif explicitement (`contentItem()->forceActiveFocus()` ou l'item visé) ; le
+  menu rapide se ferme **au clic**, pas par Échap. Les `FileDialog` natifs (export `.art` de `HomeView`,
+  `BenchmarkView`) **s'activent** : aucun scénario ne doit les ouvrir. Titres : GUI « LavArtemis Test », stream « … — Test ».
 - ⚠️ `QT += testlib` (app.pro, `lav_test`) ajoute `CONFIG += console` : un exe en sous-système console ouvre une
   fenêtre de console (un onglet Windows Terminal) qui **prend le premier plan** au lancement depuis un programme
   graphique. `app.pro` force `/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup` (comme les autres builds).

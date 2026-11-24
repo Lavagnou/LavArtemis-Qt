@@ -1,4 +1,7 @@
 #include <Limelight.h>
+#ifdef LAV_TEST_BUILD
+#include "testinput.h"
+#endif
 #include "SDL_compat.h"
 #include "streaming/session.h"
 #include "settings/mappingmanager.h"
@@ -59,7 +62,12 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
     }
 
     // Allow gamepad input when the app doesn't have focus if requested
+#ifdef LAV_TEST_BUILD
+    // Test build: the windows never have focus, the virtual test pad must still deliver events
+    SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+#else
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, prefs.backgroundGamepad ? "1" : "0");
+#endif
 
 #if !SDL_VERSION_ATLEAST(2, 0, 15)
     // For older versions of SDL (2.0.14 and earlier), use SDL_HINT_GRAB_KEYBOARD
@@ -379,6 +387,7 @@ void SdlInputHandler::notifyMouseLeave()
         //
         // On macOS and X11, capturing the mouse allows us to receive mouse motion outside the
         // window (button up already worked without capture).
+#ifndef LAV_TEST_BUILD // test build: never capture the OS mouse
         if (m_AbsoluteMouseMode && isCaptureActive()) {
             // NB: Not using SDL_GetGlobalMouseState() because we want our state not the system's
             Uint32 mouseState = SDL_GetMouseState(nullptr, nullptr);
@@ -389,6 +398,7 @@ void SdlInputHandler::notifyMouseLeave()
                 }
             }
         }
+#endif
     }
 }
 
@@ -427,6 +437,11 @@ bool SdlInputHandler::isWindowFullScreen(Uint32 windowFlags)
 
 bool SdlInputHandler::isCaptureActive()
 {
+#ifdef LAV_TEST_BUILD
+    // Test build: capture is purely logical (always on, so injected input flows) and never has
+    // any effect on the OS: no relative mouse mode, grab, cursor hiding or warping.
+    return true;
+#endif
     if (SDL_GetRelativeMouseMode()) {
         return true;
     }
@@ -437,6 +452,9 @@ bool SdlInputHandler::isCaptureActive()
 
 void SdlInputHandler::updateKeyboardGrabState()
 {
+#ifdef LAV_TEST_BUILD
+    return; // test build: never grab the user's keyboard
+#endif
     bool shouldGrab = m_CaptureSystemKeysMode != StreamingPreferences::CSK_OFF && isCaptureActive();
     if (shouldGrab) {
         Uint32 windowFlags = SDL_GetWindowFlags(m_Window);
@@ -489,14 +507,9 @@ bool SdlInputHandler::isSystemKeyCaptureActive()
 void SdlInputHandler::setCaptureActive(bool active)
 {
 #ifdef LAV_TEST_BUILD
-    // Test build: the stream never captures anything of the user's pointer or keyboard: no
-    // relative mouse mode, no hidden cursor, no pointer-region lock, no keyboard grab.
-    // (setCaptureActive(false) below stays: it only releases what was never taken.)
-    if (active) {
-        updatePointerRegionLock();
-        updateKeyboardGrabState();
-        return;
-    }
+    // Test build: capture is logical only (see isCaptureActive()); nothing is ever taken from the OS.
+    Q_UNUSED(active);
+    return;
 #endif
     if (active) {
         // If we're in relative mode, try to activate SDL's relative mouse mode
@@ -552,6 +565,11 @@ void SdlInputHandler::setCaptureActive(bool active)
 
 void SdlInputHandler::handleTouchFingerEvent(SDL_TouchFingerEvent* event)
 {
+#ifdef LAV_TEST_BUILD
+    if (event->touchId != (SDL_TouchID)kTestInjectedMouseId) {
+        return; // test build: only injected touch
+    }
+#endif
 #if SDL_VERSION_ATLEAST(2, 0, 10)
     if (SDL_GetTouchDeviceType(event->touchId) != SDL_TOUCH_DEVICE_DIRECT) {
         // Ignore anything that isn't a touchscreen. We may get callbacks
