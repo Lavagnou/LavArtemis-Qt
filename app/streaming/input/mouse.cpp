@@ -94,7 +94,9 @@ void SdlInputHandler::handleMouseMotionEvent(SDL_MouseMotionEvent* event)
 
     // Batch all pending mouse motion events to save CPU time
     Sint32 x = event->x, y = event->y, xrel = event->xrel, yrel = event->yrel;
+#ifdef LAV_TEST_BUILD
     Uint32 buttonsDown = event->state; // the event's own button state (test build: never the real mouse's)
+#endif
     SDL_Event nextEvent;
     while (SDL_PeepEvents(&nextEvent, 1, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION) > 0) {
         event = &nextEvent.motion;
@@ -102,10 +104,10 @@ void SdlInputHandler::handleMouseMotionEvent(SDL_MouseMotionEvent* event)
         // Ignore synthetic mouse events
 #ifdef LAV_TEST_BUILD
         if (event->which == kTestInjectedMouseId) {
+            buttonsDown = event->state;
 #else
         if (event->which != SDL_TOUCH_MOUSEID) {
 #endif
-            buttonsDown = event->state;
             x = event->x;
             y = event->y;
             xrel += event->xrel;

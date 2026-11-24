@@ -1,0 +1,1207 @@
+#include "testcontrol.h"
+#include "uiprobe.h"
+
+#include "SDL_compat.h"
+#include <SDL_syswm.h>
+#include "backend/computermanager.h"
+#include "backend/nvcomputer.h"
+#include "settings/artemissettings.h"
+#include "settings/profilemanager.h"
+#include "settings/streamingpreferences.h"
+#include "streaming/input/testinput.h"
+#include "streaming/session.h"
+
+#include <QCoreApplication>
+#include <QDir>
+#include <QElapsedTimer>
+#include <QFileInfo>
+#include <QImage>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QLocalServer>
+#include <QLocalSocket>
+#include <QMetaProperty>
+#include <QQmlApplicationEngine>
+#include <QQuickWindow>
+#include <QReadLocker>
+#include <QStandardPaths>
+#include <QTimer>
+#include <QtDebug>
+
+#include <cstdlib>
+#include <memory>
+
+#ifdef Q_OS_WIN32
+#include <Windows.h>
+#endif
+
+using namespace TestProtocol;
+
+// The key table (testprotocol.cpp) is written without SDL: check it against SDL here
+static_assert(SDL_SCANCODE_A == 4 && SDL_SCANCODE_1 == 30 && SDL_SCANCODE_0 == 39 && SDL_SCANCODE_RETURN == 40 &&
+              SDL_SCANCODE_GRAVE == 53 && SDL_SCANCODE_F1 == 58 && SDL_SCANCODE_DELETE == 76 &&
+              SDL_SCANCODE_UP == 82 && SDL_SCANCODE_APPLICATION == 101 && SDL_SCANCODE_LCTRL == 224 &&
+              SDL_SCANCODE_RGUI == 231, "key table scancodes are USB HID usages");
+static_assert(SDLK_a == 'a' && SDLK_RETURN == '\r' && SDLK_ESCAPE == 27 && SDLK_DELETE == 127 &&
+              SDLK_F1 == (58 | (1 << 30)) && SDLK_LEFT == (80 | (1 << 30)) && SDLK_LCTRL == (224 | (1 << 30)),
+              "key table keycodes are SDL keycodes");
+
+namespace {
+
+// Files and registry key the `reset` command removes at exit (computed while the
+// application object still exists)
+QStringList s_WipeFolders;
+QString s_WipeRegistryKey;
+
+QStringList wipeTestOrganization()
+{
+    QStringList failures;
+    for (const QString& folder : s_WipeFolders) {
+        // Second guard, right before deleting: the folder is named after the test organisation
+        if (QFileInfo(folder).fileName() != QLatin1String(kTestOrganization)) {
+            failures.append(folder);
+            continue;
+        }
+        QDir dir(folder);
+        if (dir.exists() && !dir.removeRecursively()) {
+            failures.append(folder);
+        }
+    }
+#ifdef Q_OS_WIN32
+    if (s_WipeRegistryKey == QStringLiteral("Software\\") + kTestOrganization) {
+        const LSTATUS status = RegDeleteTreeW(HKEY_CURRENT_USER, reinterpret_cast<LPCWSTR>(s_WipeRegistryKey.utf16()));
+        if (status != ERROR_SUCCESS && status != ERROR_FILE_NOT_FOUND) {
+            failures.append("HKCU\\" + s_WipeRegistryKey);
+        }
+    }
+#endif
+    return failures;
+}
+
+void wipeAtExit()
+{
+    // After main() returned: settings saved while quitting are gone too
+    wipeTestOrganization();
+}
+
+QJsonValue propertyToJson(const QMetaProperty& property, const QVariant& value)
+{
+    if (property.isEnumType()) {
+        return value.toInt();
+    }
+    return QJsonValue::fromVariant(value);
+}
+
+struct SettingRef
+{
+    QObject* object = nullptr;
+    QMetaProperty property;
+    const char* source = nullptr;
+};
+
+// StreamingPreferences first, then ArtemisSettings: their Q_PROPERTY names are the keys
+bool findSetting(const QString& key, SettingRef& out)
+{
+    const struct { QObject* object; const char* source; } sources[] = {
+        {StreamingPreferences::get(), "streaming"},
+        {ArtemisSettings::instance(), "artemis"},
+    };
+    for (const auto& entry : sources) {
+        const QMetaObject* meta = entry.object->metaObject();
+        const int index = meta->indexOfProperty(key.toUtf8().constData());
+        if (index >= QObject::staticMetaObject.propertyCount()) {
+            out.object = entry.object;
+            out.property = meta->property(index);
+            out.source = entry.source;
+            return true;
+        }
+    }
+    return false;
+}
+
+QJsonObject listSettings(QObject* object)
+{
+    QJsonObject values;
+    const QMetaObject* meta = object->metaObject();
+    for (int i = QObject::staticMetaObject.propertyCount(); i < meta->propertyCount(); i++) {
+        const QMetaProperty property = meta->property(i);
+        if (property.isReadable()) {
+            values[property.name()] = propertyToJson(property, property.read(object));
+        }
+    }
+    return values;
+}
+
+Uint16 sdlModifiers(int mask)
+{
+    Uint16 mod = 0;
+    if (mask & ModCtrl) mod |= KMOD_LCTRL;
+    if (mask & ModShift) mod |= KMOD_LSHIFT;
+    if (mask & ModAlt) mod |= KMOD_LALT;
+    if (mask & ModMeta) mod |= KMOD_LGUI;
+    return mod;
+}
+
+Qt::KeyboardModifiers qtModifiers(int mask)
+{
+    Qt::KeyboardModifiers modifiers;
+    if (mask & ModCtrl) modifiers |= Qt::ControlModifier;
+    if (mask & ModShift) modifiers |= Qt::ShiftModifier;
+    if (mask & ModAlt) modifiers |= Qt::AltModifier;
+    if (mask & ModMeta) modifiers |= Qt::MetaModifier;
+    return modifiers;
+}
+
+bool parseKeyState(const QJsonObject& args, UiProbe::KeyState& state, QString& error)
+{
+    const QString name = args.value("state").toString("click");
+    if (name == "click") state = UiProbe::KeyState::Click;
+    else if (name == "down") state = UiProbe::KeyState::Down;
+    else if (name == "up") state = UiProbe::KeyState::Up;
+    else {
+        error = QStringLiteral("state: \"click\" (default), \"down\" or \"up\"");
+        return false;
+    }
+    return true;
+}
+
+bool parseMouseButton(const QJsonValue& value, int& sdlButton, Qt::MouseButton& qtButton, QString& error)
+{
+    const QString name = value.toString("left").toLower();
+    if (name == "left") { sdlButton = SDL_BUTTON_LEFT; qtButton = Qt::LeftButton; }
+    else if (name == "right") { sdlButton = SDL_BUTTON_RIGHT; qtButton = Qt::RightButton; }
+    else if (name == "middle") { sdlButton = SDL_BUTTON_MIDDLE; qtButton = Qt::MiddleButton; }
+    else if (name == "x1") { sdlButton = SDL_BUTTON_X1; qtButton = Qt::BackButton; }
+    else if (name == "x2") { sdlButton = SDL_BUTTON_X2; qtButton = Qt::ForwardButton; }
+    else {
+        error = QStringLiteral("button: left, right, middle, x1 or x2");
+        return false;
+    }
+    return true;
+}
+
+QString windowRole(QQuickWindow* window, QQuickWindow* main)
+{
+    if (window == main) return QStringLiteral("main");
+    if (window->type() == Qt::Tool) return QStringLiteral("quickmenu");
+    if (window->type() == Qt::ToolTip) return QStringLiteral("toast");
+    return QStringLiteral("other");
+}
+
+bool pushEvent(SDL_Event& event, QString& error)
+{
+    if (SDL_PushEvent(&event) != 1) {
+        error = QStringLiteral("SDL_PushEvent failed: %1").arg(SDL_GetError());
+        return false;
+    }
+    return true;
+}
+
+}
+
+TestControl::TestControl(QQmlApplicationEngine* engine, QObject* parent)
+    : QObject(parent),
+      m_Engine(engine),
+      m_Server(new QLocalServer(this)),
+      m_PadTimer(new QTimer(this))
+{
+    registerCommands();
+    m_PadTimer->setInterval(500);
+    connect(m_PadTimer, &QTimer::timeout, this, &TestControl::checkPadSession);
+    connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, this, &TestControl::shutdown);
+}
+
+TestControl::~TestControl()
+{
+    shutdown();
+}
+
+bool TestControl::start()
+{
+    // Only this Windows user may open the pipe
+    m_Server->setSocketOptions(QLocalServer::UserAccessOption);
+    connect(m_Server, &QLocalServer::newConnection, this, &TestControl::onNewConnection);
+    if (!m_Server->listen(QLatin1String(kServerName))) {
+        qWarning() << "Test build: command channel unavailable:" << m_Server->errorString();
+        return false;
+    }
+    qInfo() << "Test build: command channel listening on" << m_Server->fullServerName();
+    return true;
+}
+
+void TestControl::shutdown()
+{
+    detachPad();
+    if (m_Socket != nullptr) {
+        m_Socket->flush();
+        if (m_Socket->bytesToWrite() > 0) {
+            m_Socket->waitForBytesWritten(1000);
+        }
+        m_Socket->disconnectFromServer();
+        m_Socket = nullptr;
+    }
+    m_Server->close();
+}
+
+void TestControl::onNewConnection()
+{
+    while (m_Server->hasPendingConnections()) {
+        QLocalSocket* socket = m_Server->nextPendingConnection();
+        if (m_Socket != nullptr) {
+            socket->write(errorLine(QJsonValue(QJsonValue::Null), QStringLiteral("another client is already connected")));
+            socket->flush();
+            socket->disconnectFromServer();
+            connect(socket, &QLocalSocket::disconnected, socket, &QObject::deleteLater);
+            continue;
+        }
+        m_Socket = socket;
+        m_Buffer.clear();
+        connect(socket, &QLocalSocket::readyRead, this, &TestControl::onReadyRead);
+        connect(socket, &QLocalSocket::disconnected, this, &TestControl::onSocketDisconnected);
+    }
+}
+
+void TestControl::onSocketDisconnected()
+{
+    auto* socket = qobject_cast<QLocalSocket*>(sender());
+    if (socket == m_Socket) {
+        m_Socket = nullptr;
+        m_Buffer.clear();
+    }
+    if (socket != nullptr) {
+        socket->deleteLater();
+    }
+}
+
+void TestControl::sendLine(const QByteArray& line)
+{
+    if (m_Socket != nullptr) {
+        m_Socket->write(line);
+        m_Socket->flush();
+    }
+}
+
+void TestControl::onReadyRead()
+{
+    if (m_Socket == nullptr) {
+        return;
+    }
+    m_Buffer += m_Socket->readAll();
+
+    // A command can run a nested event loop (QTest's processEvents): lines that arrive meanwhile
+    // wait for it, so that answers keep the order of the requests
+    if (m_Busy) {
+        return;
+    }
+
+    constexpr int kMaxLine = 1 << 20;
+    for (;;) {
+        const int newline = m_Buffer.indexOf('\n');
+        if (newline < 0) {
+            if (m_Buffer.size() > kMaxLine) {
+                m_Buffer.clear();
+                sendLine(errorLine(QJsonValue(QJsonValue::Null), QStringLiteral("line too long")));
+            }
+            break;
+        }
+        const QByteArray line = m_Buffer.left(newline).trimmed();
+        m_Buffer.remove(0, newline + 1);
+        if (line.isEmpty()) {
+            continue;
+        }
+
+        m_Busy = true;
+        const QByteArray response = m_Dispatcher.handleLine(line);
+        m_Busy = false;
+        sendLine(response);
+
+        if (m_AfterReply) {
+            auto action = std::move(m_AfterReply);
+            m_AfterReply = nullptr;
+            action();
+        }
+        if (m_Socket == nullptr) {
+            break;
+        }
+        // Data that arrived during the command
+        m_Buffer += m_Socket->readAll();
+    }
+}
+
+void TestControl::registerCommands()
+{
+    auto bind = [this](bool (TestControl::*method)(const QJsonObject&, QJsonObject&, QString&)) {
+        return [this, method](const QJsonObject& args, QJsonObject& result, QString& error) {
+            return (this->*method)(args, result, error);
+        };
+    };
+    m_Dispatcher.add("tree", bind(&TestControl::cmdTree));
+    m_Dispatcher.add("click", bind(&TestControl::cmdClick));
+    m_Dispatcher.add("key", bind(&TestControl::cmdKey));
+    m_Dispatcher.add("text", bind(&TestControl::cmdText));
+    m_Dispatcher.add("wheel", bind(&TestControl::cmdWheel));
+    m_Dispatcher.add("mouse", bind(&TestControl::cmdMouse));
+    m_Dispatcher.add("gamepad", bind(&TestControl::cmdGamepad));
+    m_Dispatcher.add("screenshot", bind(&TestControl::cmdScreenshot));
+    m_Dispatcher.add("windows", bind(&TestControl::cmdWindows));
+    m_Dispatcher.add("state", bind(&TestControl::cmdState));
+    m_Dispatcher.add("setting", bind(&TestControl::cmdSetting));
+    m_Dispatcher.add("reset", bind(&TestControl::cmdReset));
+    m_Dispatcher.add("quit", bind(&TestControl::cmdQuit));
+    m_Dispatcher.add("commands", [this](const QJsonObject&, QJsonObject& result, QString&) {
+        result["commands"] = QJsonArray::fromStringList(m_Dispatcher.commands());
+        return true;
+    });
+}
+
+QQuickWindow* TestControl::mainWindow() const
+{
+    const QList<QObject*> roots = m_Engine->rootObjects();
+    return roots.isEmpty() ? nullptr : qobject_cast<QQuickWindow*>(roots.first());
+}
+
+SDL_Window* TestControl::streamWindow() const
+{
+    Session* session = Session::get();
+    return session != nullptr ? session->testStreamWindow() : nullptr;
+}
+
+bool TestControl::quickMenuVisible() const
+{
+    for (QQuickWindow* window : UiProbe::windows(mainWindow())) {
+        if (window->type() == Qt::Tool) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool TestControl::targetsStream(const QJsonObject& args, QString& error) const
+{
+    const QString target = args.value("target").toString("auto");
+    if (target == "qt") {
+        return false;
+    }
+    if (target == "stream") {
+        if (streamWindow() == nullptr) {
+            error = QStringLiteral("no stream window");
+        }
+        return true;
+    }
+    if (target != "auto") {
+        error = QStringLiteral("target: \"auto\" (default), \"qt\" or \"stream\"");
+        return false;
+    }
+    return streamWindow() != nullptr && !quickMenuVisible();
+}
+
+QQuickWindow* TestControl::qtWindowArg(const QJsonObject& args, QString& error) const
+{
+    const QList<QQuickWindow*> windows = UiProbe::windows(mainWindow());
+    if (windows.isEmpty()) {
+        error = QStringLiteral("no visible Qt window");
+        return nullptr;
+    }
+    if (!args.contains("window")) {
+        return UiProbe::defaultInputWindow(windows);
+    }
+    const int index = args.value("window").toInt(-1);
+    if (index < 0 || index >= windows.size()) {
+        error = QStringLiteral("window: an index from \"windows\" (kind qt), 0..%1").arg(windows.size() - 1);
+        return nullptr;
+    }
+    return windows[index];
+}
+
+bool TestControl::cmdTree(const QJsonObject& args, QJsonObject& result, QString& error)
+{
+    QList<QQuickWindow*> windows = UiProbe::windows(mainWindow());
+    if (args.contains("window")) {
+        QQuickWindow* window = qtWindowArg(args, error);
+        if (window == nullptr) {
+            return false;
+        }
+        windows = {window};
+    }
+    QJsonArray items;
+    const QList<UiProbe::Item> found = UiProbe::collect(windows, args.value("textOnly").toBool(false));
+    for (const UiProbe::Item& item : found) {
+        QJsonObject json = UiProbe::toJson(item);
+        if (args.contains("window")) {
+            json["window"] = args.value("window").toInt();
+        }
+        items.append(json);
+    }
+    result["items"] = items;
+    return true;
+}
+
+bool TestControl::cmdClick(const QJsonObject& args, QJsonObject& result, QString& error)
+{
+    int sdlButton;
+    Qt::MouseButton button;
+    if (!parseMouseButton(args.value("button"), sdlButton, button, error)) {
+        return false;
+    }
+
+    const QList<QQuickWindow*> windows = UiProbe::windows(mainWindow());
+    QQuickWindow* window = nullptr;
+    QPointF pos;
+    if (args.contains("x") || args.contains("y")) {
+        window = qtWindowArg(args, error);
+        if (window == nullptr) {
+            return false;
+        }
+        pos = QPointF(args.value("x").toDouble(), args.value("y").toDouble());
+        if (pos.x() < 0 || pos.y() < 0 || pos.x() >= window->width() || pos.y() >= window->height()) {
+            error = QStringLiteral("x/y outside the window (%1x%2)").arg(window->width()).arg(window->height());
+            return false;
+        }
+    }
+    else {
+        UiProbe::Item item;
+        if (!UiProbe::find(UiProbe::collect(windows), args, item, error)) {
+            return false;
+        }
+        window = windows[item.window];
+        pos = item.rect.center();
+        result["item"] = UiProbe::toJson(item);
+    }
+
+    UiProbe::click(window, pos, button);
+    result["window"] = windows.indexOf(window);
+    result["x"] = qRound(pos.x());
+    result["y"] = qRound(pos.y());
+    return true;
+}
+
+bool TestControl::cmdKey(const QJsonObject& args, QJsonObject& result, QString& error)
+{
+    const KeySpec* key = findKey(args.value("key").toString());
+    if (key == nullptr) {
+        error = QStringLiteral("unknown key \"%1\" (names: CLAUDE.md, \"Canal de commande\")")
+                    .arg(args.value("key").toString());
+        return false;
+    }
+    int modifiers;
+    if (!parseModifiers(args.value("modifiers"), modifiers, error)) {
+        return false;
+    }
+    UiProbe::KeyState state;
+    if (!parseKeyState(args, state, error)) {
+        return false;
+    }
+
+    const bool toStream = targetsStream(args, error);
+    if (!error.isEmpty()) {
+        return false;
+    }
+    if (toStream) {
+        result["target"] = "stream";
+        return pushKey(streamWindow(), *key, modifiers, static_cast<int>(state), error);
+    }
+
+    QQuickWindow* window = qtWindowArg(args, error);
+    if (window == nullptr) {
+        return false;
+    }
+    QQuickItem* target = UiProbe::keyTarget(window);
+    result["target"] = "qt";
+    result["focus"] = UiProbe::typeName(target) + (target && !target->objectName().isEmpty() ? "#" + target->objectName() : "");
+    UiProbe::key(window, key->qtKey, qtModifiers(modifiers), state);
+    return true;
+}
+
+bool TestControl::cmdText(const QJsonObject& args, QJsonObject& result, QString& error)
+{
+    if (!args.value("s").isString()) {
+        error = QStringLiteral("text needs \"s\"");
+        return false;
+    }
+    const QString text = args.value("s").toString();
+    const bool toStream = targetsStream(args, error);
+    if (!error.isEmpty()) {
+        return false;
+    }
+    if (toStream) {
+        result["target"] = "stream";
+        return pushText(streamWindow(), text, error);
+    }
+    QQuickWindow* window = qtWindowArg(args, error);
+    if (window == nullptr) {
+        return false;
+    }
+    result["target"] = "qt";
+    UiProbe::typeText(window, text);
+    return true;
+}
+
+bool TestControl::cmdWheel(const QJsonObject& args, QJsonObject& result, QString& error)
+{
+    const double dx = args.value("dx").toDouble(0);
+    const double dy = args.value("dy").toDouble(0);
+    if (dx == 0 && dy == 0) {
+        error = QStringLiteral("wheel needs \"dx\" and/or \"dy\" (notches, dy > 0 = up)");
+        return false;
+    }
+    const bool toStream = targetsStream(args, error);
+    if (!error.isEmpty()) {
+        return false;
+    }
+    if (toStream) {
+        SDL_Window* window = streamWindow();
+        if (args.contains("x") || args.contains("y")) {
+            if (!pushMouseMotion(window, args.value("x").toInt(), args.value("y").toInt(), error)) {
+                return false;
+            }
+        }
+        result["target"] = "stream";
+        return pushWheel(window, dx, dy, error);
+    }
+
+    QQuickWindow* window = nullptr;
+    QPointF pos;
+    if (args.contains("text") || args.contains("objectName")) {
+        const QList<QQuickWindow*> windows = UiProbe::windows(mainWindow());
+        UiProbe::Item item;
+        if (!UiProbe::find(UiProbe::collect(windows), args, item, error)) {
+            return false;
+        }
+        window = windows[item.window];
+        pos = item.rect.center();
+    }
+    else {
+        window = qtWindowArg(args, error);
+        if (window == nullptr) {
+            return false;
+        }
+        pos = (args.contains("x") || args.contains("y"))
+                  ? QPointF(args.value("x").toDouble(), args.value("y").toDouble())
+                  : QPointF(window->width() / 2.0, window->height() / 2.0);
+    }
+    result["target"] = "qt";
+    UiProbe::wheel(window, pos, QPoint(qRound(dx * 120), qRound(dy * 120)));
+    return true;
+}
+
+bool TestControl::cmdMouse(const QJsonObject& args, QJsonObject& result, QString& error)
+{
+    SDL_Window* window = streamWindow();
+    if (window == nullptr) {
+        error = QStringLiteral("mouse drives the stream window: no stream (use click/wheel for Qt windows)");
+        return false;
+    }
+    syncMouseWindow(window);
+
+    const QString action = args.value("action").toString();
+    if (action == "move") {
+        if (!args.contains("x") || !args.contains("y")) {
+            error = QStringLiteral("move needs \"x\" and \"y\"");
+            return false;
+        }
+        if (!pushMouseMotion(window, args.value("x").toInt(), args.value("y").toInt(), error)) {
+            return false;
+        }
+    }
+    else if (action == "button" || action == "click") {
+        int sdlButton;
+        Qt::MouseButton qtButton;
+        if (!parseMouseButton(args.value("button"), sdlButton, qtButton, error)) {
+            return false;
+        }
+        if (args.contains("x") || args.contains("y")) {
+            if (!pushMouseMotion(window, args.value("x").toInt(), args.value("y").toInt(), error)) {
+                return false;
+            }
+        }
+        if (action == "click") {
+            if (!pushMouseButton(window, sdlButton, true, error) || !pushMouseButton(window, sdlButton, false, error)) {
+                return false;
+            }
+        }
+        else {
+            if (!args.value("down").isBool()) {
+                error = QStringLiteral("button needs \"down\": true or false");
+                return false;
+            }
+            if (!pushMouseButton(window, sdlButton, args.value("down").toBool(), error)) {
+                return false;
+            }
+        }
+    }
+    else {
+        error = QStringLiteral("action: \"move\", \"button\" or \"click\"");
+        return false;
+    }
+
+    int w, h;
+    SDL_GetWindowSize(window, &w, &h);
+    result["x"] = m_MouseX;
+    result["y"] = m_MouseY;
+    result["buttons"] = static_cast<int>(m_MouseButtons);
+    result["windowW"] = w;
+    result["windowH"] = h;
+    return true;
+}
+
+bool TestControl::cmdGamepad(const QJsonObject& args, QJsonObject& result, QString& error)
+{
+    if (args.value("detach").toBool(false)) {
+        result["detached"] = m_Pad != nullptr;
+        detachPad();
+        return true;
+    }
+
+    const bool wasAttached = m_Pad != nullptr;
+    if (!attachPad(error)) {
+        return false;
+    }
+    result["pad"] = kTestGamepadName;
+    result["instance"] = m_PadInstance;
+    result["attached"] = !wasAttached;
+    if (args.value("attach").toBool(false)) {
+        return true;
+    }
+
+    if (args.contains("button")) {
+        const QString name = args.value("button").toString();
+        const SDL_GameControllerButton button = SDL_GameControllerGetButtonFromString(name.toUtf8().constData());
+        // The pad has the 15 buttons of a standard controller (A ... D-pad right)
+        if (button == SDL_CONTROLLER_BUTTON_INVALID || button > SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
+            error = QStringLiteral("button: a, b, x, y, back, guide, start, leftstick, rightstick, "
+                                   "leftshoulder, rightshoulder, dpup, dpdown, dpleft, dpright");
+            return false;
+        }
+        const QJsonValue value = args.value("value");
+        const bool pressed = value.isBool() ? value.toBool() : value.toDouble(0) != 0;
+        if (SDL_JoystickSetVirtualButton(m_Pad, button, pressed ? SDL_PRESSED : SDL_RELEASED) != 0) {
+            error = QStringLiteral("SDL_JoystickSetVirtualButton failed: %1").arg(SDL_GetError());
+            return false;
+        }
+        result["button"] = name;
+        result["value"] = pressed;
+        return true;
+    }
+    if (args.contains("axis")) {
+        const QString name = args.value("axis").toString();
+        const SDL_GameControllerAxis axis = SDL_GameControllerGetAxisFromString(name.toUtf8().constData());
+        if (axis == SDL_CONTROLLER_AXIS_INVALID) {
+            error = QStringLiteral("axis: leftx, lefty, rightx, righty, lefttrigger, righttrigger");
+            return false;
+        }
+        const int value = qBound(-32768, args.value("value").toInt(0), 32767);
+        if (SDL_JoystickSetVirtualAxis(m_Pad, axis, static_cast<Sint16>(value)) != 0) {
+            error = QStringLiteral("SDL_JoystickSetVirtualAxis failed: %1").arg(SDL_GetError());
+            return false;
+        }
+        result["axis"] = name;
+        result["value"] = value;
+        return true;
+    }
+    error = QStringLiteral("gamepad needs \"button\" or \"axis\" with \"value\" (or \"attach\" / \"detach\")");
+    return false;
+}
+
+bool TestControl::cmdScreenshot(const QJsonObject& args, QJsonObject& result, QString& error)
+{
+    const QString path = args.value("path").toString();
+    if (path.isEmpty() || !QDir::isAbsolutePath(path)) {
+        error = QStringLiteral("path must be absolute");
+        return false;
+    }
+    QQuickWindow* window = qtWindowArg(args.contains("window") ? args : QJsonObject{{"window", 0}}, error);
+    if (window == nullptr) {
+        return false;
+    }
+    const QImage image = window->grabWindow();
+    if (image.isNull()) {
+        error = QStringLiteral("grabWindow failed");
+        return false;
+    }
+    if (!image.save(path, "PNG")) {
+        error = QStringLiteral("cannot write %1").arg(path);
+        return false;
+    }
+    result["path"] = path;
+    result["width"] = image.width();
+    result["height"] = image.height();
+    result["dpr"] = window->devicePixelRatio();
+    return true;
+}
+
+bool TestControl::cmdWindows(const QJsonObject&, QJsonObject& result, QString&)
+{
+    QQuickWindow* main = mainWindow();
+    const QList<QQuickWindow*> windows = UiProbe::windows(main);
+    QJsonArray list;
+    for (int i = 0; i < windows.size(); i++) {
+        QQuickWindow* window = windows[i];
+        const QRect geometry = window->geometry();
+        list.append(QJsonObject{
+            {"index", i},
+            {"kind", "qt"},
+            {"role", windowRole(window, main)},
+            {"title", window->title()},
+            {"hwnd", static_cast<double>(window->winId())},
+            {"x", geometry.x()}, {"y", geometry.y()}, {"w", geometry.width()}, {"h", geometry.height()},
+            {"dpr", window->devicePixelRatio()},
+        });
+    }
+    if (SDL_Window* stream = streamWindow()) {
+        QJsonObject entry{{"kind", "stream"}, {"title", QString::fromUtf8(SDL_GetWindowTitle(stream))}};
+        SDL_SysWMinfo info;
+        SDL_VERSION(&info.version);
+        if (SDL_GetWindowWMInfo(stream, &info)) {
+#ifdef Q_OS_WIN32
+            if (info.subsystem == SDL_SYSWM_WINDOWS) {
+                entry["hwnd"] = static_cast<double>(reinterpret_cast<quintptr>(info.info.win.window));
+            }
+#endif
+        }
+        int x, y, w, h;
+        SDL_GetWindowPosition(stream, &x, &y);
+        SDL_GetWindowSize(stream, &w, &h);
+        entry["x"] = x;
+        entry["y"] = y;
+        entry["w"] = w;
+        entry["h"] = h;
+        list.append(entry);
+    }
+    result["windows"] = list;
+    return true;
+}
+
+bool TestControl::cmdState(const QJsonObject&, QJsonObject& result, QString& error)
+{
+    auto* manager = m_Engine->singletonInstance<ComputerManager*>("ComputerManager", "ComputerManager");
+    if (manager == nullptr) {
+        error = QStringLiteral("ComputerManager singleton unavailable");
+        return false;
+    }
+
+    QString pageTitle;
+    bool pageBusy = false;
+    result["page"] = UiProbe::currentPage(mainWindow(), &pageTitle, &pageBusy);
+    result["pageTitle"] = pageTitle;
+    result["pageBusy"] = pageBusy;
+    result["quickMenu"] = quickMenuVisible();
+    result["pad"] = m_Pad != nullptr;
+
+    QJsonArray computers;
+    {
+        const QVector<NvComputer*> hosts = manager->getComputers();
+        for (NvComputer* computer : hosts) {
+            QReadLocker lock(&computer->lock);
+            QJsonArray apps;
+            for (const NvApp& app : computer->appList) {
+                apps.append(app.name);
+            }
+            computers.append(QJsonObject{
+                {"name", computer->name},
+                {"uuid", computer->uuid},
+                {"address", computer->activeAddress.toString()},
+                {"online", computer->state == NvComputer::CS_ONLINE},
+                {"state", computer->state == NvComputer::CS_ONLINE ? "online"
+                          : computer->state == NvComputer::CS_OFFLINE ? "offline" : "unknown"},
+                {"paired", computer->pairState == NvComputer::PS_PAIRED},
+                {"testHost", computer->isTestHost},
+                {"thisPc", computer->isThisPc},
+                {"currentGameId", computer->currentGameId},
+                {"apps", apps},
+            });
+        }
+    }
+    result["computers"] = computers;
+
+    QJsonObject session;
+    Session* active = Session::get();
+    session["active"] = active != nullptr;
+    session["streaming"] = streamWindow() != nullptr;
+    Benchmark::RawStats stats;
+    const bool hasStats = active != nullptr && active->benchmarkSnapshot(stats);
+    session["frames"] = hasStats ? static_cast<double>(stats.framesTotal) : 0;
+    session["received"] = hasStats ? static_cast<double>(stats.framesReceived) : 0;
+    session["decoded"] = hasStats ? static_cast<double>(stats.framesDecoded) : 0;
+    session["rendered"] = hasStats ? static_cast<double>(stats.framesRendered) : 0;
+    session["dropped"] = hasStats ? static_cast<double>(stats.framesNetworkLost + stats.framesPacerDropped) : 0;
+    result["session"] = session;
+    return true;
+}
+
+bool TestControl::cmdSetting(const QJsonObject& args, QJsonObject& result, QString& error)
+{
+    const QString action = args.value("action").toString();
+    if (action == "list") {
+        result["streaming"] = listSettings(StreamingPreferences::get());
+        result["artemis"] = listSettings(ArtemisSettings::instance());
+        return true;
+    }
+
+    const QString key = args.value("key").toString();
+    SettingRef setting;
+    if (!findSetting(key, setting)) {
+        error = QStringLiteral("unknown setting \"%1\" (\"setting\" with \"action\": \"list\" lists them)").arg(key);
+        return false;
+    }
+    result["key"] = key;
+    result["source"] = setting.source;
+
+    if (action == "set" || action == "reset") {
+        if (!setting.property.isWritable()) {
+            error = QStringLiteral("\"%1\" is read-only").arg(key);
+            return false;
+        }
+
+        QVariant value;
+        if (action == "set") {
+            if (!args.contains("value")) {
+                error = QStringLiteral("set needs \"value\"");
+                return false;
+            }
+            const QJsonValue json = args.value("value");
+            if (setting.property.isEnumType() && json.isString()) {
+                bool ok = false;
+                const int number = setting.property.enumerator().keyToValue(json.toString().toUtf8().constData(), &ok);
+                if (!ok) {
+                    error = QStringLiteral("\"%1\" is not a value of %2").arg(json.toString(), setting.property.typeName());
+                    return false;
+                }
+                value = number;
+            }
+            else if (setting.property.isEnumType()) {
+                value = json.toInt();
+            }
+            else {
+                value = json.toVariant();
+            }
+        }
+        else {
+            // The value of a fresh install: an object that reads nothing from storage
+            QObject* defaults = nullptr;
+            if (setting.object == StreamingPreferences::get()) {
+                ProfileManager::setReadDefaultsForTest(true);
+                defaults = StreamingPreferences::createDetached();
+                ProfileManager::setReadDefaultsForTest(false);
+            }
+            else {
+                defaults = ArtemisSettings::createDefaultsForTest();
+            }
+            value = setting.property.read(defaults);
+            delete defaults;
+        }
+
+        if (!setting.property.write(setting.object, value)) {
+            error = QStringLiteral("cannot set \"%1\" to %2").arg(key, value.toString());
+            return false;
+        }
+        // Persisted like Réglages does (SettingsView2.saveNow): ArtemisSettings setters do not save
+        StreamingPreferences::get()->save();
+        ArtemisSettings::instance()->save();
+    }
+    else if (action != "get") {
+        error = QStringLiteral("action: \"get\", \"set\", \"reset\" or \"list\"");
+        return false;
+    }
+
+    result["value"] = propertyToJson(setting.property, setting.property.read(setting.object));
+    return true;
+}
+
+bool TestControl::cmdReset(const QJsonObject&, QJsonObject& result, QString& error)
+{
+    const QString organization = QCoreApplication::organizationName();
+    if (!isWipeableOrganization(organization)) {
+        error = QStringLiteral("refused: organisation \"%1\" is not \"%2\"").arg(organization, kTestOrganization);
+        return false;
+    }
+
+    QStringList folders;
+    for (QStandardPaths::StandardLocation location :
+         {QStandardPaths::AppConfigLocation, QStandardPaths::AppDataLocation, QStandardPaths::AppLocalDataLocation,
+          QStandardPaths::CacheLocation}) {
+        const QString folder = organizationFolder(QStandardPaths::writableLocation(location), organization);
+        if (!folder.isEmpty() && !folders.contains(folder)) {
+            folders.append(folder);
+        }
+    }
+    s_WipeFolders = folders;
+    s_WipeRegistryKey = registryKeyFor(organization);
+
+    // Now, and again once the process is done with its settings (quitting saves some)
+    const QStringList failures = wipeTestOrganization();
+    static bool registered = false;
+    if (!registered) {
+        registered = std::atexit(wipeAtExit) == 0;
+    }
+
+    result["folders"] = QJsonArray::fromStringList(folders);
+#ifdef Q_OS_WIN32
+    result["registry"] = "HKCU\\" + s_WipeRegistryKey;
+#endif
+    result["notYetRemoved"] = QJsonArray::fromStringList(failures);
+    result["quitting"] = true;
+    m_AfterReply = [this]() { beginQuit(); };
+    return true;
+}
+
+bool TestControl::cmdQuit(const QJsonObject&, QJsonObject& result, QString&)
+{
+    result["quitting"] = true;
+    result["session"] = Session::get() != nullptr;
+    m_AfterReply = [this]() { beginQuit(); };
+    return true;
+}
+
+void TestControl::beginQuit()
+{
+    if (m_Quitting) {
+        return;
+    }
+    m_Quitting = true;
+
+    // A session ends first, as when the user leaves it: its cleanup quits the host app if
+    // the settings say so, and must not race the application's exit
+    if (Session* session = Session::get()) {
+        session->interrupt();
+    }
+    auto* timer = new QTimer(this);
+    auto* clock = new QElapsedTimer();
+    clock->start();
+    timer->setInterval(100);
+    connect(timer, &QTimer::timeout, this, [this, timer, clock]() {
+        if (Session::get() != nullptr && clock->elapsed() < 30000) {
+            return;
+        }
+        timer->stop();
+        delete clock;
+        detachPad();
+        QCoreApplication::quit();
+    });
+    timer->start();
+}
+
+void TestControl::syncMouseWindow(SDL_Window* window)
+{
+    const Uint32 id = SDL_GetWindowID(window);
+    if (id != m_MouseWindowId) {
+        // A new stream window: the injected mouse starts in its centre, no button held
+        int w, h;
+        SDL_GetWindowSize(window, &w, &h);
+        m_MouseWindowId = id;
+        m_MouseX = w / 2;
+        m_MouseY = h / 2;
+        m_MouseButtons = 0;
+    }
+}
+
+bool TestControl::pushKey(SDL_Window* window, const KeySpec& key, int modifiers, int state, QString& error)
+{
+    const auto keyState = static_cast<UiProbe::KeyState>(state);
+    const Uint32 windowId = SDL_GetWindowID(window);
+    Uint16 mod = 0;
+    auto push = [&](const KeySpec& spec, bool down) {
+        SDL_Event event;
+        SDL_zero(event);
+        event.type = down ? SDL_KEYDOWN : SDL_KEYUP;
+        event.key.timestamp = SDL_GetTicks();
+        event.key.windowID = windowId;
+        event.key.state = down ? SDL_PRESSED : SDL_RELEASED;
+        event.key.repeat = 0;
+        event.key.keysym.scancode = static_cast<SDL_Scancode>(spec.scancode);
+        event.key.keysym.sym = spec.sdlKey;
+        event.key.keysym.mod = mod;
+        return pushEvent(event, error);
+    };
+
+    // A real keyboard: modifiers down, the key, then modifiers up in reverse order
+    const struct { int flag; const char* key; Uint16 mod; } kModifierKeys[] = {
+        {ModCtrl, "LCtrl", KMOD_LCTRL}, {ModShift, "LShift", KMOD_LSHIFT},
+        {ModAlt, "LAlt", KMOD_LALT}, {ModMeta, "LMeta", KMOD_LGUI},
+    };
+    if (keyState != UiProbe::KeyState::Up) {
+        for (const auto& modifier : kModifierKeys) {
+            if (modifiers & modifier.flag) {
+                mod |= modifier.mod;
+                if (!push(*findKey(modifier.key), true)) return false;
+            }
+        }
+        if (!push(key, true)) return false;
+    }
+    if (keyState != UiProbe::KeyState::Down) {
+        mod = sdlModifiers(modifiers);
+        if (!push(key, false)) return false;
+        for (int i = 3; i >= 0; i--) {
+            if (modifiers & kModifierKeys[i].flag) {
+                mod &= ~kModifierKeys[i].mod;
+                if (!push(*findKey(kModifierKeys[i].key), false)) return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool TestControl::pushText(SDL_Window* window, const QString& text, QString& error)
+{
+    // The stream takes keys, not text (sdl2-compat crashes on a pushed SDL_TEXTINPUT, and the
+    // client sends key codes anyway): each character is its key on a US keyboard
+    QList<QPair<KeySpec, bool>> keys;
+    for (const QChar c : text) {
+        KeySpec key;
+        bool shift;
+        if (!keyForChar(c, key, shift)) {
+            error = QStringLiteral("character U+%1 has no key on a US keyboard").arg(int(c.unicode()), 4, 16, QChar('0'));
+            return false;
+        }
+        keys.append({key, shift});
+    }
+    for (const auto& entry : keys) {
+        if (!pushKey(window, entry.first, entry.second ? ModShift : 0, static_cast<int>(UiProbe::KeyState::Click), error)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool TestControl::pushMouseMotion(SDL_Window* window, int x, int y, QString& error)
+{
+    syncMouseWindow(window);
+    SDL_Event event;
+    SDL_zero(event);
+    event.type = SDL_MOUSEMOTION;
+    event.motion.timestamp = SDL_GetTicks();
+    event.motion.windowID = SDL_GetWindowID(window);
+    event.motion.which = kTestInjectedMouseId;    // the only mouse the test build forwards
+    event.motion.state = m_MouseButtons;           // absolute mode reads "buttons still down" from it
+    event.motion.x = x;
+    event.motion.y = y;
+    event.motion.xrel = x - m_MouseX;
+    event.motion.yrel = y - m_MouseY;
+    if (!pushEvent(event, error)) {
+        return false;
+    }
+    m_MouseX = x;
+    m_MouseY = y;
+    return true;
+}
+
+bool TestControl::pushMouseButton(SDL_Window* window, int button, bool down, QString& error)
+{
+    syncMouseWindow(window);
+    SDL_Event event;
+    SDL_zero(event);
+    event.type = down ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
+    event.button.timestamp = SDL_GetTicks();
+    event.button.windowID = SDL_GetWindowID(window);
+    event.button.which = kTestInjectedMouseId;
+    event.button.button = static_cast<Uint8>(button);
+    event.button.state = down ? SDL_PRESSED : SDL_RELEASED;
+    event.button.clicks = 1;
+    event.button.x = m_MouseX;
+    event.button.y = m_MouseY;
+    if (!pushEvent(event, error)) {
+        return false;
+    }
+    if (down) {
+        m_MouseButtons |= SDL_BUTTON(button);
+    }
+    else {
+        m_MouseButtons &= ~SDL_BUTTON(button);
+    }
+    return true;
+}
+
+bool TestControl::pushWheel(SDL_Window* window, double dx, double dy, QString& error)
+{
+    syncMouseWindow(window);
+    SDL_Event event;
+    SDL_zero(event);
+    event.type = SDL_MOUSEWHEEL;
+    event.wheel.timestamp = SDL_GetTicks();
+    event.wheel.windowID = SDL_GetWindowID(window);
+    event.wheel.which = kTestInjectedMouseId;
+    // The client reads preciseX/Y. sdl2-compat returns a wrong integer y for pushed wheel
+    // events (seen: y = mouseY), the float values come through intact.
+    event.wheel.x = static_cast<Sint32>(dx);
+    event.wheel.y = static_cast<Sint32>(dy);
+    event.wheel.preciseX = static_cast<float>(dx);
+    event.wheel.preciseY = static_cast<float>(dy);
+    event.wheel.direction = SDL_MOUSEWHEEL_NORMAL;
+    event.wheel.mouseX = m_MouseX;  // absolute mode ignores a wheel outside the video
+    event.wheel.mouseY = m_MouseY;
+    return pushEvent(event, error);
+}
+
+bool TestControl::attachPad(QString& error)
+{
+    if (m_Pad != nullptr) {
+        return true;
+    }
+    if (streamWindow() == nullptr) {
+        error = QStringLiteral("gamepad: no stream (the pad lives for one stream)");
+        return false;
+    }
+
+    // Our own reference: the pad must outlive the session's input handler, which quits the
+    // joystick subsystem first (detaching every virtual joystick with it)
+    if (SDL_InitSubSystem(SDL_INIT_JOYSTICK) != 0) {
+        error = QStringLiteral("SDL_InitSubSystem(SDL_INIT_JOYSTICK) failed: %1").arg(SDL_GetError());
+        return false;
+    }
+
+    // A standard controller by its name only: no known VID/PID, whose mapping would rename it.
+    // SDL makes it a game controller itself (type GAMECONTROLLER: automatic mapping a:b0 ...
+    // dpright:b14, leftx:a0 ... righttrigger:a5).
+    SDL_VirtualJoystickDesc desc;
+    SDL_zero(desc);
+    desc.version = SDL_VIRTUAL_JOYSTICK_DESC_VERSION;
+    desc.type = SDL_JOYSTICK_TYPE_GAMECONTROLLER;
+    desc.naxes = SDL_CONTROLLER_AXIS_MAX;
+    desc.nbuttons = SDL_CONTROLLER_BUTTON_DPAD_RIGHT + 1;
+    desc.name = kTestGamepadName;
+    const int index = SDL_JoystickAttachVirtualEx(&desc);
+    if (index < 0) {
+        error = QStringLiteral("SDL_JoystickAttachVirtualEx failed: %1").arg(SDL_GetError());
+        SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
+        return false;
+    }
+    m_Pad = SDL_JoystickOpen(index);
+    if (m_Pad == nullptr) {
+        error = QStringLiteral("SDL_JoystickOpen failed: %1").arg(SDL_GetError());
+        SDL_JoystickDetachVirtual(index);
+        SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
+        return false;
+    }
+    m_PadInstance = SDL_JoystickInstanceID(m_Pad);
+    m_PadSession = Session::get();
+    m_PadTimer->start();
+    qInfo() << "Test build: virtual gamepad attached, instance" << m_PadInstance;
+    return true;
+}
+
+void TestControl::detachPad()
+{
+    if (m_Pad == nullptr) {
+        return;
+    }
+    m_PadTimer->stop();
+    SDL_JoystickClose(m_Pad);
+    m_Pad = nullptr;
+    for (int i = 0; i < SDL_NumJoysticks(); i++) {
+        if (SDL_JoystickGetDeviceInstanceID(i) == m_PadInstance) {
+            SDL_JoystickDetachVirtual(i);
+            break;
+        }
+    }
+    SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
+    m_PadInstance = -1;
+    m_PadSession = nullptr;
+    qInfo() << "Test build: virtual gamepad detached";
+}
+
+void TestControl::checkPadSession()
+{
+    // The pad lives for one stream
+    if (Session::get() != m_PadSession || streamWindow() == nullptr) {
+        detachPad();
+    }
+}

@@ -38,6 +38,16 @@ ArtemisSettings* ArtemisSettings::instance()
     return s_instance;
 }
 
+#ifdef LAV_TEST_BUILD
+ArtemisSettings* ArtemisSettings::createDefaultsForTest()
+{
+    // Not through the constructor: it opens artemis-settings.ini and loads it
+    auto* defaults = new ArtemisSettings(nullptr, true);
+    defaults->loadDefaults();
+    return defaults;
+}
+#endif
+
 ArtemisSettings* ArtemisSettings::create(QQmlEngine *qmlEngine, QJSEngine *jsEngine)
 {
     Q_UNUSED(qmlEngine)

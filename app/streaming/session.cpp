@@ -3020,6 +3020,9 @@ void Session::exec()
         m_VideoDecoder->notifyWindowChanged(&windowChangeInfo);
     };
 
+#ifdef LAV_TEST_BUILD
+    m_TestStreamLoopActive = true; // the command channel may push input to m_Window from here on
+#endif
     for (;;) {
         // Runs at least once a second (the wait below times out): measures and ends a benchmark run
         benchmarkTick();
@@ -3433,6 +3436,9 @@ void Session::exec()
     }
 
 DispatchDeferredCleanup:
+#ifdef LAV_TEST_BUILD
+    m_TestStreamLoopActive = false;
+#endif
     // Switch back to synchronous logging mode
     StreamUtils::exitAsyncLoggingMode();
 

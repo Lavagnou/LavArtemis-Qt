@@ -733,9 +733,15 @@ lav_test {
     win32-msvc*: QMAKE_LFLAGS_CONSOLE = /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup
     TARGET = LavArtemisTest
     win32: RC_ICONS = lavartemis-dev.ico
-    SOURCES += backend/testguard.cpp
-    HEADERS += backend/testguard.h streaming/input/testinput.h
-    # app/testctl/ sources (command channel) are added by the testbench tasks.
+    # Testbench command channel (app/testctl): QLocalServer "lavartemis-test"
+    SOURCES += backend/testguard.cpp \
+        testctl/testprotocol.cpp \
+        testctl/uiprobe.cpp \
+        testctl/testcontrol.cpp
+    HEADERS += backend/testguard.h streaming/input/testinput.h \
+        testctl/testprotocol.h \
+        testctl/uiprobe.h \
+        testctl/testcontrol.h
 }
 VERSION = $$LAV_VERSION_NUM
 DEFINES += VERSION_STR=\\\"$$LAV_VERSION_STR\\\"

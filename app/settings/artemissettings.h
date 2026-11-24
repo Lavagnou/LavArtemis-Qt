@@ -57,6 +57,12 @@ public:
     Q_INVOKABLE void save();
     Q_INVOKABLE void load();
 
+#ifdef LAV_TEST_BUILD
+    // Test build (app/testctl, "setting reset"): a separate object holding the built-in
+    // defaults, tied to no file (its save() and load() do nothing). The caller owns it.
+    static ArtemisSettings* createDefaultsForTest();
+#endif
+
     // Clipboard sync getters/setters
     bool clipboardSyncEnabled() const { return m_clipboardSyncEnabled; }
     void setClipboardSyncEnabled(bool enabled);
@@ -130,6 +136,9 @@ signals:
 
 private:
     explicit ArtemisSettings(QObject *parent = nullptr);
+#ifdef LAV_TEST_BUILD
+    ArtemisSettings(QObject *parent, bool noStorage) : QObject(parent), m_settings(nullptr) { Q_UNUSED(noStorage); }
+#endif
 
     void loadDefaults();
 

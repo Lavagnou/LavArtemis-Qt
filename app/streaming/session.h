@@ -191,6 +191,12 @@ public:
 
     int streamFps() const { return m_StreamConfig.fps; }
 
+#ifdef LAV_TEST_BUILD
+    // Test build (app/testctl): the stream window while exec()'s SDL loop runs, nullptr before
+    // and after (m_Window outlives SDL_DestroyWindow). Main thread.
+    SDL_Window* testStreamWindow() const { return m_TestStreamLoopActive ? m_Window : nullptr; }
+#endif
+
 signals:
     void stageStarting(QString stage);
 
@@ -350,6 +356,9 @@ private:
     NvComputer* m_Computer;
     NvApp m_App;
     SDL_Window* m_Window;
+#ifdef LAV_TEST_BUILD
+    bool m_TestStreamLoopActive = false;
+#endif
     IVideoDecoder* m_VideoDecoder;
     SDL_mutex* m_DecoderLock;
     bool m_AudioDisabled;

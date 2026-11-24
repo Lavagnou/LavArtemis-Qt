@@ -62,6 +62,12 @@ public:
     Q_INVOKABLE void save();
     Q_INVOKABLE void load();
 
+#ifdef LAV_TEST_BUILD
+    // Test build (app/testctl, "setting reset"): while set on this thread, value() returns the
+    // built-in default it is given, as on a fresh install. Nothing is read or written.
+    static void setReadDefaultsForTest(bool readDefaults);
+#endif
+
 signals:
     void profilesChanged();
 

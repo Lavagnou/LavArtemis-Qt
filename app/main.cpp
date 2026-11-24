@@ -70,6 +70,9 @@
 #include "backend/networkbuffers.h"
 #include "diagnostics/vrrdiagnostics.h"
 #include "settings/profilemanager.h"
+#ifdef LAV_TEST_BUILD
+#include "testctl/testcontrol.h"
+#endif
 
 #if defined(Q_OS_WIN32)
 #define IS_UNSPECIFIED_HANDLE(x) ((x) == INVALID_HANDLE_VALUE || (x) == NULL)
@@ -1177,6 +1180,9 @@ int main(int argc, char *argv[])
         if (auto* mainWindow = qobject_cast<QQuickWindow*>(engine.rootObjects().first())) {
             mainWindow->setTitle("LavArtemis Test");
         }
+
+        // Test build: the testbench drives the client through a local command channel
+        (new TestControl(&engine, &app))->start();
 #endif
     }
 

@@ -15,6 +15,15 @@
 
 ProfileManager* ProfileManager::s_Instance = nullptr;
 
+#ifdef LAV_TEST_BUILD
+static thread_local bool s_ReadDefaultsForTest = false;
+
+void ProfileManager::setReadDefaultsForTest(bool readDefaults)
+{
+    s_ReadDefaultsForTest = readDefaults;
+}
+#endif
+
 ProfileManager::ProfileManager(QObject* parent)
     : QObject(parent),
       m_Settings(nullptr)
@@ -131,6 +140,11 @@ const ProfileManager::Profile* ProfileManager::findProfile(const QString& id) co
 
 QVariant ProfileManager::value(const QString& key, const QVariant& defaultValue) const
 {
+#ifdef LAV_TEST_BUILD
+    if (s_ReadDefaultsForTest) {
+        return defaultValue;
+    }
+#endif
     if (!isGlobalKey(key)) {
         const Profile* active = findProfile(m_ActiveProfileId);
         if (active != nullptr) {
