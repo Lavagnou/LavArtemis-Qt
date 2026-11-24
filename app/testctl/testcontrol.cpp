@@ -857,6 +857,12 @@ bool TestControl::cmdState(const QJsonObject&, QJsonObject& result, QString& err
     session["decoded"] = hasStats ? static_cast<double>(stats.framesDecoded) : 0;
     session["rendered"] = hasStats ? static_cast<double>(stats.framesRendered) : 0;
     session["dropped"] = hasStats ? static_cast<double>(stats.framesNetworkLost + stats.framesPacerDropped) : 0;
+    // The negotiated stream (what the host encodes), not the settings: HostDisplayFit may have
+    // changed it. 0 until the stream's SDL loop runs, when the configuration is final.
+    const bool streaming = streamWindow() != nullptr;
+    session["width"] = streaming ? active->testStreamConfig().width : 0;
+    session["height"] = streaming ? active->testStreamConfig().height : 0;
+    session["fps"] = streaming ? active->testStreamConfig().fps : 0;
     result["session"] = session;
     return true;
 }

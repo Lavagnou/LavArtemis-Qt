@@ -629,7 +629,7 @@ session, réglages).
 | `mouse` (stream) | `{action:"move", x, y}` ; `{action:"button", button?, down}` ; `{action:"click", button?, x?, y?}` | `{x, y, buttons, windowW, windowH}` |
 | `gamepad` (stream) | `{attach:true}` d'abord ; puis `{button, value}` (bool ou 0/1), `{axis, value}` ; `{detach:true}` | `{pad, instance, attached?, …}` |
 | `screenshot` | `path` (absolu, disque local, PNG), `window?` (0) | `{path, width, height, dpr}` |
-| `state` | — | `{page, pageTitle, pageBusy, quickMenu, pad, computers:[{name, uuid, address, online, state, paired, testHost, thisPc, currentGameId, apps:[noms]}], session:{active, streaming, frames, received, decoded, rendered, dropped}}` |
+| `state` | — | `{page, pageTitle, pageBusy, quickMenu, pad, computers:[{name, uuid, address, online, state, paired, testHost, thisPc, currentGameId, apps:[noms]}], session:{active, streaming, frames, received, decoded, rendered, dropped, width, height, fps}}` |
 | `setting` | `action:"get"/"set"/"reset"/"list"`, `key`, `value` | `{key, source:"streaming"/"artemis", value}` ; `list` → `{streaming:{…}, artemis:{…}}` |
 | `reset` | — | `{folders, registry, notYetRemoved, quitting:true}`, puis le client quitte |
 | `quit` | — | `{quitting:true, session}`, puis le client quitte |
@@ -686,7 +686,10 @@ session, réglages).
 - **`state.session`** : `Session::benchmarkSnapshot()` (cumul du stream, publié à chaque fenêtre de stats ≈ 1 s, 0
   avant) : `frames` envoyées par l'hôte, `decoded`, `rendered`, `dropped` = perdues réseau + jetées par le pacer ;
   `active` = une session existe (connexion comprise), `streaming` = sa boucle SDL tourne
-  (`Session::testStreamWindow()`).
+  (`Session::testStreamWindow()`). `width`, `height`, `fps` = le stream **négocié** (`Session::testStreamConfig()`,
+  après HostDisplayFit et les autres ajustements d'`initialize()`), c'est-à-dire la taille des images que l'hôte
+  envoie ; 0 tant que `streaming` est faux. Lire les numéros d'image d'une capture avec cette taille, pas celle des
+  réglages.
 - **`setting`** : clés = noms des `Q_PROPERTY` de `StreamingPreferences` puis d'`ArtemisSettings` (`fps`,
   `bitrateKbps`, `videoCodecConfig`, `uiExpertMode`…) ; énumérations en nombre (nom accepté en `set`). `set`/`reset`
   enregistrent comme Réglages : `StreamingPreferences::save()` **et** `ArtemisSettings::save()`. `reset` = valeur d'une

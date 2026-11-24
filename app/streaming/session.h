@@ -196,6 +196,10 @@ public:
     // Test build (app/testctl): the stream window while exec()'s SDL loop runs, nullptr before
     // and after (m_Window outlives SDL_DestroyWindow). Main thread.
     SDL_Window* testStreamWindow() const { return m_TestStreamLoopActive ? m_Window : nullptr; }
+
+    // Test build: the stream as negotiated with the host, after HostDisplayFit and every other
+    // adjustment of initialize(): the size of the pictures the host sends. Main thread.
+    const STREAM_CONFIGURATION& testStreamConfig() const { return m_StreamConfig; }
 #endif
 
 signals:
