@@ -30,11 +30,11 @@ Remotes :
 | Qt | **6.11** |
 | Build | **qmake** (pas CMake) — `lavartemis.pro` |
 | Compilateur Windows | MSVC (VS2026) |
-| Plateformes CI | Windows **x64** + **ARM64**, Linux x86_64 |
+| Plateformes | Windows **x64** (releases locales) ; ARM64 et Linux x86_64 seulement par le workflow manuel |
 | Installeur | **WiX 7** |
-| Version | lue depuis `app/version.txt`, **écrite depuis le tag au build**, jamais committée |
+| Version | `app/version.txt`, remplacée au build par `CI_VERSION` (posée par `local-release.ps1` de LavArtemis, ou la CI) ; la valeur committée ne sert pas aux releases |
 
-macOS et Steam Link : le code amont est là mais **hors périmètre** — aucune CI, non testé, non publié.
+macOS et Steam Link : le code amont est là mais **hors périmètre** — non buildé, non testé, non publié.
 
 ## 🗂️ Architecture
 
@@ -56,8 +56,8 @@ git submodule update --init --recursive
 
 # Windows
 powershell ./setup-deps.ps1            # libs prébuildées
-scripts\build-arch.bat Release x64     # puis arm64
-scripts\generate-bundle.bat Release    # installeur WiX combiné (a besoin des DEUX archis)
+scripts\build-arch.bat Release         # archi = celle du kit Qt dont le qmake est dans le PATH
+scripts\generate-bundle.bat Release    # installeur WiX combiné (x64 + arm64, ou x64 seul si LAV_X64_ONLY=1)
 
 # Linux
 qmake6 lavartemis.pro && make -j$(nproc) release
@@ -83,8 +83,8 @@ Portée depuis le client Android, sauf mention contraire :
 
 ### 🖥️ Multi-écran émulé
 
-Réglage **« Virtual Display Multi-Screen »** (`StreamingPreferences::useMultiDisplay`, défaut off, grisé si
-« Use Virtual Display » est décoché). `DisplayLayout::detect()`
+Réglage **« Un écran virtuel par moniteur »** (Réglages › Affichage, `StreamingPreferences::useMultiDisplay`,
+défaut off, grisé sans l'écran virtuel). `DisplayLayout::detect()`
 (`streaming/displaylayout.{h,cpp}`) décrit la disposition des moniteurs ; l'hôte en émule un écran
 virtuel chacun, et le flux transporte **une seule toile** = la bounding box de la disposition.
 
@@ -126,19 +126,16 @@ Trois choses qui ne se devinent pas :
 > processus en PerMonitorV2, où les deux concordent, donc c'est un garde-fou et non un chemin normal.
 
 > ⚠️ **Ne jamais écrire une préférence depuis `onCheckedChanged`.** Ce signal se déclenche à chaque
-> réévaluation du binding, pas seulement au clic. La case « Virtual Display Multi-Screen » liait
-> `checked: enabled && useMultiDisplay` et réécrivait la préférence : décocher « Use Virtual
-> Display » un instant suffisait à l'effacer **définitivement**, la valeur source étant détruite.
-> `onToggled` ne réagit qu'à une action utilisateur. La case reste cochée en grisé, ce qui est la
-> lecture honnête — `Session::initialize()` exige les deux préférences de toute façon.
+> réévaluation du binding, pas seulement au clic. L'ancienne case liait
+> `checked: enabled && useMultiDisplay` et réécrivait la préférence : décocher l'écran virtuel un
+> instant suffisait à l'effacer **définitivement**, la valeur source étant détruite. `onToggled` ne
+> réagit qu'à une action utilisateur. La ligne reste cochée en grisé, ce qui est la lecture
+> honnête — `Session::initialize()` exige les deux préférences de toute façon.
 
-Une pastille de bascule est aussi posée dans l'en-tête de l'accueil (`gui/v2/HomeView.qml`), parce que c'est le
-réglage qu'on change selon l'endroit où l'on est assis. Il **persiste lui-même**
-(`StreamingPreferences.save()`) : contrairement aux Réglages, l'accueil n'a pas d'événement de
-navigation sur lequel sauvegarder.
-
-Il est dans l'en-tête de l'accueil (pastille Multi-écran), là où l'on lance les jeux : le moment où
-l'on décide de streamer sur un ou plusieurs écrans est celui juste avant de lancer un jeu.
+Une pastille « Multi-écran » est aussi posée dans l'en-tête de l'accueil (`gui/v2/HomeView.qml`), là où
+l'on lance les jeux : c'est le réglage qu'on change selon l'endroit où l'on est assis, juste avant de
+lancer. Elle **persiste elle-même** (`StreamingPreferences.save()`) : contrairement aux Réglages,
+l'accueil n'a pas d'événement de navigation sur lequel sauvegarder.
 
 > ⚠️ Un renoncement silencieux est pire que le renoncement lui-même : avec l'option cochée et un
 > seul écran, `detect()` sortait sans `problem()` et `session.cpp` n'avertissait que si `problem()`
@@ -150,7 +147,7 @@ l'on décide de streamer sur un ou plusieurs écrans est celui juste avant de la
 
 | Feature Android | Pourquoi |
 |---|---|
-| `checkbox_paced_ull` | C'est un rattrapage Android : en ULL le renderer présente sans alignement vsync. Le desktop a un vrai `IVsyncSource` derrière l'option **Frame pacing** — l'activer *est* le mode pacé, en mieux (vsync réel, pas extrapolé). |
+| `checkbox_paced_ull` | C'est un rattrapage Android : en ULL le renderer présente sans alignement vsync. Le desktop a un vrai `IVsyncSource` derrière l'option **« Régularité des images (frame pacing) »** (Réglages › Affichage) — l'activer *est* le mode pacé, en mieux (vsync réel, pas extrapolé). |
 | `checkbox_predictive_pacing` | L'équivalent supposé, `SetMaximumFrameLatency(1)`, est **délibérément évité** en amont : cf. le commentaire de `d3d11va.cpp` (~l. 551) — avec `SyncInterval 0`, ça fait bloquer `Present()` sur DWM et **augmente** la latence. Le `+2 vsync` Android est un détail SurfaceFlinger sans équivalent. |
 | AV1 auto (≤15 Mbps ou 4K) | Le mode Auto amont sonde déjà les décodeurs et *déprioritise* AV1 selon la dispo HEVC HW (`session.cpp` ~l. 909-944). Ajouter le seuil Android *retirerait* AV1 à >15 Mbps en <4K et ferait retomber en H.264 les GPU qui ne décodent qu'AV1 : régression. |
 | ADPF | Pas d'équivalent Windows. L'inhibition de veille est déjà couverte par `SDL_DisableScreenSaver()`. |
@@ -188,7 +185,7 @@ faire marcher les appareils trop atypiques pour être devinés.
 **On clique le contrôle sur un schéma de manette, puis on l'actionne.** Pas de séquence imposée :
 `SdlGamepadMapper` n'a qu'une cible à la fois (`m_TargetElement`) et une file
 (`selectElements(QStringList)`) qui sert aux **trois** usages — un clic sur un bouton (file de 1), un
-clic sur un stick (file de 2 : X puis Y), et « Tout mapper à la suite » (file de 21). L'ancien
+clic sur un stick (file de 2 : X puis Y), et « Tout mapper dans l'ordre » (file de 21). L'ancien
 assistant linéaire est donc devenu un cas particulier gratuit du même moteur.
 
 | Fichier | Rôle |
@@ -245,8 +242,8 @@ Trois autres règles dont dépend la justesse des captures :
 
 > 📋 **Choix assumé : pas de notification au démarrage pour un appareil deviné.** Il *fonctionne* ;
 > un modal à chaque lancement serait du harcèlement. L'information est donnée là où elle est
-> actionnable — au lancement d'un stream, et dans la liste du mapper (« Layout guessed — may be
-> wrong »). Ce badge se lit par **GUID** (`getGuessedDeviceGuids()`), pas par nom : deux manettes du
+> actionnable — au lancement d'un stream, et dans la liste du mapper (« Disposition devinée — peut-être
+> fausse »). Ce badge se lit par **GUID** (`getGuessedDeviceGuids()`), pas par nom : deux manettes du
 > même modèle portent le même nom.
 
 > ⚠️ **Reste à vérifier avec un appareil en main** : `synthesizeMapping()` suppose l'ordre d'axes
@@ -264,10 +261,10 @@ trouvée (`window.updateVersion`, `updateDownloadUrl`, `updateBrowserUrl`) pour 
 
 | | |
 |---|---|
-| Canal stable | `/releases/latest` — les builds CI sont publiés en *prerelease* et n'y apparaissent pas |
-| Canal prerelease | `/releases` (liste complète), premier élément |
-| Comparaison | `compareVersionStrings()` : `20.8.2` > `20.8.2-ci.41` — une stable bat toujours la prerelease de même base |
-| Asset Windows | **`-win-installer.exe`, pour les deux architectures.** Le bundle WiX embarque les MSI x64 *et* arm64 et choisit par `NativeMachine` ; les zips `-win-x64`/`-win-arm64` sont des builds **portables**, sans installeur à exécuter dedans |
+| Canal stable | `/releases/latest` (GitHub n'y met jamais une prerelease) |
+| Canal Dev | `/releases` (liste complète), `pickDevRelease()` garde la plus récente `-dev.` ; ni stable ni `-ci.` |
+| Comparaison | `compareVersionStrings()` : à base égale, une stable bat toujours un suffixe (`-dev.N`, `-ci.N`) |
+| Asset Windows | **`-win-installer.exe`, quelle que soit l'architecture.** Le bundle WiX embarque les MSI présents (x64, et arm64 quand la release vient du workflow) et choisit par `NativeMachine` (⚠️ l'installeur x64 seul d'une release locale n'installe donc rien sur un PC ARM64) ; les zips `-win-x64`/`-win-arm64` sont des builds **portables**, sans installeur à exécuter dedans |
 | Auto-install | Windows uniquement (`canSelfInstall()`). macOS et AppImage ouvrent la page de release |
 
 > ⚠️ **Un `Dialog` Qt Quick se ferme dès qu'on presse un bouton standard.** `onAccepted` s'exécute
@@ -310,7 +307,7 @@ trouvée (`window.updateVersion`, `updateDownloadUrl`, `updateBrowserUrl`) pour 
 
 ## 🧪 Canal Dev (LavArtemis Dev)
 
-Une version qui contient `-dev.` (`app/version.txt`, écrit par la CI depuis le tag) construit
+Une version qui contient `-dev.` (`app/version.txt` ou `CI_VERSION`, voir « Stack technique ») construit
 **LavArtemis Dev**, installée à côté de la stable. Branche `dev` ici, branche `dev` dans LavArtemis.
 Vue d'ensemble et tableau stable/dev : section « Stable / Dev » du `CLAUDE.md` de LavArtemis.
 
@@ -347,10 +344,10 @@ fichier) ; `scripts/generate-ico.sh` n'est plus qu'un renvoi vers lui. Ne jamais
 ## 🎨 Interface v2 (LavArtemis Dev)
 
 La refonte (spec : `docs/superpowers/specs/2026-11-23-ui-redesign-design.md` dans LavArtemis,
-prototype de référence dans `docs/ui-redesign/prototype/`) vit dans **`app/gui/v2/`**, à côté de
-l'interface d'origine. La Dev l'ouvre toujours au démarrage (`main.cpp`, `initialView`) : le retour
-à l'ancienne interface (`uiLegacy`) a été retiré, puis **l'ancienne interface elle-même** (`PcView`,
-`AppView`, `SettingsView`, la barre d'outils et leurs briques). Restent hors de `v2/` : `main.qml`
+prototype de référence dans `docs/ui-redesign/prototype/`) vit dans **`app/gui/v2/`**. L'appli
+s'ouvre toujours sur l'accueil v2 (`main.cpp`, `initialView`) : le retour à l'ancienne interface
+(`uiLegacy`) a été retiré, puis **l'ancienne interface elle-même** (`PcView`, `AppView`,
+`SettingsView`, la barre d'outils et leurs briques) — elle n'existe plus que sur `main` (stable). Restent hors de `v2/` : `main.qml`
 (fenêtre, dialogues de démarrage et de mise à jour), `QuickMenu`, les segues de stream et de CLI, le
 mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, en-tête `PageHeader`).
 
@@ -420,8 +417,7 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   ignorés, repli PyroWave, disposition de manette devinée. Ces fonctions ne s'expliquent que par là :
   un nouvel avertissement LavArtemis prend la seconde.
 - Une ligne qui dépend du matériel ou de la plateforme se masque quand elle ne ferait rien (VRR hors
-  Windows, « Écran tactile » sans écran tactile — `SystemProperties.hasTouchScreen` —, limite de débit avec
-  PyroWave, où la préférence est gardée pour les autres codecs). Un réglage qui agit encore **reste
+  Windows, « Écran tactile » sans écran tactile — `SystemProperties.hasTouchScreen`). Un réglage qui agit encore **reste
   visible tant qu'il est actif** (le mode Trackpad) : on ne retire pas un réglage allumé de sous les
   yeux de l'utilisateur.
 - **« Écran tactile » : Multitouch / Trackpad**, en mode normal, en tête de la page Entrées, **mêmes libellés et
@@ -481,16 +477,16 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   Windows 11 ; sous Windows 10 elle reste celle du système). `main.qml` la réapplique à chaque
   changement de thème (`frameKey`) ; la fenêtre SDL du
   stream reprend les mêmes couleurs (`applyWindowFrameColors()` dans `Session`).
-- **Débit vidéo, celui d'Android** (`SettingsCatalog`, `seekbar_bitrate_kbps`) : curseur de 0,5 à 800 Mbit/s
-  **quel que soit le codec**, piste cubique (`SettingSlider.curve: 3` : position = fraction^(1/3), pas de
-  500 kbit/s, flèches à 1 Mbit/s ×5 puis ×20 comme `SettingDef.stepFrom`), et « Saisir un débit » (expert)
+- **Débit vidéo, celui d'Android** (`SettingsCatalog` / `seekbar_bitrate_kbps` côté Android) : curseur de
+  0,5 à 800 Mbit/s, **3 Gbit/s avec PyroWave** (`bitrateMax`, mêmes deux bornes qu'Android), piste cubique (`SettingSlider.curve: 3` : position =
+  fraction^(1/3), pas de 500 kbit/s, flèches à 1 Mbit/s ×5 puis ×20 comme Android), et « Saisir un débit » (expert)
   pour toute valeur au-delà. « Débloquer la limite de débit » (`unlockBitrate`, 500 Mbit/s) est **retiré** :
   rien ne borne plus la valeur enregistrée, une valeur saisie, calibrée (PyroWave) ou débloquée auparavant
   reste telle quelle, le curseur se pose alors en bout de piste. PyroWave garde son débit par défaut et son
-  calibrage (propres au PC), pas de plage à lui. Le benchmark plafonne à 800 Mbit/s comme Android.
-- **Mise à jour** : la v2 masque la barre d'outils et son bouton de mise à jour. `main.qml` expose
-  `window.updateVersion` et `openUpdateDialog()` ; l'accueil (bouton « Mise à jour ») et Réglages ›
-  Avancé (« Installer ») les utilisent. Sans eux, une mise à jour s'annonçait sans pouvoir s'installer.
+  calibrage (propres au PC). Le benchmark plafonne à 800 Mbit/s comme Android.
+- **Mise à jour** : `main.qml` lance le check et expose `window.updateVersion` et `openUpdateDialog()` ;
+  l'accueil (pastille « Mise à jour » de l'en-tête) et Réglages › Avancé (« Installer ») les utilisent.
+  Pas de dialogue au démarrage (Android en a un : écart voulu).
 - **Tout changement de design passe d'abord par le prototype** (canvas « LavArtemis — 4 directions »)
   et n'est codé qu'une fois validé.
 - Polices OFL embarquées (`res/fonts/`, enregistrées dans `main.cpp`).
@@ -581,7 +577,7 @@ changer les deux ensemble). Jamais choisi en Auto : uniquement via le codec « P
 > `HAVE_PYROWAVE` et n'affiche pas l'option.
 
 > 📋 Le calibrateur classe les formats par marge de décodage ; les paliers « vrr » / « vrrLarge » de
-> Nonary restent présentés comme « Tight » / « Very tight ». La VRR (ci-dessous) est arrivée après le
+> Nonary sont présentés comme « Juste » / « Très juste ». La VRR (ci-dessous) est arrivée après le
 > calibrateur et ne l'a pas changé.
 
 ## 🖥️ VRR (présentation adaptative, Windows)
@@ -624,7 +620,7 @@ est présentée **à l'instant que vise sa timestamp RTP** (slot source + délai
 ## 🎤 Passthrough du micro
 
 Le micro de ce PC est joué par LavApollo dans un micro virtuel de l'hôte (Steam Streaming Microphone).
-Réglage **LavArtemis Features → Microphone**, désactivé par défaut, avec le choix du micro. Protocole :
+Réglages › Audio : **« Envoyer mon micro au PC distant »** (désactivé par défaut) et « Micro utilisé », hors profils (`ArtemisSettings`, propres à la machine). Protocole :
 `LavApollo/docs/mic-passthrough.md`, vue d'ensemble dans le `CLAUDE.md` racine de LavArtemis.
 
 - `streaming/audio/micstreamer.{h,cpp}` : capture SDL 48 kHz mono S16 par blocs de 960, découpe en
@@ -638,7 +634,7 @@ Réglage **LavArtemis Features → Microphone**, désactivé par défaut, avec l
   un droit coché sur l'hôte (ou un hôte mis à jour) n'était vu qu'au redémarrage du client.
 - **Couper** : `KeyComboToggleMicrophone` (Ctrl+Alt+Shift+**U**, M étant le mode souris) et l'entrée
   `toggle_microphone` du menu rapide, tous deux vers `Session::toggleMicrophoneMute()`. Le message
-  « Microphone muted » passe par `Overlay::StatusSource::Microphone`, affiché **en plus** des autres
+  « Micro coupé » passe par `Overlay::StatusSource::Microphone`, affiché **en plus** des autres
   messages d'état, jamais masqué par eux.
 - ⚠️ **Sous-système audio SDL partagé** avec `SdlAudioRenderer` : ses deux `SDL_assert(!SDL_WasInit(...))`
   ont été retirés, le comptage de références de SDL suffit.
@@ -647,7 +643,7 @@ Réglage **LavArtemis Features → Microphone**, désactivé par défaut, avec l
 
 ## 📊 Benchmark des réglages
 
-Clic droit sur un hôte → **Benchmark Testing** (`gui/BenchmarkView.qml`) : le client streame plusieurs fois
+Mes PC, menu d'un PC → **« Benchmark des réglages »** (`gui/BenchmarkView.qml`) : le client streame plusieurs fois
 la scène animée de l'app cachée « Benchmark » de LavApollo, une combinaison codec / débit / pacing par
 run, et note chaque run (latence, fluidité) face aux réglages de l'utilisateur. Spécification commune aux
 deux clients (planification, mesures, formules, JSON) : `LavApollo/docs/benchmark.md`.
@@ -676,7 +672,7 @@ deux clients (planification, mesures, formules, JSON) : `LavApollo/docs/benchmar
 
 > ⚠️ **Les réglages d'un run sont détachés et jamais sauvegardés.** `createDetached()` copie les réglages
 > courants (profil actif compris), ne suit pas les changements de profil, et son `save()` ne fait rien. Le run
-> de référence (« Your settings ») et sa répétition streament les réglages de l'utilisateur sans y toucher.
+> de référence (« Tes réglages ») et sa répétition streament les réglages de l'utilisateur sans y toucher.
 
 > ⚠️ **On note la config *effective*, pas la demandée** (`Session::effectiveBenchmarkConfig()`) : AV1 sans
 > décodeur retombe en HEVC, la VRR refusée par l'écran retombe sur le pacing fixe. Un run replié est marqué
@@ -690,7 +686,7 @@ deux clients (planification, mesures, formules, JSON) : `LavApollo/docs/benchmar
   fait qu'échouer ce run.
 - L'app de l'hôte est quittée avant le premier run, entre deux runs dont la demande VRR diffère (l'écran à
   1000 Hz n'existe qu'au `/launch`) et après le dernier.
-- Rapports dans `AppDataLocation/benchmarks/`, 50 au plus ; « Open a report file… » ouvre aussi ceux de
+- Rapports dans `AppDataLocation/benchmarks/`, 50 au plus ; « Ouvrir un fichier de rapport… » ouvre aussi ceux de
   l'Android (même JSON). Les appliquer n'est possible que pour un rapport desktop (noms de pacing différents).
 
 ## 📐 Résolution calée sur l'écran du PC
@@ -742,20 +738,25 @@ par `tests/hostdisplay`.
    **avant qu'aucune fenêtre n'existe** — l'installeur semble ne rien faire du tout, sans erreur ni
    SmartScreen. WiX embarque sans broncher un thème dont les références ne résolvent pas : build vert,
    zéro warning. C'est ce qui a cassé la v20.3.0 (renommage `artemis.ico` → `lavartemis.ico`
-   non répercuté). Le job `build-windows` de LavArtemis ouvre désormais le bundle et vérifie chaque
-   asset — mais si tu bouges ces fichiers, vérifie les deux côtés.
+   non répercuté). Seul le job `build-windows` du workflow (manuel) de LavArtemis ouvre le bundle et
+   vérifie chaque asset ; `local-release.ps1` ne le fait pas : si tu bouges ces fichiers, vérifie les
+   deux côtés à la main et lance l'installeur avant de publier.
    Diagnostic : le log Burn est dans `%TEMP%\LavArtemis_Game_Streaming_Client_*.log`, et
    `wix burn extract <exe> -oba <dir> -acceptEula wix7` montre le contenu réel.
 
-5. **`app/version.txt` est écrit par la CI depuis le tag**, jamais committé à la main.
+5. **La version publiée vient de LavArtemis** (`lavVersionName` d'`app/build.gradle`), passée au build par
+   `CI_VERSION` : `local-release.ps1` réécrit `app/version.txt` le temps du build puis le remet. La valeur
+   committée ici n'est pas celle des releases.
 
 6. **`ArtemisApplication`, `artemis.png`, `artemissettings`** — le rebrand est partiel, ces noms sont
    hérités. Renommer touche le QML, le `.pro` et le WiX ensemble.
 
 ## 🤖 CI
 
-- **`.github/workflows/build.yml`** — compile check à chaque push/PR sur `main` (Windows x64/arm64 +
-  Linux). ~7 min. Ne produit **pas** de release.
+Les minutes Actions sont comptées : **tout est manuel**, et le client est buildé en local avant chaque push.
+
+- **`.github/workflows/build.yml`** — compile check (Windows x64/arm64 + Linux), **lancé à la main
+  seulement** (`workflow_dispatch`). ~7 min. Ne produit **pas** de release.
 - ⚠️ **Le compile-check Linux construit *sans* `APP_IMAGE`**, alors que la release construit l'AppImage
   *avec*. Les branches `#ifdef` compilées ne sont donc pas les mêmes : une erreur qui ne touche qu'un
   chemin laisse la release **verte** pendant que `build.yml` est rouge. C'est ce qui a caché 17 jours
@@ -764,18 +765,21 @@ par `tests/hostdisplay`.
   suite** — la boucle en dessous référençait un `wantedSuffix` jamais déclaré. Un `#else` qui ne fait
   que sortir doit quand même **déclarer** ce dont le code suivant se sert. Et un compile-check rouge
   n'est jamais cosmétique, même quand la release passe.
-- Les **artefacts publiés** viennent du workflow de release de
-  [`Lavagnou/LavArtemis`](https://github.com/Lavagnou/LavArtemis), qui consomme ce dépôt comme
-  sous-module `desktop/` et publie Android + desktop sous un tag unique.
+- Les **releases** sont publiées par [`Lavagnou/LavArtemis`](https://github.com/Lavagnou/LavArtemis), qui
+  consomme ce dépôt comme sous-module `desktop/` et publie Android + desktop sous un tag unique. Elles
+  sont **construites en local** (`scripts/local-release.ps1` : client Windows **x64 seul**,
+  `LAV_X64_ONLY=1`, depuis ce clone, qui doit être sur le commit épinglé). ARM64 et l'AppImage Linux
+  n'existent que par le workflow `release.yml` de LavArtemis, manuel lui aussi.
 - ⚠️ **`build-appimage.yml` est orphelin** (`workflow_call` que personne n'appelle) : c'est la
   référence dont le job `build-linux` de LavArtemis est dérivé. **Toute correction doit aller dans
   les deux.**
 
 ### Faire remonter un changement jusqu'à la release
 
-Commiter ici suffit. Le pointeur `desktop/` côté LavArtemis est avancé par le workflow **Update
-desktop pointer** (manuel), qui n'épingle que des commits dont le build est vert. La release signale
-d'elle-même si le pointeur est en retard.
+Commiter ici, puis avancer le pointeur `desktop/` dans LavArtemis (sa branche `dev` → ce `dev`) par un
+commit là-bas, ce que fait chaque release Dev. Le workflow **Update desktop pointer** de LavArtemis ne
+sert plus en l'état : il cherche le dernier run **vert déclenché par un push** de `build.yml` sur `main`,
+et `build.yml` ne tourne plus sur push.
 
 ## 🔗 Cœur natif partagé
 

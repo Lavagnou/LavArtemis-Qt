@@ -1,114 +1,77 @@
-# Moonlight PC
+# LavArtemis (desktop)
 
-[Moonlight PC](https://moonlight-stream.org) is an open source PC client for NVIDIA GameStream and [Sunshine](https://github.com/LizardByte/Sunshine).
+LavArtemis is a game-streaming client for [LavApollo](https://github.com/Lavagnou/LavApollo),
+Apollo and Sunshine hosts (NVIDIA GameStream protocol). This repository is the **desktop client**
+(C++ / Qt 6, Windows and Linux); the Android client and the releases live in
+[Lavagnou/LavArtemis](https://github.com/Lavagnou/LavArtemis), which includes this repository as its
+`desktop/` submodule.
 
-Moonlight also has mobile versions for [Android](https://github.com/moonlight-stream/moonlight-android) and [iOS](https://github.com/moonlight-stream/moonlight-ios).
+## Two apps: LavArtemis and LavArtemis Dev
 
-You can follow development on our [Discord server](https://moonlight-stream.org/discord) and help translate Moonlight into your language on [Weblate](https://hosted.weblate.org/projects/moonlight/moonlight-qt/).
+| | LavArtemis | LavArtemis Dev |
+|---|---|---|
+| Branch | `main` | `dev` |
+| Version | `X.Y.Z` | `X.Y.Z-dev.N` (GitHub prerelease) |
+| Interface | the interface inherited from Moonlight / Artemis | the redesigned interface, in French |
 
- [![Build](https://img.shields.io/github/actions/workflow/status/moonlight-stream/moonlight-qt/build.yml?branch=master)](https://github.com/moonlight-stream/moonlight-qt/actions/workflows/build.yml?query=branch%3Amaster)
- [![Downloads](https://img.shields.io/github/downloads/moonlight-stream/moonlight-qt/total)](https://github.com/moonlight-stream/moonlight-qt/releases)
- [![Translation Status](https://hosted.weblate.org/widgets/moonlight/-/moonlight-qt/svg-badge.svg)](https://hosted.weblate.org/projects/moonlight/moonlight-qt/)
+Both install side by side on Windows, with separate settings (LavArtemis Dev copies the stable
+app's settings once, on its first start). New work goes to LavArtemis Dev first; the stable app
+is updated only once Dev has been tested for a while.
+
+LavArtemis Dev opens on a home page that shows one PC at a time: its **Bureau** (the Windows
+desktop), **Playnite Fullscreen**, and the host's Playnite library (most recently played first,
+through LavApollo's *LavApollo Link* extension), with the running session staged on top. **Mes PC**
+adds, pairs (PIN), renames, wakes, forgets and benchmarks PCs. **Réglages** has a normal and an
+expert mode, and the in-game menu, texts and options match the Android client.
 
 ## Features
- - Hardware accelerated video decoding on Windows, Mac, and Linux
- - H.264, HEVC, and AV1 codec support (AV1 requires Sunshine and a supported host GPU)
- - YUV 4:4:4 support (Sunshine only)
- - HDR streaming support
- - 7.1 surround sound audio support
- - 10-point multitouch support (Sunshine only)
- - Gamepad support with force feedback and motion controls for up to 16 players
- - Support for both pointer capture (for games) and direct mouse control (for remote desktop)
- - Support for passing system-wide keyboard shortcuts like Alt+Tab to the host
- 
-## Downloads
-- [Windows, macOS, and Steam Link](https://github.com/moonlight-stream/moonlight-qt/releases)
-- [Snap (for Ubuntu-based Linux distros)](https://snapcraft.io/moonlight)
-- [Flatpak (for other Linux distros)](https://flathub.org/apps/details/com.moonlight_stream.Moonlight)
-- [AppImage](https://github.com/moonlight-stream/moonlight-qt/releases)
-- [Raspberry Pi 4 and 5](https://github.com/moonlight-stream/moonlight-docs/wiki/Installing-Moonlight-Qt-on-Raspberry-Pi-4)
-- [Generic ARM 32-bit and 64-bit Debian packages](https://github.com/moonlight-stream/moonlight-docs/wiki/Installing-Moonlight-Qt-on-ARM%E2%80%90based-Single-Board-Computers) (not for Raspberry Pi)
-- [Experimental RISC-V Debian packages](https://github.com/moonlight-stream/moonlight-docs/wiki/Installing-Moonlight-Qt-on-RISC%E2%80%90V-Single-Board-Computers)
-- [NVIDIA Jetson and Nintendo Switch (Ubuntu L4T)](https://github.com/moonlight-stream/moonlight-docs/wiki/Installing-Moonlight-Qt-on-Linux4Tegra-(L4T)-Ubuntu)
 
-### Nightly Builds
-- [Downloads](https://nightly.link/moonlight-stream/moonlight-qt/workflows/build/master)
+On top of Moonlight's (hardware decoding, H.264 / HEVC / AV1, 4:4:4, surround sound, gamepads,
+system shortcut capture):
 
-#### Special Thanks
+- **Apollo / LavApollo**: virtual display, PIN and OTP pairing, server commands, clipboard sync,
+  `art://` links and `.art` shortcut files (same format as Android).
+- **Playnite games** as apps, started inside Playnite, and « Quitter le jeu » back to Playnite.
+- **Multi-monitor**: the host emulates one virtual display per local monitor.
+- **Stream at the host display's mode** when joining a session or streaming without a virtual display.
+- **PyroWave** intra-only GPU codec (Windows / Linux x64, wired networks) and **VRR pacing**
+  (frames presented at their capture time on G-Sync / FreeSync displays, Windows).
+- **Microphone passthrough** to a virtual microphone on the host.
+- **Settings benchmark**: streams a test scene with several codec / bitrate / pacing combinations
+  and scores latency and smoothness.
+- Settings profiles, send-keys and keyboard macros (same files as Android), gamepad mapper with a
+  clickable controller diagram and a guessed layout for unknown gamepads, client-side zoom,
+  touchscreen as Multitouch or Trackpad.
+- In-app updater (Windows: downloads and runs the installer).
 
-[![Hosted By: Cloudsmith](https://img.shields.io/badge/OSS%20hosting%20by-cloudsmith-blue?logo=cloudsmith&style=flat-square)](https://cloudsmith.com)
+## Install
 
-Hosting for Moonlight's Debian and L4T package repositories is graciously provided for free by [Cloudsmith](https://cloudsmith.com).
+Download `LavArtemis-<version>-win-installer.exe` from the
+[LavArtemis releases](https://github.com/Lavagnou/LavArtemis/releases): the latest release for
+LavArtemis, the newest `-dev.` prerelease for LavArtemis Dev. Each app then updates itself from its
+own channel. Releases are built for Windows x64; ARM64 and the Linux AppImage are only in releases
+built by the manual release workflow. Otherwise build from source.
 
 ## Building
 
-### Windows Build Requirements
-* Qt 6.11 SDK or later (earlier versions may work but are not officially supported)
-* [Visual Studio 2026](https://visualstudio.microsoft.com/downloads/) (Community edition is fine)
-* Select **MSVC** option during Qt installation. MinGW is not supported.
-* [7-Zip](https://www.7-zip.org/) (only if building installers for non-development PCs)
-* Graphics Tools (only if running debug builds)
-  * Install "Graphics Tools" in the Optional Features page of the Windows Settings app.
-  * Alternatively, run `dism /online /add-capability /capabilityname:Tools.Graphics.DirectX~~~~0.0.1.0` and reboot.
+See [docs/BUILD_SYSTEM.md](docs/BUILD_SYSTEM.md). In short:
 
-### macOS Build Requirements
-* Qt 6.11 SDK or later (earlier versions may work but are not officially supported)
-* Xcode 15 or later (earlier versions may work but are not officially supported)
-* [create-dmg](https://github.com/sindresorhus/create-dmg) (only if building DMGs for use on non-development Macs)
+```sh
+git submodule update --init --recursive
+# Windows (Qt 6.11 MSVC, Visual Studio 2026, WiX 7, 7-Zip), from a Qt command prompt
+powershell ./setup-deps.ps1
+scripts\build-arch.bat Release x64
+# Linux
+qmake6 lavartemis.pro && make -j$(nproc) release
+```
 
-### Linux/Unix Build Requirements
-* Qt 6 is recommended, but Qt 5.12 or later is also supported (replace `qmake6` with `qmake` when using Qt 5).
-* GCC or Clang
-* FFmpeg 4.0 or later
-* Install the required packages:
-  * Debian/Ubuntu:
-    * Base Requirements: `libegl1-mesa-dev libgl1-mesa-dev libopus-dev libsdl2-dev libsdl2-ttf-dev libssl-dev libavcodec-dev libavformat-dev libswscale-dev libva-dev libvdpau-dev libxkbcommon-dev wayland-protocols libdrm-dev`
-    * Qt 6 (Recommended): `qt6-base-dev qt6-declarative-dev libqt6svg6-dev qt6-wayland qml6-module-qtquick-controls qml6-module-qtquick-templates qml6-module-qtquick-layouts qml6-module-qtqml-workerscript qml6-module-qtquick-window qml6-module-qtquick`
-    * Qt 5: `qtbase5-dev qt5-qmake qtdeclarative5-dev qtquickcontrols2-5-dev qml-module-qtquick-controls2 qml-module-qtquick-layouts qml-module-qtquick-window2 qml-module-qtquick2 qtwayland5`
-  * RedHat/Fedora (RPM Fusion repo required):
-    * Base Requirements: `openssl-devel SDL2-devel SDL2_ttf-devel ffmpeg-devel libva-devel libvdpau-devel opus-devel pulseaudio-libs-devel alsa-lib-devel libdrm-devel`
-    * Qt 6 (Recommended): `qt6-qtsvg-devel qt6-qtdeclarative-devel`
-    * Qt 5: `qt5-qtsvg-devel qt5-qtquickcontrols2-devel`
-* Building the Vulkan renderer requires a `libplacebo-dev`/`libplacebo-devel` version of at least v7.349.0 and FFmpeg 6.1 or later.
+## Lineage and credits
 
-### Steam Link Build Requirements
-* [Steam Link SDK](https://github.com/ValveSoftware/steamlink-sdk) cloned on your build system
-* STEAMLINK_SDK_PATH environment variable set to the Steam Link SDK path
+[Moonlight PC](https://github.com/moonlight-stream/moonlight-qt) (Cameron Gutman and contributors)
+→ [wjbeckett/artemis](https://github.com/wjbeckett/artemis) (desktop port of the Artemis features of
+[ClassicOldSong's Artemis for Android](https://github.com/ClassicOldSong/moonlight-android))
+→ LavArtemis. PyroWave decoding and the VRR pacer are ported from
+[Nonary's moonlight-qt fork](https://github.com/Nonary/moonlight-qt); PyroWave itself is by
+[Themaister](https://github.com/Themaister/pyrowave).
 
-**Steam Link Hardware Limitations**  
-Moonlight builds for Steam Link are subject to hardware limitations of the Steam Link device:
-* Maximum resolution: **1080p (1920x1080)**
-* Maximum framerate: **60 FPS**
-* Maximum video bitrate: **40 Mbps**
-* **HDR streaming is not supported** on the original hardware
-
-### Docker containers
-If you want to use Docker for building, look at [this repo](https://github.com/cgutman/moonlight-packaging) containing canonical containers
-for different architectures, which handle building deps and extra linking for you.
-
-### Build Setup Steps
-1. Install the latest Qt SDK (and optionally, the Qt Creator IDE) from https://www.qt.io/download
-    * You can install Qt via Homebrew on macOS, but you will need to use `brew install qt --with-debug` to be able to create debug builds of Moonlight.
-    * You may also use your Linux distro's package manager for the Qt SDK as long as the packages are Qt 5.12 or later.
-    * This step is not required for building on Steam Link, because the Steam Link SDK includes Qt 5.14.
-2. Download submodules and dependencies
-    * Run `git submodule update --init --recursive` from within `moonlight-qt/`.
-    * On Windows and macOS, you must also run `setup-deps.ps1` (Windows) or `setup-deps.py` (macOS).
-    * Perform these steps each time you pull new changes from the Git repository.
-3. Open the project in Qt Creator or build from qmake on the command line.
-    * To build a binary for use on non-development machines, use the scripts in the `scripts` folder.
-        * For Windows builds, use `scripts\build-arch.bat` and `scripts\generate-bundle.bat`. Execute these scripts from the root of the repository within a Qt command prompt. Ensure  7-Zip binary directory is on your `%PATH%`.
-        * For macOS builds, use `scripts/generate-dmg.sh`. Execute this script from the root of the repository and ensure Qt's `bin` folder is in your `$PATH`.
-        * For Steam Link builds, run `scripts/build-steamlink-app.sh` from the root of the repository.
-    * To build from the command line for development use on macOS or Linux, run `qmake6 moonlight-qt.pro` then `make debug` or `make release`.
-        * The final binary will be placed in `app/moonlight`.
-    * To create an embedded build for a single-purpose device, use `qmake6 "CONFIG+=embedded" moonlight-qt.pro` and build normally.
-        * This build will lack windowed mode, Discord/Help links, and other features that don't make sense on an embedded device.
-        * For platforms with poor GPU performance, add `"CONFIG+=gpuslow"` to prefer direct KMSDRM rendering over GL/Vulkan renderers. Direct KMSDRM rendering can use dedicated YUV/RGB conversion and scaling hardware rather than slower GPU shaders for these operations.
-
-## Contribute
-1. Fork us
-2. Write code
-3. Send Pull Requests
-
-Check out our [website](https://moonlight-stream.org) for project links and information.
+Licensed under the GPLv3, like Moonlight.

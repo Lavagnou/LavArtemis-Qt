@@ -1,12 +1,16 @@
 # VRR deterministic tests
 
-User-facing Windows/Linux frame tracing and log export is documented in
-[VRR diagnostics](../../docs/vrr-diagnostics.md). `tst_vrrdiagnostics` covers
-the Desktop destination, capture lifetime, external-launcher precedence, Unicode
-paths and ZIP export. The tracing checkbox does not switch timing policies.
-Set `MOONLIGHT_DIAGNOSTICS_TEST_EXPORT` to a new `.zip` path to export its fixture,
-then run `python3 tests/vrr/check_diagnostic_zip.py PATH` for independent CRC and
-content verification. Cold/warm worker exports use the current production policy.
+> **LavArtemis note.** This document comes from
+> [Nonary's moonlight-qt fork](https://github.com/Nonary/moonlight-qt) (`release/6.1.0-vrr18`) and is
+> kept as the reference for the ported pacer. Only the suites present in this folder were ported
+> (see `vrr.pro`); the Linux Vulkan (`plvk`), Gamescope and DualSense parts it describes were not.
+> LavArtemis' own notes are in `CLAUDE.md` (« VRR »).
+
+`tst_vrrdiagnostics` covers the trace destination (the app's data folder, not the
+Desktop), capture lifetime, external-launcher precedence, Unicode paths and ZIP
+export. The tracing checkbox does not switch timing policies.
+Set `MOONLIGHT_DIAGNOSTICS_TEST_EXPORT` to a new `.zip` path to export its fixture.
+Cold/warm worker exports use the current production policy.
 
 The interval-quality queue is now the production VRR policy (responsive
 revision 7). There is no legacy queue-policy A/B checkbox; saved `v2queue` values are ignored and
