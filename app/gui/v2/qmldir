@@ -13,6 +13,7 @@ LavPopup 1.0 LavPopup.qml
 LavSwitch 1.0 LavSwitch.qml
 LavTextField 1.0 LavTextField.qml
 LiveHalo 1.0 LiveHalo.qml
+HoverDecor 1.0 HoverDecor.qml
 PageHeader 1.0 PageHeader.qml
 PyroWaveCalibration 1.0 PyroWaveCalibration.qml
 RoundIconButton 1.0 RoundIconButton.qml

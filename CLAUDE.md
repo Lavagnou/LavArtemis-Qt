@@ -428,6 +428,12 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   **multiplie** (calque noir) : `MultiEffect.brightness` ajoute, et noircissait les jaquettes
   sombres. `AppMenu.qml` : popover au pointeur à la souris,
   centré sinon (`customEntries` pour d'autres menus du même style).
+- **Survol et focus des cartes et jaquettes** (`CoverTile`, `AppCard`, cartes de Mes PC), comme le prototype :
+  à la souris (`mouseHover`), la carte monte de 5 px avec une ombre douce (`HoverDecor.qml`, sous le fond
+  comme `LiveHalo`) et un fin liseré (`Theme.hoverRing` / `hoverRingWidth`, prototype `ringMouse`) ; à la
+  manette ou au clavier (`padFocus`), elle grossit à `Theme.focusScale` (1,04) avec l'anneau de focus. Les
+  deux comptent comme le focus de l'assombrissement : `Theme.dim(mouseHover || padFocus)`, la couleur
+  revient. ⚠️ Avant le 2026-11-24, une carte assombrie ne réagissait pas du tout à la souris.
 - **`HostsView.qml` (Mes PC, prototype « hosts »)** : une carte par PC appairé (état, adresse, version
   LavApollo, ce qui tourne), puis « Ajouter un PC » (PC trouvés sur le réseau ou par adresse, puis
   appairage par code PIN). Menu : Ouvrir, Benchmark, Réveiller, Renommer, Oublier. ⚠️ Les rôles de

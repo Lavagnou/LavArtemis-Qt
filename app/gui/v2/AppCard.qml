@@ -28,7 +28,7 @@ AbstractButton {
     }
 
     // Dimmed while something else runs: the whole face, cover and text (Theme.dim)
-    readonly property var dimStyle: Theme.dim(card.activeFocus && Theme.showFocus)
+    readonly property var dimStyle: Theme.dim(card.mouseHover || card.padFocus)
 
     background: Rectangle {
         id: bgRect
@@ -161,7 +161,32 @@ AbstractButton {
         }
     }
 
-    transform: Translate { y: card.hovered && Theme.input === "mouse" && !card.dimmed ? -5 : 0 }
+    // Prototype: mouse hover lifts the card (shadow + thin outline), gamepad/keyboard focus scales it;
+    // both bring the colour back on a dimmed card (Theme.dim(true))
+    readonly property bool mouseHover: hovered && Theme.input === "mouse"
+    readonly property bool padFocus: activeFocus && Theme.showFocus
+    transform: Translate {
+        y: card.mouseHover ? -5 : 0
+        Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+    }
+    scale: card.padFocus ? Theme.focusScale : 1.0
+    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+
+    HoverDecor {
+        anchors.fill: parent
+        active: card.mouseHover
+        radius: Theme.r
+    }
+    Rectangle {
+        // Thin outline on mouse hover (the full focus ring is for the gamepad and keyboard)
+        anchors.fill: parent
+        radius: Theme.r
+        color: "transparent"
+        border.width: Theme.hoverRingWidth
+        border.color: Theme.hoverRing
+        visible: card.mouseHover
+        z: 3
+    }
 
     contentItem: Item {
         // "⋯": options. Mouse: only on hover; touch: always; pad/keys: Y / Menu instead.

@@ -123,6 +123,15 @@ QtObject {
                     : (focused ? {gray: 0.4, bright: 1.0, opacity: 0.85} : {gray: 1.0, bright: 1.0, opacity: 0.4})
     }
 
+    // Mouse hover on a card or cover (prototype `ringMouse`): it lifts by 5 px with a soft shadow and
+    // a thin outline, and counts as the focus for the dimming (colour comes back). Gamepad/keyboard
+    // focus instead scales it to 1.04 with the full focus ring (prototype `ring`).
+    readonly property color hoverRing: id === "braise" ? (dark ? Qt.rgba(1, 0.416, 0.169, 0.6) : Qt.rgba(0.91, 0.329, 0.102, 0.6))
+                                     : (id === "ludique" ? (dark ? "#C6F432" : "#1B1530") : fg)
+    readonly property int hoverRingWidth: id === "braise" ? 2 : 3
+    readonly property real hoverShadowOpacity: dark ? 0.55 : 0.22
+    readonly property real focusScale: 1.04
+
     // Scale of the 1600-wide Stage of the visible page (set by Stage.qml). Popups live in the window
     // overlay, outside the scaled stage, and use it to keep the same proportions as the page.
     property real stageScale: 1.0

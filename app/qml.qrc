@@ -26,6 +26,7 @@
         <file>gui/v2/LavIcon.qml</file>
         <file>gui/v2/LavPill.qml</file>
         <file>gui/v2/LiveHalo.qml</file>
+        <file>gui/v2/HoverDecor.qml</file>
         <file>gui/v2/PageHeader.qml</file>
         <file>gui/v2/RoundIconButton.qml</file>
         <file>gui/v2/SectionTitle.qml</file>

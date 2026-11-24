@@ -341,7 +341,32 @@ FocusScope {
                             Keys.onUpPressed: hostsPage.moveFocus(card, -hostsPage.cols)
                             Keys.onDownPressed: hostsPage.moveFocus(card, hostsPage.cols)
 
-                            transform: Translate { y: card.hovered && Theme.input === "mouse" ? -5 : 0 }
+                            // Prototype: mouse hover lifts the card (shadow + thin outline), gamepad/keyboard focus scales it;
+                            // both bring the colour back on a dimmed card (Theme.dim(true))
+                            readonly property bool mouseHover: hovered && Theme.input === "mouse"
+                            readonly property bool padFocus: activeFocus && Theme.showFocus
+                            transform: Translate {
+                                y: card.mouseHover ? -5 : 0
+                                Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                            }
+                            scale: card.padFocus ? Theme.focusScale : 1.0
+                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+
+                            HoverDecor {
+                                anchors.fill: parent
+                                active: card.mouseHover
+                                radius: Theme.r
+                            }
+                            Rectangle {
+                                // Thin outline on mouse hover (the full focus ring is for the gamepad and keyboard)
+                                anchors.fill: parent
+                                radius: Theme.r
+                                color: "transparent"
+                                border.width: Theme.hoverRingWidth
+                                border.color: Theme.hoverRing
+                                visible: card.mouseHover
+                                z: 3
+                            }
 
                             background: Rectangle {
                                 radius: Theme.r
@@ -494,7 +519,32 @@ FocusScope {
                         Keys.onEnterPressed: clicked()
                         Keys.onLeftPressed: hostsPage.moveFocus(addCard, -1)
                         Keys.onUpPressed: hostsPage.moveFocus(addCard, -hostsPage.cols)
-                        transform: Translate { y: addCard.hovered && Theme.input === "mouse" ? -5 : 0 }
+                        // Prototype: mouse hover lifts the card (shadow + thin outline), gamepad/keyboard focus scales it;
+                        // both bring the colour back on a dimmed card (Theme.dim(true))
+                        readonly property bool mouseHover: hovered && Theme.input === "mouse"
+                        readonly property bool padFocus: activeFocus && Theme.showFocus
+                        transform: Translate {
+                            y: addCard.mouseHover ? -5 : 0
+                            Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                        }
+                        scale: addCard.padFocus ? Theme.focusScale : 1.0
+                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+
+                        HoverDecor {
+                            anchors.fill: parent
+                            active: addCard.mouseHover
+                            radius: Theme.r
+                        }
+                        Rectangle {
+                            // Thin outline on mouse hover (the full focus ring is for the gamepad and keyboard)
+                            anchors.fill: parent
+                            radius: Theme.r
+                            color: "transparent"
+                            border.width: Theme.hoverRingWidth
+                            border.color: Theme.hoverRing
+                            visible: addCard.mouseHover
+                            z: 3
+                        }
 
                         background: Shape {
                             preferredRendererType: Shape.CurveRenderer

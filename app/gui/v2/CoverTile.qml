@@ -25,10 +25,35 @@ AbstractButton {
         radius: Theme.rs
     }
 
-    transform: Translate { y: tile.hovered && Theme.input === "mouse" && !tile.dimmed ? -5 : 0 }
+    // Prototype: mouse hover lifts the card (shadow + thin outline), gamepad/keyboard focus scales it;
+    // both bring the colour back on a dimmed card (Theme.dim(true))
+    readonly property bool mouseHover: hovered && Theme.input === "mouse"
+    readonly property bool padFocus: activeFocus && Theme.showFocus
+    transform: Translate {
+        y: tile.mouseHover ? -5 : 0
+        Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+    }
+    scale: tile.padFocus ? Theme.focusScale : 1.0
+    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+
+    HoverDecor {
+        anchors.fill: parent
+        active: tile.mouseHover
+        radius: Theme.rs
+    }
+    Rectangle {
+        // Thin outline on mouse hover (the full focus ring is for the gamepad and keyboard)
+        anchors.fill: parent
+        radius: Theme.rs
+        color: "transparent"
+        border.width: Theme.hoverRingWidth
+        border.color: Theme.hoverRing
+        visible: tile.mouseHover
+        z: 3
+    }
 
     // Dimmed while another app runs: the whole face (cover, or the name when there is none)
-    readonly property var dimStyle: Theme.dim(tile.activeFocus && Theme.showFocus)
+    readonly property var dimStyle: Theme.dim(tile.mouseHover || tile.padFocus)
 
     background: Rectangle {
         radius: Theme.rs
