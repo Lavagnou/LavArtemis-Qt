@@ -1174,6 +1174,13 @@ par `tests/hostdisplay`.
    `quickMenuManager`, `initialView`, `lavTestBuild`, `runConfigChecks` et les ids de `main.qml` sont
    attendus).
 
+8. **Des octets ne passent jamais par `constData()` pour refaire un `QByteArray`** : `QByteArray(const char*)`
+   lit une chaîne C et s'arrête au premier octet nul. La clé AES de l'appairage
+   (`NvPairingManager::pair`) était faite ainsi depuis moonlight-qt (« Address Clazy warnings ») : dès que les 16
+   premiers octets du hash salt+PIN contenaient un zéro (une fois sur 16 environ), la clé était plus courte,
+   `encrypt()` lisait au-delà, l'hôte calculait une autre clé et le client affichait « PIN incorrect » pour le bon
+   PIN. Prendre `.left(n)` / `.mid()` sur le `QByteArray` lui-même. (Android : `Arrays.copyOf`, pas touché.)
+
 ## 🤖 CI
 
 Les minutes Actions sont comptées : **tout est manuel**, et le client est buildé en local avant chaque push.

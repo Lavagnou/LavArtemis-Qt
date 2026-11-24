@@ -227,8 +227,11 @@ NvPairingManager::pair(QString appVersion, QString pin, QSslCertificate& serverC
     QByteArray salt = generateRandomBytes(16);
     QByteArray saltedPin = saltPin(salt, pin);
 
-    QByteArray aesKey = QCryptographicHash::hash(saltedPin, hashAlgo).constData();
-    aesKey.truncate(16);
+    // The first 16 bytes of the hash, as bytes. Not built from constData(): that reads a C string
+    // and stopped at the first zero byte of the hash (about one pairing in 16), leaving a shorter
+    // key that encrypt() then read past -- the host computed another key and the client reported
+    // "Incorrect PIN" for the right PIN.
+    QByteArray aesKey = QCryptographicHash::hash(saltedPin, hashAlgo).left(16);
 
     QString getCert = m_Http.openConnectionToString(m_Http.m_BaseUrlHttp,
                                                     "pair",
