@@ -505,8 +505,36 @@ Chemins réseau **hors NvHTTP** et pourquoi ils sont sûrs dans le build de test
   seulement après un `serverinfo` qui a passé la liste blanche.
 - Le stream (moonlight-common-c) : `RemoteAddr` = `activeAddress`, et il ne démarre qu'après un launch / resume gardé.
 - `NetworkBuffers::routedWiredLinkMbps` (`QUdpSocket`) : simple recherche de route, n'envoie aucun paquet.
-- Mise à jour in-app (désactivée par `lav_test`), `CompatFetcher` / `MappingFetcher` : adresses publiques fixes,
-  jamais un hôte.
+- Mise à jour in-app, `CompatFetcher` (`ComputerManager`) et `MappingFetcher` (`MappingManager`) : **tous désactivés**
+  par `lav_test` (le dernier trafic non bouclé : fichiers de moonlight-stream.org au démarrage, qui rendaient les
+  runs non déterministes). Les données embarquées / en cache servent, comme quand le téléchargement échoue.
+
+## 🤫 Build de test : mode discret
+
+Le client de test tourne sur le PC de l'utilisateur pendant qu'il travaille : fenêtres visibles mais **jamais le
+focus, jamais son pointeur, jamais de son, jamais son vrai micro**. Tout est sous `#ifdef LAV_TEST_BUILD`.
+- **Fenêtre du stream** (`session.cpp`) : toujours fenêtrée (`m_IsFullScreen = false`, `m_FullScreenFlag = 0`,
+  `toggleFullscreen()` sans effet), ni multi-écran (la fenêtre bordless always-on-top), ni état maximisé / minimisé
+  hérité du GUI. SDL2 ici = **sdl2-compat 2.32.70 sur SDL3** : `SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN=1` (devient
+  `SW_SHOWNOACTIVATE`) et `SDL_HINT_FORCE_RAISEWINDOW=0` avant `SDL_CreateWindow`, puis `WS_EX_NOACTIVATE` sur le
+  HWND : la fenêtre ne peut plus devenir la fenêtre active, même par un clic. Aucun `SDL_RaiseWindow` n'existe dans le code.
+- **Pointeur / clavier** : `SdlInputHandler::setCaptureActive(true)` ne fait rien (pas de mode relatif, pas de
+  curseur masqué, pas de verrou de région `SDL_SetWindowMouseRect`/`SetWindowMouseGrab`, pas de
+  `SDL_SetWindowKeyboardGrab`) ; `SDL_ShowCursor(DISABLE)` (mouvement souris, raccourci de curseur) neutralisé.
+  Conséquence : le test n'injecte jamais la souris de l'utilisateur dans le stream.
+- **GUI** : `main.qml` reçoit le contexte `lavTestBuild` : `flags` = `Qt.Window | Qt.WindowDoesNotAcceptFocus`
+  (Qt : `SW_SHOWNOACTIVATE` + `WS_EX_NOACTIVATE`) et un simple `show()` (jamais maximisé / plein écran). Le menu rapide
+  perd `raise()` / `requestActivate()` et prend `WindowDoesNotAcceptFocus`. Aucun autre `requestActivate`, `raise`,
+  `alert`, `SetForegroundWindow` dans le code.
+- **Son** : `SDL_AUDIODRIVER=dummy` (`qputenv` **et** hint, en tête de `main()`, avant tout `SDL_Init*` ; le
+  stream s'ouvre sur le pilote factice, il ne manque pas de périphérique).
+- **Micro** (`micstreamer.cpp`) : aucun périphérique ouvert ni énuméré ; un thread produit un sinus 440 Hz
+  (48 kHz mono, trames de 20 ms) qui passe par le même encodeur Opus et `onSamples()` / `LiSendMicrophoneData`
+  à 50 trames par seconde, de façon que le compteur de trames du micro côté hôte voie du trafic. Le thread est
+  joint dans `stop()`, avant `LiStopConnection()` (un seul appelant, comme en production).
+- ⚠️ `QT += testlib` (app.pro, `lav_test`) ajoute `CONFIG += console` : un exe en sous-système console ouvre une
+  fenêtre de console (un onglet Windows Terminal) qui **prend le premier plan** au lancement depuis un programme
+  graphique. `app.pro` force `/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup` (comme les autres builds).
 
 ## 🎨 Interface v2 (LavArtemis Dev)
 

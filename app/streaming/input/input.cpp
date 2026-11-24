@@ -488,6 +488,16 @@ bool SdlInputHandler::isSystemKeyCaptureActive()
 
 void SdlInputHandler::setCaptureActive(bool active)
 {
+#ifdef LAV_TEST_BUILD
+    // Test build: the stream never captures anything of the user's pointer or keyboard: no
+    // relative mouse mode, no hidden cursor, no pointer-region lock, no keyboard grab.
+    // (setCaptureActive(false) below stays: it only releases what was never taken.)
+    if (active) {
+        updatePointerRegionLock();
+        updateKeyboardGrabState();
+        return;
+    }
+#endif
     if (active) {
         // If we're in relative mode, try to activate SDL's relative mouse mode
         if (m_AbsoluteMouseMode || SDL_SetRelativeMouseMode(SDL_TRUE) < 0) {

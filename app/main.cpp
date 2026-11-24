@@ -445,6 +445,14 @@ int main(int argc, char *argv[])
 {
     SDL_SetMainReady();
 
+#ifdef LAV_TEST_BUILD
+    // Test build: no sound, ever. The dummy driver must be selected before the first
+    // SDL_Init*() of the audio subsystem (SDL reads SDL_AUDIODRIVER when it opens it: the stream
+    // renderer's and the microphone's SDL_InitSubSystem(SDL_INIT_AUDIO), all later than here).
+    qputenv("SDL_AUDIODRIVER", "dummy");
+    SDL_SetHint(SDL_HINT_AUDIODRIVER, "dummy");
+#endif
+
     // Set the app version for the QCommandLineParser's showVersion() command
     QCoreApplication::setApplicationVersion(VERSION_STR);
 
@@ -1152,6 +1160,11 @@ int main(int argc, char *argv[])
 
     if (hasGUI) {
         engine.rootContext()->setContextProperty("initialView", initialView);
+#ifdef LAV_TEST_BUILD
+        engine.rootContext()->setContextProperty("lavTestBuild", true);
+#else
+        engine.rootContext()->setContextProperty("lavTestBuild", false);
+#endif
         engine.rootContext()->setContextProperty("runConfigChecks", commandLineParserResult == GlobalCommandLineParser::NormalStartRequested);
 
         // Load the main.qml file

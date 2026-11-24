@@ -24,10 +24,12 @@ MappingManager::MappingManager()
     QSettings settings;
 
     // Load updated mappings from the Internet once per Moonlight launch
+#ifndef LAV_TEST_BUILD // test build: no download from moonlight-stream.org (bundled/cached data only)
     if (s_MappingFetcher == nullptr) {
         s_MappingFetcher = new MappingFetcher();
         s_MappingFetcher->start();
     }
+#endif
 
     // First load existing saved mappings. This ensures the user's
     // hints can always override the old data.

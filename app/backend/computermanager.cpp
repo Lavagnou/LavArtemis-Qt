@@ -200,7 +200,9 @@ ComputerManager::ComputerManager(StreamingPreferences* prefs)
     settings.endArray();
 
     // Fetch latest compatibility data asynchronously
+#ifndef LAV_TEST_BUILD // test build: no download from moonlight-stream.org (bundled/cached data only)
     m_CompatFetcher.start();
+#endif
 
     // Start the delayed flush thread to handle saveHosts() calls
     m_DelayedFlushThread = new DelayedFlushThread(this);

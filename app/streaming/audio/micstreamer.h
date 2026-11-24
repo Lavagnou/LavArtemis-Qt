@@ -4,6 +4,7 @@
 #include <QStringList>
 
 #include <atomic>
+#include <thread>
 #include <vector>
 
 #include "SDL_compat.h"
@@ -43,12 +44,21 @@ public:
     // Muting keeps the device open, so unmuting is instant; nothing is sent meanwhile.
     void setMuted(bool muted);
     bool isMuted() const { return m_Muted; }
+#ifdef LAV_TEST_BUILD
+    // Test build: no recording device is ever opened; a thread feeds a 440 Hz tone instead
+    bool isActive() const { return m_ToneThread.joinable(); }
+#else
     bool isActive() const { return m_Device != 0; }
+#endif
 
 private:
     static void SDLCALL captureCallback(void* userdata, Uint8* stream, int len);
     void onSamples(const int16_t* samples, int count);
 
+#ifdef LAV_TEST_BUILD
+    std::thread m_ToneThread;
+    std::atomic<bool> m_ToneStop { false };
+#endif
     SDL_AudioDeviceID m_Device = 0;
     bool m_AudioSubsystemInit = false;
     OpusEncoder* m_Encoder = nullptr;

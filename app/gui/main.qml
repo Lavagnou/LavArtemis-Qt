@@ -39,6 +39,8 @@ ApplicationWindow {
     }
 
     id: window
+    // Test build: the window never takes the focus (shown with SW_SHOWNOACTIVATE, WS_EX_NOACTIVATE)
+    flags: lavTestBuild ? (Qt.Window | Qt.WindowDoesNotAcceptFocus) : Qt.Window
     // The theme's background from the very first frame, under every page; the Material controls
     // still used (message dialogs, stream segues, mapper, benchmark) take the theme's colours
     background: Rectangle { color: Theme.bg }
@@ -75,7 +77,11 @@ ApplicationWindow {
         AutoUpdateChecker.start()
 
         // Show the window according to the user's preferences
-        if (SystemProperties.hasDesktopEnvironment) {
+        if (lavTestBuild) {
+            // Test build: plain window, never maximized or fullscreen, shown without activation
+            window.show()
+        }
+        else if (SystemProperties.hasDesktopEnvironment) {
             if (StreamingPreferences.uiDisplayMode == StreamingPreferences.UI_MAXIMIZED) {
                 window.showMaximized()
             }

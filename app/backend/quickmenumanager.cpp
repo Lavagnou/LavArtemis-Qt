@@ -528,7 +528,11 @@ void QuickMenuManager::createQuickView()
         }
         
         // Make it a popup overlay
+        #ifdef LAV_TEST_BUILD
+        m_quickView->setFlags(Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint | Qt::Tool | Qt::WindowDoesNotAcceptFocus);
+#else
         m_quickView->setFlags(Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint | Qt::Tool);
+#endif
         
         // Set transparent background
         m_quickView->setColor(QColor(Qt::transparent));
@@ -550,8 +554,10 @@ void QuickMenuManager::createQuickView()
         // Don't call updateQuickView() - it overrides our centered positioning
         qDebug() << "Showing QuickView with geometry:" << m_quickView->geometry();
         m_quickView->show();
+#ifndef LAV_TEST_BUILD // test build: the menu never takes the focus
         m_quickView->raise();
         m_quickView->requestActivate();
+#endif
     }
 }
 

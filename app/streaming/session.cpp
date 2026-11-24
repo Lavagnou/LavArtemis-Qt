@@ -683,6 +683,10 @@ bool Session::populateDecoderProperties(SDL_Window* window)
     if (decoder->isAlwaysFullScreen()) {
         m_IsFullScreen = true;
     }
+#ifdef LAV_TEST_BUILD
+    // Test build: always windowed (see CLAUDE.md, "Mode discret")
+    m_IsFullScreen = false;
+#endif
 
     delete decoder;
 
@@ -1023,6 +1027,10 @@ void Session::snapshotPresentationSettings(SDL_Window* window)
     // untouched, so disabling VRR for a later stream returns to that choice.
     m_IsFullScreen = m_PresentationSettings.effectiveWindowMode != StreamingPreferences::WM_WINDOWED ||
                      !WMUtils::isRunningDesktopEnvironment();
+#ifdef LAV_TEST_BUILD
+    // Test build: the stream window is always windowed, whatever the preferences say
+    m_IsFullScreen = false;
+#endif
 
     SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                 "Presentation snapshot: V-sync %s, VRR requested %s, VRR enabled %s, refresh %d Hz, window mode %d",
@@ -1113,7 +1121,12 @@ bool Session::initialize(QQuickWindow* qtWindow)
     // stream becomes the arrangement's bounding box, and the host emulates one display per
     // monitor inside it. This has to happen before the window is sized, since the window
     // then has to cover the arrangement rather than one screen.
+#ifdef LAV_TEST_BUILD
+    // Test build: no borderless always-on-top window spanning the monitors
+    if (false) {
+#else
     if (m_Preferences->useVirtualDisplay && m_Preferences->useMultiDisplay) {
+#endif
         if (m_Preferences->enableResolutionScaling && m_Preferences->resolutionScaleFactor != 100) {
             // Scaling changes every display's size and therefore every origin in the
             // layout, so the host refuses the combination. Say so here rather than let it
@@ -1534,6 +1547,10 @@ bool Session::initialize(QQuickWindow* qtWindow)
             break;
         }
     }
+
+#ifdef LAV_TEST_BUILD
+    m_FullScreenFlag = 0;
+#endif
 
 #if !SDL_VERSION_ATLEAST(2, 0, 11)
     // HACK: Using a full-screen window breaks mouse capture on the Pi's LXDE
@@ -2316,6 +2333,10 @@ void Session::updateOptimalWindowDisplayMode()
 
 void Session::toggleFullscreen()
 {
+#ifdef LAV_TEST_BUILD
+    // Test build: stays windowed
+    return;
+#endif
     bool fullScreen = !(SDL_GetWindowFlags(m_Window) & m_FullScreenFlag);
 
 #if defined(Q_OS_WIN32) || defined(Q_OS_DARWIN)
@@ -2750,7 +2771,12 @@ void Session::exec()
     // Never when the window has to span the monitor layout: it is windowed only because
     // fullscreen is a single-output mode, and a maximized window is just as much a
     // single-output mode -- it would snap straight back onto one screen.
+#ifdef LAV_TEST_BUILD
+    // Test build: do not inherit a maximized or minimized state from the GUI window
+    if (false) {
+#else
     if (!m_IsFullScreen && !m_MultiDisplayActive && m_QtWindow != nullptr) {
+#endif
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
         // Qt 5.10+ can propagate multiple states together
         if (m_QtWindow->windowStates() & Qt::WindowMaximized) {
@@ -2776,6 +2802,14 @@ void Session::exec()
     std::string windowName = QString(m_Computer->name).toStdString();
 #else
     std::string windowName = QString(m_Computer->name + " - Moonlight").toStdString();
+#endif
+
+#ifdef LAV_TEST_BUILD
+    // Test build: show the stream window without activating it (SDL2 here is sdl2-compat over
+    // SDL3: the hint becomes SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN=0, i.e. SW_SHOWNOACTIVATE),
+    // and never force-raise it.
+    SDL_SetHint(SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN, "1");
+    SDL_SetHint(SDL_HINT_FORCE_RAISEWINDOW, "0");
 #endif
 
     m_Window = SDL_CreateWindow(windowName.c_str(),
@@ -2809,6 +2843,19 @@ void Session::exec()
     }
 
     m_InputHandler->setWindow(m_Window);
+
+#if defined(LAV_TEST_BUILD) && defined(Q_OS_WIN32)
+    // Test build: the window can never become the foreground window, not even by a click
+    // (WS_EX_NOACTIVATE), so it cannot take the keyboard focus from what the user is doing.
+    {
+        SDL_SysWMinfo noActivateInfo;
+        SDL_VERSION(&noActivateInfo.version);
+        if (SDL_GetWindowWMInfo(m_Window, &noActivateInfo) && noActivateInfo.subsystem == SDL_SYSWM_WINDOWS) {
+            HWND hwnd = noActivateInfo.info.win.window;
+            SetWindowLongPtr(hwnd, GWL_EXSTYLE, GetWindowLongPtr(hwnd, GWL_EXSTYLE) | WS_EX_NOACTIVATE);
+        }
+    }
+#endif
 
     // Set window geometry for QuickMenuManager
     if (m_QuickMenuManager) {
@@ -3380,7 +3427,12 @@ DispatchDeferredCleanup:
     // routinely maximize the streaming window simply to view the stream
     // in a larger window, but they don't necessarily want the UI in such
     // a large window.
+#ifdef LAV_TEST_BUILD
+    // Test build: never touch the GUI window's state from the stream window
+    if (false) {
+#else
     if (!m_IsFullScreen && m_QtWindow != nullptr && m_Window != nullptr) {
+#endif
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
         if (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_MINIMIZED) {
             m_QtWindow->setWindowStates(m_QtWindow->windowStates() | Qt::WindowMinimized);
