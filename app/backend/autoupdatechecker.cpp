@@ -131,7 +131,10 @@ int AutoUpdateChecker::pickDevRelease(const QJsonArray& releases)
         if (release["draft"].toBool()) {
             continue;
         }
-        if (isDevVersion(release["tag_name"].toString())) {
+        // A manual run of release.yml from the dev branch publishes "v…-dev.N-ci.M": a build, not a
+        // Dev release, though its tag carries "-dev." too
+        QString tag = release["tag_name"].toString();
+        if (isDevVersion(tag) && !tag.contains(QStringLiteral("-ci."))) {
             return i;
         }
     }
