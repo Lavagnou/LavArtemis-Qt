@@ -46,7 +46,7 @@ if defined CI_VERSION (
     set /p VERSION=<%SOURCE_ROOT%\app\version.txt
 )
 
-rem The release channel is read from the version: "21.8.0-dev.3" builds
+rem The release channel is read from the version: "0.7.0-dev.3" builds
 rem LavArtemis Dev, whose installer has its own names and upgrade codes so it
 rem installs next to the stable app. MSBuild reads LAV_CHANNEL from the env.
 set LAV_CHANNEL=

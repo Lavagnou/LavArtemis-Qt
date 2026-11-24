@@ -74,12 +74,17 @@ private:
 
     int compareVersion(QVector<int>& version1, QVector<int>& version2);
 
+    // Versions from this major up are the old Moonlight-derived numbering
+    // (21.x), older than every version of LavArtemis' own (0.7.0-dev.1, 1.0.0).
+    static constexpr int LEGACY_VERSION_MAJOR = 20;
+
     // Compares two version strings of the form x.y.z with an optional
-    // "-ci.N" prerelease suffix. A stable release sorts after a prerelease
-    // with the same base version.
+    // "-dev.N" / "-ci.N" prerelease suffix. A stable release sorts after a
+    // prerelease with the same base version; an old 20+ version sorts before
+    // any version of the new numbering.
     int compareVersionStrings(const QString& a, const QString& b);
 
-    // Dev channel helpers ("21.8.0-dev.3"), public for the tests.
+    // Dev channel helpers ("0.7.0-dev.3"), public for the tests.
     static bool isDevVersion(const QString& version);
     static int pickDevRelease(const QJsonArray& releases);
 

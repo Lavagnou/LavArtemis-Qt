@@ -311,7 +311,7 @@ Une version qui contient `-dev.` (`app/version.txt` ou `CI_VERSION`, voir « Sta
 **LavArtemis Dev**, installée à côté de la stable. Branche `dev` ici, branche `dev` dans LavArtemis.
 Vue d'ensemble et tableau stable/dev : section « Stable / Dev » du `CLAUDE.md` de LavArtemis.
 
-- `app/app.pro` : `LAV_DEV_CHANNEL` défini, `VERSION` numérique (`21.8.0-dev.3` → `21.8.0.3`),
+- `app/app.pro` : `LAV_DEV_CHANNEL` défini, `VERSION` numérique (`0.7.0-dev.3` → `0.7.0.3`),
   `VERSION_STR` lisible.
 - `main.cpp` : organisation Qt `LavArtemis Dev` (registre, AppData séparés), nom affiché
   « LavArtemis Dev », puis `ChannelMigration::importStableSettingsOnce()` (`settings/channelmigration.*`) :
@@ -324,8 +324,59 @@ Vue d'ensemble et tableau stable/dev : section « Stable / Dev » du `CLAUDE.md`
 > ⚠️ **Conditions WiX entre guillemets** : `<?if "$(var.LavChannel)" = "dev" ?>`. Sans guillemets, une
 > valeur vide (build stable) donne `<?if  = "dev" ?>`, une erreur de préprocesseur.
 
-> ⚠️ **Ne jamais modifier les valeurs stables** (organisation `LavArtemis`, UpgradeCodes, clés
-> `HKCU\Software\LavArtemis`) : les installations existantes ne se mettraient plus à jour.
+> ⚠️ **Ne jamais modifier les valeurs stables** (organisation `LavArtemis`, UpgradeCode **MSI**, clés
+> `HKCU\Software\LavArtemis`) : les installations existantes ne se mettraient plus à jour. Les
+> UpgradeCodes du **bundle** ont changé une fois, avec la renumérotation (ci-dessous) ; les nouveaux
+> sont à leur tour intouchables.
+
+## 🔢 Numérotation propre et installeur (depuis 0.7.0-dev.1)
+
+Jusqu'à `21.8.0-dev.9` / `21.7.1`, le numéro venait de Moonlight. LavArtemis compte désormais seul : la
+Dev repart à **`0.7.0-dev.N`**, la stable passera à **`1.0.0`** à la toute fin. Saut unique, à la main :
+l'updater d'une 21.x voit 0.7 comme plus ancien et ne le propose pas (accepté). Vue d'ensemble : section
+« Numérotation propre » du `CLAUDE.md` de LavArtemis.
+
+> ⚠️ **INVARIANT : la nouvelle numérotation reste sous `20.0.0`, pour toujours.** Un majeur ≥ 20 est
+> l'ancienne numérotation, plus vieille que toute nouvelle : `AutoUpdateChecker::compareVersionStrings()`
+> (`LEGACY_VERSION_MAJOR`, updater **et** nettoyage des installeurs téléchargés — sans la règle, un
+> `LavArtemis-v21.8.0-dev.9-win-installer.exe` resté dans `%TEMP%` passerait pour un téléchargement en
+> cours et ne serait jamais supprimé) et la table Upgrade du MSI. `scripts/build-arch.bat` refuse de
+> construire une version ≥ 20.
+
+**MSI** (`wix/LavArtemis/Product.wxs`, les deux canaux, UpgradeCode MSI inchangé) : `MajorUpgrade`
+remplacé par une table Upgrade explicite. La version de comparaison est celle de l'exe
+(`!(bind.fileVersion.LavArtemisExe)`), et le MSI n'en compare que trois nombres.
+
+| Ligne | Versions installées | Attributs | Effet |
+|---|---|---|---|
+| (a) `LAV_UPGRADE_DETECTED` | `0.0.0` → cette version, incluse pour la Dev (769), exclue pour la stable (257), comme l'ancien `AllowSameVersionUpgrades` | MigrateFeatures | mise à niveau |
+| (b) `LAV_NEWER_DETECTED` | au-dessus de cette version, sous `20.0.0` (2) | OnlyDetect | `Launch Condition="NOT LAV_NEWER_DETECTED"` refuse : « Une version plus récente de [ProductName] est déjà installée. » — **protection permanente contre le retour en arrière** |
+| (c) `LAV_LEGACY_DETECTED` | `20.0.0` et plus (257) | MigrateFeatures | mise à niveau, quel que soit le numéro : le saut 21.x → 0.7 / 1.0 |
+
+- `RemoveExistingProducts After="InstallInitialize"` (1501), comme le `Schedule="afterInstallInitialize"`
+  d'avant ; `FindRelatedProducts` (25) passe avant `LaunchConditions` (100).
+- **Réglages gardés** : l'ancien produit est désinstallé par **ses propres tables**, avec
+  `UPGRADINGPRODUCTCODE` posé par `RemoveExistingProducts` quelle que soit la ligne qui l'a trouvé. Son
+  `DeleteRegistryKey` est conditionné `NOT UPGRADINGPRODUCTCODE` (vérifié sur le MSI 21.8 en cache) ; le
+  `RemoveFolderEx` de l'AppData n'a pas bougé et n'a jamais vidé l'AppData sur les mises à niveau de la Dev
+  21.8 (dossier du 23/11 06:26 toujours là après six mises à niveau). **Ne jamais exiger une
+  désinstallation** : elle effacerait `HKCU\Software\LavArtemis[ Dev]` et l'AppData.
+
+**Bundle** (`wix/LavArtemisSetup/Bundle.wxs`) : **nouveaux UpgradeCodes** (Dev
+`72171b88-37c9-4543-9707-1cd668b848a4`, stable `51150c91-b139-4a69-aa95-e8e6df6efaec` ; anciens, à ne
+jamais reprendre : Dev `0f199e84-…`, stable `0dc77dbb-…`). Burn refuse un bundle plus ancien qu'un bundle
+apparenté installé, et 0.7 < 21.8 : sous l'ancien code, le saut échouait. Le bundle 21.x n'étant plus
+apparenté, c'est la ligne (c) du MSI qui remplace son MSI ; ensuite le contrôle de Burn (qui compare les
+quatre nombres) protège la nouvelle numérotation, y compris d'un build Dev plus ancien que le MSI laisserait
+passer.
+
+> 📋 **Reste une fois** : l'entrée du bundle 21.x dans « Applications installées ». La désinstaller est sans
+> risque : son MSI (retrouvé par son propre ProductCode, celui du nouveau MSI est différent) est déjà
+> parti, ses deux `ExePackage` VC++ sont `Permanent="yes"`. Ne **pas** la réparer : elle réinstallerait
+> son MSI 21.x, dont le `MajorUpgrade` voit 0.7 comme plus ancien. Même limite pour un ancien installeur
+> 21.x lancé à la main : ses règles sont figées. Écartés : `RelatedBundle` sur l'ancien code (Burn y voit
+> un retour en arrière et échoue, sauf `SuppressDowngradeFailure` qui couperait aussi la protection) et
+> une version de bundle décalée (100.7.0.1) qui garderait l'ancien code mais s'afficherait partout.
 
 ## 🖼️ Icônes
 

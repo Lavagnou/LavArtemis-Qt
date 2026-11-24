@@ -11,17 +11,30 @@
 
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
 
-<!-- LavArtemis Dev: see wix/LavArtemis/Product.wxs. -->
+<!-- LavArtemis Dev: see wix/LavArtemis/Product.wxs.
+
+     Bundle upgrade codes: NEW since the renumbering (Dev 0.7.0-dev.1, stable
+     1.0.0). Burn refuses a bundle older than an installed related bundle, and
+     0.7 is "older" than 21.8: with the old codes, the jump would fail. Under a
+     new code the 21.x bundle is not related, the MSI's Upgrade table replaces
+     its MSI (row (c) in Product.wxs), and Burn's downgrade check protects the
+     new numbering from then on.
+     Left behind once: the 21.x bundle's entry in "Applications installées".
+     Uninstalling it is harmless: its MSI (found by its own ProductCode) is
+     already gone and the VC++ redistributables are Permanent. Do not "repair"
+     it: that would reinstall its 21.x MSI, whose table sees 0.7 as older.
+     Old codes, never reuse: Dev 0f199e84-5a47-4311-bec5-4330a80c1095,
+     stable 0dc77dbb-91d2-4126-9993-558fbe74ae28. -->
 <?if "$(var.LavChannel)" = "dev" ?>
 <?define BundleName = "LavArtemis Dev Game Streaming Client" ?>
-<?define BundleUpgradeCode = "0f199e84-5a47-4311-bec5-4330a80c1095" ?>
+<?define BundleUpgradeCode = "72171b88-37c9-4543-9707-1cd668b848a4" ?>
 <?define BundleFolder = "LavArtemis Dev" ?>
 <?define BundleRegKey = "Software\LavArtemis Dev" ?>
 <?define BundleIcon = "..\..\app\lavartemis-dev.ico" ?>
 <?define BundleLogo = "..\..\app\artemis_wix-dev.png" ?>
 <?else?>
 <?define BundleName = "LavArtemis Game Streaming Client" ?>
-<?define BundleUpgradeCode = "0dc77dbb-91d2-4126-9993-558fbe74ae28" ?>
+<?define BundleUpgradeCode = "51150c91-b139-4a69-aa95-e8e6df6efaec" ?>
 <?define BundleFolder = "LavArtemis Game Streaming" ?>
 <?define BundleRegKey = "Software\LavArtemis" ?>
 <?define BundleIcon = "..\..\app\lavartemis.ico" ?>

@@ -120,12 +120,22 @@ if defined CI_VERSION (
     set /p VERSION=<%SOURCE_ROOT%\app\version.txt
 )
 
-rem The release channel is read from the version: "21.8.0-dev.3" builds
+rem The release channel is read from the version: "0.7.0-dev.3" builds
 rem LavArtemis Dev, whose installer has its own names and upgrade codes so it
 rem installs next to the stable app. MSBuild reads LAV_CHANNEL from the env.
 set LAV_CHANNEL=
 echo %VERSION%| findstr /C:"-dev." >nul
 if not errorlevel 1 set LAV_CHANNEL=dev
+
+rem LavArtemis numbers stay below 20.0.0 forever: the MSI's Upgrade table takes
+rem 20 and above for the old Moonlight-derived numbering (21.x) and upgrades it
+rem whatever the number. See wix\LavArtemis\Product.wxs.
+set LAV_MAJOR=
+for /f "tokens=1 delims=.-" %%a in ("%VERSION%") do set LAV_MAJOR=%%a
+if !LAV_MAJOR! GEQ 20 (
+    echo Version %VERSION% is 20 or above: LavArtemis versions must stay below 20.0.0, see wix\LavArtemis\Product.wxs
+    goto Error
+)
 
 rem Use the correct VC tools for the specified architecture
 if /I "%ARCH%" EQU "x64" (

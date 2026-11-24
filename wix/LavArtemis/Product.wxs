@@ -26,12 +26,45 @@
            Version="!(bind.fileVersion.LavArtemisExe)"
            Manufacturer="LavArtemis"
            UpgradeCode="$(var.ProductUpgradeCode)">
+    <!-- Upgrades, written out instead of MajorUpgrade because of the renumbering.
+         Up to 21.x the version came from Moonlight; LavArtemis now counts on its
+         own (Dev 0.7.0-dev.N, stable 1.0.0 later). The MSI version is the exe's
+         (0.7.0-dev.3 -> 0.7.0.3) and the MSI compares only the first three fields.
+
+         (a) 0.0.0 up to this version: upgraded. The Dev also replaces the same
+             version, since its builds differ only by the ignored fourth field
+             (Burn's own bundle check refuses an older Dev build).
+         (b) above this version, below 20.0.0: a newer LavArtemis. Only detected,
+             and the launch condition below refuses to install: the permanent
+             downgrade protection.
+         (c) 20.0.0 and above: the old Moonlight-derived numbering (21.x).
+             Upgraded whatever the number, so 0.7 replaces a 21.8 once.
+
+         INVARIANT: the new numbering stays below 20.0.0 forever, or (c) would
+         take a real newer version for an old one and downgrade over it.
+         scripts/build-arch.bat refuses to build a version of 20 or more.
+
+         The old product is removed by RemoveExistingProducts with
+         UPGRADINGPRODUCTCODE set, whichever row found it, so its own
+         "NOT UPGRADINGPRODUCTCODE" keeps HKCU and the settings, as MajorUpgrade did. -->
+    <Upgrade Id="$(var.ProductUpgradeCode)">
 <?if "$(var.LavChannel)" = "dev" ?>
-    <!-- Dev builds are 21.8.0.N and the MSI compares only three fields. -->
-    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." Schedule="afterInstallInitialize" AllowSameVersionUpgrades="yes" />
+      <UpgradeVersion Minimum="0.0.0" IncludeMinimum="yes"
+                      Maximum="!(bind.fileVersion.LavArtemisExe)" IncludeMaximum="yes"
+                      MigrateFeatures="yes" Property="LAV_UPGRADE_DETECTED" />
 <?else?>
-    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." Schedule="afterInstallInitialize" />
+      <UpgradeVersion Minimum="0.0.0" IncludeMinimum="yes"
+                      Maximum="!(bind.fileVersion.LavArtemisExe)" IncludeMaximum="no"
+                      MigrateFeatures="yes" Property="LAV_UPGRADE_DETECTED" />
 <?endif?>
+      <UpgradeVersion Minimum="!(bind.fileVersion.LavArtemisExe)" IncludeMinimum="no"
+                      Maximum="20.0.0" IncludeMaximum="no"
+                      OnlyDetect="yes" Property="LAV_NEWER_DETECTED" />
+      <UpgradeVersion Minimum="20.0.0" IncludeMinimum="yes"
+                      MigrateFeatures="yes" Property="LAV_LEGACY_DETECTED" />
+    </Upgrade>
+    <Launch Condition="NOT LAV_NEWER_DETECTED"
+            Message="Une version plus récente de [ProductName] est déjà installée." />
     <MediaTemplate CompressionLevel="high" EmbedCab="yes" />
 
     <Property Id="MPSSVC_START">
@@ -56,6 +89,8 @@
                   Return="ignore"
                   Impersonate="yes" />
     <InstallExecuteSequence>
+      <!-- Old product out first, as MajorUpgrade Schedule="afterInstallInitialize" did -->
+      <RemoveExistingProducts After="InstallInitialize" />
       <Custom Action="DeleteRegistryKey"
               Before="InstallFinalize"
               Condition="Installed AND REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />

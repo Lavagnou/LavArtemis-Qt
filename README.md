@@ -52,6 +52,12 @@ LavArtemis, the newest `-dev.` prerelease for LavArtemis Dev. Each app then upda
 own channel. Releases are built for Windows x64; ARM64 and the Linux AppImage are only in releases
 built by the manual release workflow. Otherwise build from source.
 
+Up to 21.x the version number came from Moonlight; LavArtemis now has its own (Dev from
+**0.7.0-dev.1**, stable **1.0.0** later). A 21.x app does not offer the new, lower-looking numbers as
+updates: run the first new installer by hand, once. It replaces the 21.x version and keeps your
+settings and pairings (never uninstall first: that erases them); the old 21.x entry stays once in
+*Installed apps* and can be uninstalled safely. From then on an older installer refuses to run.
+
 ## Building
 
 See [docs/BUILD_SYSTEM.md](docs/BUILD_SYSTEM.md). In short:

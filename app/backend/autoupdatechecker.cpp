@@ -192,7 +192,7 @@ int AutoUpdateChecker::compareVersion(QVector<int>& version1, QVector<int>& vers
 
 int AutoUpdateChecker::compareVersionStrings(const QString& a, const QString& b)
 {
-    // Versions look like "20.4.0" or "20.4.0-ci.42"
+    // Versions look like "0.7.0", "0.7.0-dev.3" or "0.7.0-dev.3-ci.42"
     QStringList partsA = a.split('-');
     QStringList partsB = b.split('-');
 
@@ -201,6 +201,16 @@ int AutoUpdateChecker::compareVersionStrings(const QString& a, const QString& b)
     QVector<int> quadA, quadB;
     parseStringToVersionQuad(baseA, quadA);
     parseStringToVersionQuad(baseB, quadB);
+
+    // Up to 21.x the version came from Moonlight; LavArtemis then started its
+    // own numbering (0.7.0-dev.1, 1.0.0), which stays below 20.0.0 forever.
+    // A 20+ version is therefore the old numbering, older than any new one
+    // (the MSI's Upgrade table applies the same rule, see Product.wxs).
+    bool legacyA = quadA.value(0) >= LEGACY_VERSION_MAJOR;
+    bool legacyB = quadB.value(0) >= LEGACY_VERSION_MAJOR;
+    if (legacyA != legacyB) {
+        return legacyA ? -1 : 1;
+    }
 
     int baseCmp = compareVersion(quadA, quadB);
     if (baseCmp != 0) {

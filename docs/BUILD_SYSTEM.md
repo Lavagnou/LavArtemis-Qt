@@ -35,7 +35,11 @@ bundle, for a PC without the Qt ARM64 kit).
 - **Version**: `app/version.txt`, overridden by the `CI_VERSION` environment variable. A version
   containing `-dev.` builds **LavArtemis Dev** (`LAV_DEV_CHANNEL` in `app.pro`, `LAV_CHANNEL=dev` for
   WiX: its own name, folder, registry key and UpgradeCodes, no `art://` / `.art` registration).
-  qmake and MSI need numbers only: `21.8.0-dev.3` becomes `21.8.0.3`.
+  qmake and MSI need numbers only: `0.7.0-dev.3` becomes `0.7.0.3`.
+- **Numbering**: LavArtemis' own since 0.7.0-dev.1 (21.x came from Moonlight). Versions must stay
+  below 20.0.0: `build-arch.bat` refuses 20+, the MSI's Upgrade table upgrades 20+ as the old
+  numbering (one-time jump) and refuses any newer version below 20 (downgrade protection). See
+  `CLAUDE.md`, « Numérotation propre et installeur ».
 - PyroWave is built for x64 only (`HAVE_PYROWAVE`).
 
 ## Linux

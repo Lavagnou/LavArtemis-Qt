@@ -709,11 +709,11 @@ macx {
     }
 }
 
-# The release channel is read from the version: "21.8.0-dev.3" builds
+# The release channel is read from the version: "0.7.0-dev.3" builds
 # LavArtemis Dev, installed next to the stable app (own organisation name,
 # install folder and installer codes). Windows resources and the MSI need a
 # numeric version, so the Dev build number becomes a fourth component
-# (21.8.0.3); VERSION_STR keeps the readable string for the UI and the updater.
+# (0.7.0.3); VERSION_STR keeps the readable string for the UI and the updater.
 LAV_VERSION_STR = $$cat(version.txt)
 LAV_VERSION_NUM = $$replace(LAV_VERSION_STR, "-dev\.", ".")
 contains(LAV_VERSION_STR, ".*-dev\..*") {

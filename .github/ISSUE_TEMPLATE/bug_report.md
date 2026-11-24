@@ -29,7 +29,7 @@ List the games you've tried that exhibit the issue. To see if the issue is game-
 
 **Client PC details**
  - OS: [e.g. Windows 11 24H2]
- - LavArtemis version: [e.g. 21.8.0-dev.9]
+ - LavArtemis version: [e.g. 0.7.0-dev.1]
  - GPU: [e.g. Intel HD Graphics 520]
 
 **Host PC details**
