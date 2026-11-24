@@ -10,7 +10,9 @@ Item {
     property real radius: Theme.r
 
     visible: active
-    z: -1
+    // Under the card's background, which a Control stacks at z -1 too: at the same z, the halo could
+    // be drawn over the card (cover and title washed in the glow colour)
+    z: -2
 
     // Affiche: a hard offset block instead of a blur, blinking like a poster light.
     Rectangle {
