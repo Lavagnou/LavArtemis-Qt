@@ -529,7 +529,9 @@ applist, appairage, launch/resume/cancel, jaquettes, sonde PyroWave, presse-papi
 `sendClipboardContent()` (le seul POST) ; un refus lève une `QtNetworkReplyException` (hôte injoignable, aucune E/S) et
 écrit une ligne dans le journal (une fois par hôte:port). Redirections désactivées. Deuxième couche : `getServerInfo()`
 traite un serveur sans `<LavTestHost>1</LavTestHost>` comme hors ligne (« Pas un hôte de test »). L'ajout manuel d'une
-adresse refusée affiche un message (`ComputerManager::testGuardRefusal`, appelé par `HostsView.addByAddress`). **Tout
+adresse refusée affiche un message (`ComputerManager::testGuardRefusal`, appelé par `HostsView.addByAddress`) ; les
+lancements en ligne de commande et les liens `art://` (`ComputerSeeker::start`) s'arrêtent aussitôt sur ce message
+(`ComputerSeeker::errorMessage()`, repris par les trois launchers), au lieu d'attendre 10 s. **Tout
 nouveau chemin réseau doit passer par `NvHTTP`**, sinon il contourne la liste blanche.
 
 Chemins réseau **hors NvHTTP** et pourquoi ils sont sûrs :

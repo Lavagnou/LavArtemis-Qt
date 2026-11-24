@@ -14,6 +14,10 @@ public:
 
     void start(int timeout);
 
+    // Why the search ended without a computer, when it ended before its timeout (test build: the
+    // address is refused by TestGuard). Empty for a plain timeout.
+    QString errorMessage() const { return m_ErrorMessage; }
+
 signals:
     void computerFound(NvComputer *computer);
     void errorTimeout();
@@ -31,4 +35,5 @@ private:
     ComputerManager *m_ComputerManager;
     QString m_ComputerName;
     QTimer *m_TimeoutTimer;
+    QString m_ErrorMessage;
 };

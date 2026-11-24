@@ -73,7 +73,8 @@ public:
         case Event::ComputerSeekTimedout:
             if (m_State == StateSeekComputer) {
                 m_State = StateFailure;
-                emit q->failed(QObject::tr("Failed to connect to %1").arg(m_ComputerName));
+                QString reason = m_ComputerSeeker->errorMessage();
+                emit q->failed(reason.isEmpty() ? QObject::tr("Failed to connect to %1").arg(m_ComputerName) : reason);
             }
             break;
         // Occurs when searched computer is found

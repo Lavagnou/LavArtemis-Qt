@@ -29,6 +29,19 @@ void ComputerSeeker::start(int timeout)
     // NB: We don't do this unconditionally because it will wipe out the user's
     // manual address if they pass another reachable hostname/address.
     if (!findMatchingComputer()) {
+#ifdef LAV_TEST_BUILD
+        // A refused address (TestGuard) is never contacted, so it can never be found: end the
+        // search now with the refusal rather than after the whole timeout. Queued: the launcher
+        // announces the search right after start(), which would cover the failure. Not
+        // onTimeout(): polling isn't started here, so there is none to stop.
+        QString refusal = m_ComputerManager->testGuardRefusal(m_ComputerName);
+        if (!refusal.isEmpty()) {
+            m_ErrorMessage = refusal;
+            m_TimeoutTimer->stop();
+            QTimer::singleShot(0, this, [this] { emit errorTimeout(); });
+            return;
+        }
+#endif
         m_ComputerManager->addNewHostManually(m_ComputerName);
     }
 
