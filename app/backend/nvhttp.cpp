@@ -21,6 +21,8 @@
 #include <QElapsedTimer>
 
 #ifdef LAV_TEST_BUILD
+#include <QMutex>
+#include <QSet>
 #include "testguard.h"
 #endif
 
@@ -661,8 +663,20 @@ NvHTTP::openConnection(QUrl baseUrl,
     // Test build: the one place every GET leaves from. A refused address fails like an
     // unreachable host, before any network I/O.
     if (!isAllowedTestAddress(baseUrl.host(), (uint16_t)baseUrl.port(0))) {
-        qWarning() << "Test build: request" << command << "to" << baseUrl.host() << ":" << baseUrl.port(0)
-                   << "refused (loopback and ports 40000-44999 only)";
+        // Logged once per host:port: polling retries every few seconds
+        static QMutex s_RefusedLock;
+        static QSet<QString> s_RefusedLogged;
+        const QString key = baseUrl.host() + ":" + QString::number(baseUrl.port(0));
+        bool firstTime;
+        {
+            QMutexLocker locker(&s_RefusedLock);
+            firstTime = !s_RefusedLogged.contains(key);
+            s_RefusedLogged.insert(key);
+        }
+        if (firstTime) {
+            qWarning() << "Test build: request" << command << "to" << key
+                       << "refused (loopback and ports 40000-44999 only)";
+        }
         throw QtNetworkReplyException(QNetworkReply::ConnectionRefusedError, "Test build: address not allowed");
     }
 #endif
@@ -809,6 +823,10 @@ NvHTTP::sendClipboardContent(const QString& content)
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+#endif
+
+#ifdef LAV_TEST_BUILD
+        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
 #endif
 
         // Send POST request with clipboard content

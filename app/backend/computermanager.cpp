@@ -1341,6 +1341,10 @@ private:
             if (!m_Mdns) {
                 unsigned int portTestResult;
 
+#ifdef LAV_TEST_BUILD
+                // Test build: no connectivity probe to the Moonlight test server
+                portTestResult = ML_TEST_RESULT_INCONCLUSIVE;
+#else
                 if (m_ComputerManager->m_Prefs->detectNetworkBlocking) {
                     // We failed to connect to the specified PC. Let's test to make sure this network
                     // isn't blocking Moonlight, so we can tell the user about it.
@@ -1350,6 +1354,7 @@ private:
                 else {
                     portTestResult = 0;
                 }
+#endif
 
                 emit computerAddCompleted(false, portTestResult != 0 && portTestResult != ML_TEST_RESULT_INCONCLUSIVE);
             }
@@ -1423,6 +1428,7 @@ private:
             }
 
             // Get the WAN IP address using STUN if we're on mDNS over IPv4
+#ifndef LAV_TEST_BUILD
             if (QHostAddress(newComputer->localAddress.address()).protocol() == QAbstractSocket::IPv4Protocol) {
                 quint32 addr;
                 int err = LiFindExternalAddressIP4("stun.moonlight-stream.org", 3478, &addr);
@@ -1433,6 +1439,7 @@ private:
                     qWarning() << "STUN failed to get WAN address:" << err;
                 }
             }
+#endif
 
             if (!m_MdnsIpv6Address.isNull()) {
                 Q_ASSERT(QHostAddress(m_MdnsIpv6Address.address()).protocol() == QAbstractSocket::IPv6Protocol);
@@ -1499,6 +1506,7 @@ private:
 
                 // If this wasn't added via mDNS but it is a RFC 1918 IPv4 address and not a VPN,
                 // go ahead and do the STUN request now to populate an external address.
+#ifndef LAV_TEST_BUILD
                 if (!m_Mdns && addressIsSiteLocalV4 && newComputer->getActiveAddressReachability() != NvComputer::RI_VPN) {
                     quint32 addr;
                     int err = LiFindExternalAddressIP4("stun.moonlight-stream.org", 3478, &addr);
@@ -1509,6 +1517,7 @@ private:
                         qWarning() << "STUN failed to get WAN address:" << err;
                     }
                 }
+#endif
 
                 // For non-mDNS clients, let them know it succeeded
                 if (!m_Mdns) {

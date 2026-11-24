@@ -352,6 +352,11 @@ NvComputer::NvComputer(NvHTTP& http, QString serverInfo)
 
 bool NvComputer::wake() const
 {
+#ifdef LAV_TEST_BUILD
+    // Test build: magic packets go to LAN, WAN and broadcast addresses, never from here
+    qWarning() << "Test build: Wake-on-LAN disabled";
+    return false;
+#endif
     QByteArray wolPayload;
 
     {

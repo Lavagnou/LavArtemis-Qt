@@ -497,6 +497,17 @@ comme hors ligne (« Pas un hôte de test » dans le journal). L'ajout manuel d'
 (`ComputerManager::testGuardRefusal`, appelé par `HostsView.addByAddress`). Tout nouveau chemin réseau doit
 passer par `NvHTTP`, sinon il contourne la liste blanche. Tests : `tests/testguard` (`CONFIG+=tests`).
 
+Chemins réseau **hors NvHTTP** et pourquoi ils sont sûrs dans le build de test :
+- Wake-on-LAN (`NvComputer::wake()`, paquets vers LAN / WAN / diffusion) : **désactivé**, une ligne de journal.
+- Sonde `LiTestClientConnectivity` (`PendingAddTask`, `Session::clStageFailed` / `clConnectionTerminated`) et STUN
+  `LiFindExternalAddressIP4` (`computermanager.cpp`) : **désactivés** (résultat « non concluant »).
+- Sonde de joignabilité (`NvComputer::getActiveAddressReachability`, `QTcpSocket`) : vers `activeAddress`, posée
+  seulement après un `serverinfo` qui a passé la liste blanche.
+- Le stream (moonlight-common-c) : `RemoteAddr` = `activeAddress`, et il ne démarre qu'après un launch / resume gardé.
+- `NetworkBuffers::routedWiredLinkMbps` (`QUdpSocket`) : simple recherche de route, n'envoie aucun paquet.
+- Mise à jour in-app (désactivée par `lav_test`), `CompatFetcher` / `MappingFetcher` : adresses publiques fixes,
+  jamais un hôte.
+
 ## 🎨 Interface v2 (LavArtemis Dev)
 
 La refonte (spec : `docs/superpowers/specs/2026-11-23-ui-redesign-design.md` dans LavArtemis,

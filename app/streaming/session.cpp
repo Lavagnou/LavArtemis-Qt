@@ -96,7 +96,11 @@ void Session::clStageFailed(int stage, int errorCode)
 {
     // Perform the port test now, while we're on the async connection thread and not blocking the UI.
     unsigned int portFlags = LiGetPortFlagsFromStage(stage);
+#ifdef LAV_TEST_BUILD
+    s_ActiveSession->m_PortTestResults = ML_TEST_RESULT_INCONCLUSIVE; // test build: no connectivity probe
+#else
     s_ActiveSession->m_PortTestResults = LiTestClientConnectivity(CONN_TEST_SERVER, 443, portFlags);
+#endif
 
     char failingPorts[128];
     LiStringifyPortFlags(portFlags, ", ", failingPorts, sizeof(failingPorts));
@@ -106,7 +110,11 @@ void Session::clStageFailed(int stage, int errorCode)
 void Session::clConnectionTerminated(int errorCode)
 {
     unsigned int portFlags = LiGetPortFlagsFromTerminationErrorCode(errorCode);
+#ifdef LAV_TEST_BUILD
+    s_ActiveSession->m_PortTestResults = ML_TEST_RESULT_INCONCLUSIVE; // test build: no connectivity probe
+#else
     s_ActiveSession->m_PortTestResults = LiTestClientConnectivity(CONN_TEST_SERVER, 443, portFlags);
+#endif
 
     // Display the termination dialog if this was not intended
     switch (errorCode) {
