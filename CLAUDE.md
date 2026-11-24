@@ -478,7 +478,8 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   changement de thème (`frameKey`) ; la fenêtre SDL du
   stream reprend les mêmes couleurs (`applyWindowFrameColors()` dans `Session`).
 - **Débit vidéo, celui d'Android** (`SettingsCatalog` / `seekbar_bitrate_kbps` côté Android) : curseur de
-  0,5 à 800 Mbit/s, **3 Gbit/s avec PyroWave** (`bitrateMax`, mêmes deux bornes qu'Android), piste cubique (`SettingSlider.curve: 3` : position =
+  0,5 à 800 Mbit/s, **3 Gbit/s quand le codec est PyroWave** (`bitrateMax` ; Android :
+  `SettingsCatalog.BITRATE_MAX_KBPS` / `BITRATE_MAX_PYROWAVE_KBPS`, `SettingDef.maxFrom`), piste cubique (`SettingSlider.curve: 3` : position =
   fraction^(1/3), pas de 500 kbit/s, flèches à 1 Mbit/s ×5 puis ×20 comme Android), et « Saisir un débit » (expert)
   pour toute valeur au-delà. « Débloquer la limite de débit » (`unlockBitrate`, 500 Mbit/s) est **retiré** :
   rien ne borne plus la valeur enregistrée, une valeur saisie, calibrée (PyroWave) ou débloquée auparavant
@@ -546,6 +547,9 @@ GPU en Vulkan : moins d'une milliseconde, mais des centaines de Mbit/s, donc ré
 depuis le fork moonlight-qt de Nonary (`release/6.1.0-vrr18`), sans sa partie VRR ; le protocole est
 celui de Vibepollo, inchangé (`docs/pyrowave-protocol.md`, **identique** à celui de LavApollo —
 changer les deux ensemble). Jamais choisi en Auto : uniquement via le codec « PyroWave ».
+
+> 📋 **Expérimental** : l'utilisateur ne s'en sert pas pour l'instant ; il est gardé parce qu'il est
+> déjà construit. Ne pas en faire un défaut ni le mettre en avant.
 
 | Pièce | Où |
 |---|---|

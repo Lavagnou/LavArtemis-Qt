@@ -34,7 +34,7 @@ system shortcut capture):
 - **Playnite games** as apps, started inside Playnite, and « Quitter le jeu » back to Playnite.
 - **Multi-monitor**: the host emulates one virtual display per local monitor.
 - **Stream at the host display's mode** when joining a session or streaming without a virtual display.
-- **PyroWave** intra-only GPU codec (Windows / Linux x64, wired networks) and **VRR pacing**
+- **PyroWave** intra-only GPU codec (experimental; Windows / Linux x64, wired networks) and **VRR pacing**
   (frames presented at their capture time on G-Sync / FreeSync displays, Windows).
 - **Microphone passthrough** to a virtual microphone on the host.
 - **Settings benchmark**: streams a test scene with several codec / bitrate / pacing combinations
