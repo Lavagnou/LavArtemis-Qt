@@ -94,12 +94,18 @@ void SdlInputHandler::handleMouseMotionEvent(SDL_MouseMotionEvent* event)
 
     // Batch all pending mouse motion events to save CPU time
     Sint32 x = event->x, y = event->y, xrel = event->xrel, yrel = event->yrel;
+    Uint32 buttonsDown = event->state; // the event's own button state (test build: never the real mouse's)
     SDL_Event nextEvent;
     while (SDL_PeepEvents(&nextEvent, 1, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION) > 0) {
         event = &nextEvent.motion;
 
         // Ignore synthetic mouse events
+#ifdef LAV_TEST_BUILD
+        if (event->which == kTestInjectedMouseId) {
+#else
         if (event->which != SDL_TOUCH_MOUSEID) {
+#endif
+            buttonsDown = event->state;
             x = event->x;
             y = event->y;
             xrel += event->xrel;
@@ -138,7 +144,11 @@ void SdlInputHandler::handleMouseMotionEvent(SDL_MouseMotionEvent* event)
         // a) it is in the video region now
         // b) it just left the video region (to ensure the mouse is clamped to the video boundary)
         // c) a mouse button is still down from before the cursor left the video region (to allow smooth dragging)
+#ifdef LAV_TEST_BUILD
+        Uint32 buttonState = buttonsDown;
+#else
         Uint32 buttonState = SDL_GetMouseState(nullptr, nullptr);
+#endif
         if (buttonState == 0) {
             if (m_PendingMouseButtonsAllUpOnVideoRegionLeave) {
                 if (m_NeedsManualCaptureOnLeave) {
@@ -191,7 +201,12 @@ void SdlInputHandler::handleMouseWheelEvent(SDL_MouseWheelEvent* event)
 
     if (m_AbsoluteMouseMode) {
         int mouseX, mouseY;
+#if defined(LAV_TEST_BUILD) && SDL_VERSION_ATLEAST(2, 26, 0)
+        mouseX = event->mouseX; // the event's own position, not the real cursor's
+        mouseY = event->mouseY;
+#else
         SDL_GetMouseState(&mouseX, &mouseY);
+#endif
         if (!isMouseInVideoRegion(mouseX, mouseY)) {
             // Ignore scroll events outside the video region
             return;

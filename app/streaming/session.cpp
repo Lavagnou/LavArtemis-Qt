@@ -23,6 +23,48 @@
 #include "SDL_compat.h"
 #include <SDL_syswm.h>
 
+#include "utils.h"
+
+#ifdef HAVE_FFMPEG
+#include "video/ffmpeg.h"
+#include "video/ffmpeg-renderers/pacer/vrr/receivedeadline.h"
+#endif
+
+#ifdef HAVE_SLVIDEO
+#include "video/slvid.h"
+#endif
+
+#ifdef Q_OS_WIN32
+// Scaling the icon down on Win32 looks dreadful, so render at lower res
+#define ICON_SIZE 32
+#else
+#define ICON_SIZE 64
+#endif
+
+#define SDL_CODE_FLUSH_WINDOW_EVENT_BARRIER 100
+#define SDL_CODE_GAMECONTROLLER_RUMBLE 101
+#define SDL_CODE_GAMECONTROLLER_RUMBLE_TRIGGERS 102
+#define SDL_CODE_GAMECONTROLLER_SET_MOTION_EVENT_STATE 103
+#define SDL_CODE_GAMECONTROLLER_SET_CONTROLLER_LED 104
+#define SDL_CODE_GAMECONTROLLER_SET_ADAPTIVE_TRIGGERS 105
+
+#include <openssl/rand.h>
+
+#include <QtEndian>
+#include <QCoreApplication>
+#include <QThreadPool>
+#include <QSvgRenderer>
+#include <QPainter>
+#include <QImage>
+#include <QGuiApplication>
+#include <QCursor>
+#include <QScreen>
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QQuickOpenGLUtils>
+
+#endif
+
 namespace {
 #ifdef LAV_TEST_BUILD
 constexpr bool kTestBuild = true;
@@ -64,46 +106,6 @@ void lavTestShowNoActivate(SDL_Window* window) { SDL_ShowWindow(window); }
 constexpr bool kTestBuild = false;
 #endif
 }
-#include "utils.h"
-
-#ifdef HAVE_FFMPEG
-#include "video/ffmpeg.h"
-#include "video/ffmpeg-renderers/pacer/vrr/receivedeadline.h"
-#endif
-
-#ifdef HAVE_SLVIDEO
-#include "video/slvid.h"
-#endif
-
-#ifdef Q_OS_WIN32
-// Scaling the icon down on Win32 looks dreadful, so render at lower res
-#define ICON_SIZE 32
-#else
-#define ICON_SIZE 64
-#endif
-
-#define SDL_CODE_FLUSH_WINDOW_EVENT_BARRIER 100
-#define SDL_CODE_GAMECONTROLLER_RUMBLE 101
-#define SDL_CODE_GAMECONTROLLER_RUMBLE_TRIGGERS 102
-#define SDL_CODE_GAMECONTROLLER_SET_MOTION_EVENT_STATE 103
-#define SDL_CODE_GAMECONTROLLER_SET_CONTROLLER_LED 104
-#define SDL_CODE_GAMECONTROLLER_SET_ADAPTIVE_TRIGGERS 105
-
-#include <openssl/rand.h>
-
-#include <QtEndian>
-#include <QCoreApplication>
-#include <QThreadPool>
-#include <QSvgRenderer>
-#include <QPainter>
-#include <QImage>
-#include <QGuiApplication>
-#include <QCursor>
-#include <QScreen>
-
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-#include <QQuickOpenGLUtils>
-#endif
 
 #define CONN_TEST_SERVER "qt.conntest.moonlight-stream.org"
 
@@ -2847,7 +2849,7 @@ void Session::exec()
     SDL_SetHint(SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN, "1");
     SDL_SetHint(SDL_HINT_FORCE_RAISEWINDOW, "0");
     defaultWindowFlags |= SDL_WINDOW_HIDDEN;
-    windowName += " â Test";
+    windowName += " - Test";
 #endif
 
     m_Window = SDL_CreateWindow(windowName.c_str(),
@@ -3116,9 +3118,9 @@ void Session::exec()
                 break;
             case SDL_WINDOWEVENT_RESTORED:
             case SDL_WINDOWEVENT_SHOWN:
-                if (kTestBuild) {
-                    lavTestMakeNonActivating(m_Window);
-                }
+#ifdef LAV_TEST_BUILD
+                lavTestMakeNonActivating(m_Window);
+#endif
                 notifyDecoderWindowState(WINDOW_STATE_CHANGE_RESTORED);
                 break;
             }
@@ -3343,9 +3345,9 @@ void Session::exec()
 
             // The renderer may have re-created the native window (SDL_RecreateWindow): its
             // style is new, so the test build's no-activate style is applied again.
-            if (kTestBuild) {
-                lavTestMakeNonActivating(m_Window);
-            }
+#ifdef LAV_TEST_BUILD
+            lavTestMakeNonActivating(m_Window);
+#endif
 
             // As of SDL 2.0.12, SDL_RecreateWindow() doesn't carry over mouse capture
             // or mouse hiding state to the new window. By capturing after the decoder

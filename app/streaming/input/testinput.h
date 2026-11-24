@@ -9,6 +9,11 @@
 //   sets it on events it pushes with SDL_PushEvent. Real devices report other ids.
 // - Game controllers: only a device named kTestGamepadName is opened and forwarded (the
 //   orchestrator creates it as an SDL virtual joystick); physical pads are ignored.
+// - Touch is NOT injectable in the test build: handleTouchFingerEvent() also requires
+//   SDL_GetTouchDeviceType(touchId) == SDL_TOUCH_DEVICE_DIRECT, which is INVALID for an id that
+//   SDL never registered, so every touch event is dropped.
+// - The virtual pad must be matched by NAME only: B4 must not borrow a known VID/PID (SDL would
+//   apply that device's mapping and the name could change).
 // - Keyboard needs no marker: the windows never get keyboard focus, so real keys do not arrive.
 
 #include "SDL_compat.h"

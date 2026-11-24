@@ -513,7 +513,7 @@ void SdlInputHandler::handleControllerDeviceEvent(SDL_ControllerDeviceEvent* eve
 #ifdef LAV_TEST_BUILD
         // Test build: only the orchestrator's virtual pad; physical controllers are never opened
         {
-            const char* deviceName = SDL_GameControllerNameForIndex(event->which);
+            const char* deviceName = SDL_JoystickNameForIndex(event->which); // same name source as the other two checks
             if (deviceName == nullptr || strcmp(deviceName, kTestGamepadName) != 0) {
                 return;
             }

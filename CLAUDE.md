@@ -526,8 +526,9 @@ focus, jamais son pointeur, jamais de son, jamais son vrai micro**. Tout est sou
   événements injectés passent), `setCaptureActive()`, `updateKeyboardGrabState()`, `updatePointerRegionLock()` et
   `SDL_CaptureMouse` ne font rien côté OS (pas de mode relatif, de verrou, de curseur masqué, de warp).
   **Seule l'entrée injectée atteint l'hôte** (`streaming/input/testinput.h`) : souris (mouvement, boutons, molette)
-  si `which == kTestInjectedMouseId` (`0x4C415654`, « LAVT »), tactile si `touchId == kTestInjectedMouseId`, manettes
-  seulement si le nom est `kTestGamepadName` (« LavArtemis Test Pad », joystick virtuel SDL de B4) : les manettes
+  si `which == kTestInjectedMouseId` (`0x4C415654`, « LAVT ») ; **tactile désactivé** (non injectable : `SDL_GetTouchDeviceType` renvoie INVALID pour un id jamais
+  enregistré) ; manettes
+  seulement si le nom est `kTestGamepadName` (« LavArtemis Test Pad », joystick virtuel SDL de B4, reconnu par son nom seul, sans VID/PID connu) : les manettes
   physiques ne sont ni ouvertes, ni comptées (`handleControllerDeviceEvent`, `handleJoystickArrivalEvent`,
   `getAttachedGamepadMask`), et `ALLOW_BACKGROUND_EVENTS=1`. Le clavier n'a pas de marqueur : la fenêtre n'a jamais
   le focus, donc aucune vraie touche n'arrive, et `handleKeyEvent` ne dépend pas du focus (seul `META` teste
