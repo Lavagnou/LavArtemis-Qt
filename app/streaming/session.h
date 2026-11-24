@@ -170,7 +170,8 @@ public:
     // Benchmark (backend/benchmark): a session that measures itself and ends on its own.
     // It sends no microphone. From the first frame loop, it waits warmupSeconds, then
     // snapshots its stats every windowSeconds until measureSeconds have passed, and quits.
-    // The schedule runs in exec()'s SDL loop: Qt timers do not fire while streaming.
+    // The schedule runs in exec()'s SDL loop, not on Qt timers (Qt's posted events are only
+    // delivered from SDL's message pump while streaming: see CLAUDE.md, « Build de test »).
     // Call before initialize().
     void setBenchmarkMode(int warmupSeconds, int measureSeconds, int windowSeconds, const QString& label);
 

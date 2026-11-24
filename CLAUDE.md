@@ -496,8 +496,10 @@ sous `#ifdef LAV_TEST_BUILD` ou dans le bloc `lav_test` d'`app/app.pro` ; une re
 ### Construire et lancer
 
 ```bat
-set LAV_TEST_JOBS=2             :: jobs de jom (défaut 2 : le PC sert pendant ce temps)
-scripts\build-test.bat          :: vcvars64 + Qt 6.11.1 msvc2022_64, qmake CONFIG+=lav_test, jom, windeployqt
+rem jobs de jom (défaut 2 : le PC sert pendant ce temps)
+set LAV_TEST_JOBS=2
+rem vcvars64 + Qt 6.11.1 msvc2022_64, qmake CONFIG+=lav_test, jom, windeployqt
+scripts\build-test.bat
 ```
 Dossier à part, `build\test-x64` (jamais `build-x64-release` / `deploy-x64-release`) ; exe
 `build\test-x64\deploy\LavArtemisTest.exe` (icône Dev, titre « LavArtemis Test », sous-système GUI). Tests de la
@@ -707,8 +709,9 @@ session, réglages).
 **Limites connues** :
 - `NvHTTP` attend ses réponses dans un `QEventLoop(ExcludeUserInputEvents)` sur le thread GUI (appairage OTP, commandes du
   serveur, presse-papiers…). Lancé par l'appli hors de toute commande, cette boucle peut exécuter des commandes du canal en
-  son sein, et un stream pourrait même démarrer dans une telle commande. Peu probable, et c'est une propriété de l'appli,
-  pas du canal (dans une commande, la file attend : voir plus haut).
+  son sein, et un stream pourrait même démarrer dans une telle commande. Et si c'est une commande du canal qui déclenche
+  une de ces requêtes pendant qu'une connexion se termine, `Session::exec()` peut tourner dans cette requête : la file
+  du canal attend alors la fin du stream. Peu probable, et c'est une propriété de l'appli, pas du canal.
 - `text` vers le stream = touches US lues avec la disposition de l'hôte (ci-dessus) ; `quit` n'attend la session que
   30 s ; pas de toucher ; un `click` peut ouvrir un `FileDialog` qui, lui, s'active.
 
