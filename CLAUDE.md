@@ -1191,7 +1191,9 @@ par `tests/hostdisplay`.
    serveur). Avec un seul `QSslCertificate` partagé, un contexte ou une clé était libéré deux fois : violation
    d'accès dans `ncrypt.dll!NCryptFreeObject`, sous `CertFreeCertificateContext` ou
    `CertSetCertificateContextProperty` appelés par `qschannelbackend.dll` (deux dumps du banc de test, symbolisés
-   avec les PDB Microsoft, 2026-11-25). Ne jamais remettre les objets en cache dans une `QSslConfiguration`.
+   avec les PDB Microsoft, 2026-11-25). Ne jamais remettre les objets en cache dans une `QSslConfiguration` tant
+   que Qt est en 6.11.1 ou plus ancien. La branche 6.11 de qtbase garde désormais ce contexte par socket
+   (`localCertificateCtxt`) : à la prochaine montée de Qt, vérifier `qtls_schannel.cpp` avant de simplifier.
 
 ## 🤖 CI
 
