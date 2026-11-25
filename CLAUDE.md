@@ -697,12 +697,13 @@ session, réglages).
 | `mouse` (stream) | `{action:"move", x, y}` ; `{action:"button", button?, down}` ; `{action:"click", button?, x?, y?}` | `{x, y, buttons, windowW, windowH}` |
 | `gamepad` (stream) | `{attach:true}` d'abord ; puis `{button, value}` (bool ou 0/1), `{axis, value}` ; `{detach:true}` | `{pad, instance, attached?, …}` |
 | `screenshot` | `path` (absolu, disque local, PNG), `window?` (0) | `{path, width, height, dpr}` |
-| `state` | — | `{page, pageTitle, pageBusy, quickMenu, pad, computers:[{name, uuid, address, online, state, paired, testHost, thisPc, currentGameId, apps:[noms]}], profiles:[{id, name, active}], activeProfileId, session:{active, streaming, frames, received, decoded, rendered, dropped, width, height, fps, restarts, overlayStats:{shown, text}, statusMessage, micActive, micMuted, zoom}, toasts:[…], toast}` |
+| `state` | — | `{page, pageTitle, pageBusy, quickMenu, pad, computers:[{name, uuid, address, online, state, paired, testHost, thisPc, currentGameId, benchmarkAppId, apps:[noms], appDetails:[{name, id, playniteGame, installed, lastActivity, playtime, hasBackground}], formFactor, link, latencyMs, sessionStartedAt, playniteGameName, playniteGameStartedAt}], profiles:[{id, name, active}], activeProfileId, session:{active, streaming, frames, received, decoded, rendered, dropped, width, height, fps, restarts, overlayStats:{shown, text}, statusMessage, micActive, micMuted, zoom}, toasts:[…], toast}` |
 | `setting` | `action:"get"/"set"/"reset"/"list"/"raw"`, `key`, `value` | `{key, source:"streaming"/"artemis", value}` ; `list` → `{streaming:{…}, artemis:{…}}` ; `raw` → `{key, globalStored, global, profiles:[{id, name, active, stored, value}], artemisStored, artemis}` |
 | `reset` | — | `{folders, registry, notYetRemoved, quitting:true}`, puis le client quitte |
 | `quit` | — | `{quitting:true, session}`, puis le client quitte |
 | `commands` | — | `commands:[…]` |
 | `joystick` | `{attach:true, kind:"generic", axes?(4), buttons?(8), hats?(1)}` ; `{detach:true}` | `{name, guid, instance, gameController}` : un joystick HID générique (« LavArtemis Test Joystick », type inconnu, sans VID/PID) que SDL ne connaît pas, **hors stream aussi** (mapper, avertissement de lancement) ; jamais ouvert par le stream ; retiré à `quit` |
+| `appasset` | `host` (nom), `appId`, `kind:"cover"` (défaut) / `"background"` | `{width, height}` : l'image telle que le client la reçoit (`NvHTTP::getBoxArt` / `getBackground`), `0 × 0` quand l'hôte n'en a pas (404) |
 | `clipboard` | `action:"get"` (défaut) / `"set"`, `text` | `{text}` : le presse-papiers de **ce PC** vu par le client, un texte en mémoire (`ClipboardManager::testClipboardText`), **jamais** celui du système ; `set` = une copie faite ici (la synchro réagit) |
 
 - **`tree`** : visibles seulement (`isVisible`, opacité effective > 0, partie visible non vide, coupée par la fenêtre et
@@ -827,8 +828,9 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   `AppModel::KindRole` : `desktop`, `playnite`, `game`), Scène de la session en cours,
   Projecteur (`dimmed`) et halo (`LiveHalo`). Les autres applis de l'hôte (`app`, ex. « Virtual
   Desktop » d'Apollo) ne sont **pas** affichées, à la demande de l'utilisateur. La bibliothèque
-  Playnite garde **l'ordre de l'hôte**, du plus récemment joué au plus ancien
-  (`NvComputer::sortApps()` : nom pour le reste). ⚠️ `AppModel::updateAppList()` **suit l'ordre de
+  Playnite va du plus récemment joué au plus ancien : `NvComputer::sortApps()` trie les jeux sur
+  `NvApp::playniteLastActivity` (jamais joués à la fin, tri stable : un hôte qui ne l'envoie pas garde
+  **son** ordre), le reste par nom. ⚠️ `AppModel::updateAppList()` **suit l'ordre de
   la liste de l'ordinateur** (ajouts à leur place, `beginMoveRows` quand un jeu joué remonte) : il
   insérait par nom, hérité de moonlight-qt, et la bibliothèque sortait triée par nom malgré `sortApps()`
   jusqu'au 2026-11-25. ⚠️ L'accueil lit l'appli en cours par `getRunningAppId()` (= `m_CurrentGameId`) :
@@ -925,9 +927,26 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   MAC (`wakeable`, mêmes messages que Mes PC). En-tête : « Recherche… » tant que l'hôte n'a pas répondu.
   Bibliothèque vide : « Aucun jeu Playnite sur ce PC. Installe l'extension LavApollo Link… ».
 - **Ligne d'état de la Scène, celle d'Android** : « EN COURS · DANS PLAYNITE FULLSCREEN · DEPUIS 12 MIN »
-  (`home.liveLine`). L'hôte ne dit pas quand la session a commencé : la durée part de la première fois que ce
-  PC a vu l'appli tourner sur cet hôte, gardée dans `QSettings` (`uiV2SessionClock/<uuid>` =
-  `<runningId>:<ms>`, comme `SessionClock` d'Android), oubliée quand rien ne tourne ; rien sous une minute.
+  (`home.liveLine`). La durée part du début que donne LavApollo (`CurrentGameElapsed` → rôle `sessionStartedAt`
+  de `ComputerModel`) ; un hôte qui ne le dit pas : de la première fois que ce PC a vu l'appli tourner sur cet
+  hôte, gardée dans `QSettings` (`uiV2SessionClock/<uuid>` = `<runningId>:<ms>`, comme `SessionClock`
+  d'Android), oubliée quand rien ne tourne ; rien sous une minute.
+- **Données de l'hôte pour les écrans du prototype** (vague 5, données seulement ; protocole :
+  `LavApollo/docs/lavartemis-host-data.md`). `NvApp` : `playniteInstalled` (défaut vrai), `playniteLastActivity`
+  (s Unix, 0 = jamais), `playnitePlaytime` (s), `playniteHasBackground` → rôles `AppModel` `installed`,
+  `lastActivity` (ms, la valeur d'une `Date` JS), `playtime`, `background` (url du fichier une fois chargé par
+  `BoxArtManager::loadBackground()`, `<id>-background.jpg` dans le cache des jaquettes ; vide sinon).
+  `NvComputer` : `currentGameStartedAt` / `playniteGameStartedAt` (ms, horloge de ce PC, recalculés de
+  `CurrentGameElapsed` / `PlayniteGameElapsed` à chaque poll et gardés sauf écart de plus de 5 s), `hostFormFactor`
+  (`tower`/`mini`/`laptop`), `hostLink` (`wired`/`wifi`), `latencyMs` → rôles `ComputerModel` `sessionStartedAt`,
+  `playniteGameStartedAt`, `formFactor`, `link`, `latencyMs` (-1 hors ligne). Ajouter un champ à `NvApp` :
+  `operator==`, `serialize()` et le constructeur `QSettings`, sinon le cache le perd ou un changement passe inaperçu.
+  - ⚠️ **Latence = un `connect` TCP** (`PcMonitorThread::measureLatencyMs`) sur l'adresse qui vient de répondre,
+    après chaque poll réussi, au moins 1 ms ; pas la durée du `serverinfo` (TLS et travail de l'hôte en plus). Le
+    build de test le passe par `TestGuard` comme le reste. `update()` n'y voit un changement qu'à partir de
+    2 ms ou d'un quart d'écart : sinon chaque poll rafraîchissait tous les modèles de cet hôte.
+  - ⚠️ `NvComputer::updateAppList()` reporte `hidden` / `directLaunch` **avant** de comparer : comparée sans, une
+    liste avec une appli masquée paraissait changée à chaque poll.
 - **Logiciel hôte non pris en charge** : la règle d'Android (`NvComputer::isSupportedAppVersion()` : appversion
   en quatre nombres, génération ≥ 3 ; vide = inconnu = accepté) s'ajoute à la liste GeForce Experience de
   moonlight-qt. Vérifié avant d'ouvrir (Mes PC), de lancer (accueil) et de lancer un benchmark, avec le
