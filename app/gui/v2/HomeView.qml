@@ -216,6 +216,7 @@ FocusScope {
         function onRowsRemoved() { home.rev++ }
         // A game played on the host moves to the front of the library (host order)
         function onRowsMoved() { home.rev++ }
+        function onRunningAppChanged() { home.rev++ }
     }
 
     // Host polling is driven by main.qml (window active/visible), as for the legacy views.

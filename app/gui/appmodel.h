@@ -88,6 +88,10 @@ private slots:
 signals:
     void computerLost();
 
+    // The app running on the host changed (getRunningAppId() and friends), also when neither
+    // app has a row here (hidden, or not listed)
+    void runningAppChanged();
+
 private:
     void updateAppList(QVector<NvApp> newList);
 

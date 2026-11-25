@@ -385,9 +385,15 @@ void AppModel::handleComputerStateChanged(NvComputer* computer)
 
     // Finally, process changes to the active app
     if (computer->currentGameId != m_CurrentGameId) {
-        // First, invalidate the running state of newly running game
+        // Update our internal state first: the home reads getRunningAppId() and friends when
+        // dataChanged arrives, and updating after the signals left the session on screen
+        // (« EN COURS ») after it ended, until the next poll
+        int oldGameId = m_CurrentGameId;
+        m_CurrentGameId = m_Computer->currentGameId;
+
+        // Invalidate the running state of newly running game
         for (int i = 0; i < m_VisibleApps.count(); i++) {
-            if (m_VisibleApps[i].id == computer->currentGameId) {
+            if (m_VisibleApps[i].id == m_CurrentGameId) {
                 emit dataChanged(createIndex(i, 0),
                                  createIndex(i, 0),
                                  QVector<int>() << RunningRole);
@@ -396,9 +402,9 @@ void AppModel::handleComputerStateChanged(NvComputer* computer)
         }
 
         // Next, invalidate the running state of the old game (if it exists)
-        if (m_CurrentGameId != 0) {
+        if (oldGameId != 0) {
             for (int i = 0; i < m_VisibleApps.count(); i++) {
-                if (m_VisibleApps[i].id == m_CurrentGameId) {
+                if (m_VisibleApps[i].id == oldGameId) {
                     emit dataChanged(createIndex(i, 0),
                                      createIndex(i, 0),
                                      QVector<int>() << RunningRole);
@@ -407,8 +413,7 @@ void AppModel::handleComputerStateChanged(NvComputer* computer)
             }
         }
 
-        // Now update our internal state
-        m_CurrentGameId = m_Computer->currentGameId;
+        emit runningAppChanged();
     }
 }
 

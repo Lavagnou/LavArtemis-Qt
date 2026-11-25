@@ -748,7 +748,10 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   (`NvComputer::sortApps()` : nom pour le reste). ⚠️ `AppModel::updateAppList()` **suit l'ordre de
   la liste de l'ordinateur** (ajouts à leur place, `beginMoveRows` quand un jeu joué remonte) : il
   insérait par nom, hérité de moonlight-qt, et la bibliothèque sortait triée par nom malgré `sortApps()`
-  jusqu'au 2026-11-25. Une jaquette absente (`no_app_image.png`, ou 404
+  jusqu'au 2026-11-25. ⚠️ L'accueil lit l'appli en cours par `getRunningAppId()` (= `m_CurrentGameId`) :
+  `AppModel::handleComputerStateChanged` met cet état à jour **avant** ses `dataChanged` et émet
+  `runningAppChanged()` ; dans l'autre ordre, la Scène (« EN COURS », Reprendre) restait affichée après la fin de
+  la session. Une jaquette absente (`no_app_image.png`, ou 404
   de LavApollo pour un jeu Playnite sans jaquette, mémorisé par `BoxArtManager::m_Missing`) affiche
   le nom du jeu.
 - **Projecteur = `Theme.dim()`**, les valeurs `dimOff` / `dimFocus` du prototype par thème et mode :
