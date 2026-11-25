@@ -371,11 +371,11 @@ void SdlInputHandler::handleControllerButtonEvent(SDL_ControllerButtonEvent* eve
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                     "Detected quit gamepad button combo");
 
-        // Push a quit event to the main loop
-        SDL_Event event;
-        event.type = SDL_QUIT;
-        event.quit.timestamp = SDL_GetTicks();
-        SDL_PushEvent(&event);
+        // « Déconnecter », as Ctrl+Alt+Shift+Q (the segue's tip names both): the host's clipboard
+        // fetched first when the sync is on, then the stream ends
+        if (Session::get() != nullptr) {
+            Session::get()->disconnectFromMenu();
+        }
 
         // Clear buttons down on this gamepad
         LiSendMultiControllerEvent(state->index, m_GamepadMask,

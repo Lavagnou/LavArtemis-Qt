@@ -21,11 +21,11 @@ void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                     "Detected quit key combo");
 
-        // Push a quit event to the main loop
-        SDL_Event event;
-        event.type = SDL_QUIT;
-        event.quit.timestamp = SDL_GetTicks();
-        SDL_PushEvent(&event);
+        // Ctrl+Alt+Shift+Q = « Déconnecter » of the in-game menu (Réglages › Raccourcis clavier):
+        // the host's clipboard fetched first when the sync is on, then the stream ends
+        if (Session::get() != nullptr) {
+            Session::get()->disconnectFromMenu();
+        }
         break;
 
     case KeyComboUngrabInput:
@@ -146,14 +146,13 @@ void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                     "Detected quitAndExit key combo");
 
-        // Indicate that we want to exit afterwards
-        Session::get()->setShouldExit(true);
-
-        // Push a quit event to the main loop
-        SDL_Event quitExitEvent;
-        quitExitEvent.type = SDL_QUIT;
-        quitExitEvent.quit.timestamp = SDL_GetTicks();
-        SDL_PushEvent(&quitExitEvent);
+        // Ctrl+Alt+Shift+E = « Quitter la session » of the in-game menu (QuickMenuManager::quit):
+        // the app is quit on the host and the client goes back to its home. It used to exit the
+        // whole client too (setShouldExit), which the menu entry stopped doing in 0.7.0-dev.7.
+        if (Session::get() != nullptr) {
+            Session::get()->setQuitHostApp();
+            Session::get()->requestStreamEnd();
+        }
         break;
 
     // KeyComboToggleServerCommands removed - now handled through QuickMenu

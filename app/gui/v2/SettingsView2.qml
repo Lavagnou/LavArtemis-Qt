@@ -1542,9 +1542,9 @@ FocusScope {
 
                                 {key: "\\", label: qsTr("Menu en jeu"), desc: qsTr("Ouvre ou ferme le menu pendant le stream.")},
 
-                                {key: "Q", label: qsTr("Quitter le stream"), desc: qsTr("L'appli continue sur le PC distant.")},
+                                {key: "Q", label: qsTr("Déconnecter"), desc: qsTr("Comme « Déconnecter » dans le menu en jeu : arrête le stream et revient à l'accueil.")},
 
-                                {key: "E", label: qsTr("Quitter le stream et l'appli"), desc: qsTr("Ferme aussi l'appli sur le PC distant.")},
+                                {key: "E", label: qsTr("Quitter la session"), desc: qsTr("Comme « Quitter la session » dans le menu en jeu : ferme aussi l'appli sur le PC distant.")},
 
                                 {key: "Z", label: qsTr("Libérer la souris et le clavier"), desc: qsTr("Rend le pointeur à ton PC.")},
 

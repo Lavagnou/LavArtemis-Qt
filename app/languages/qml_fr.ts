@@ -69,12 +69,36 @@
         <translation>Impossible de lancer l&apos;installeur</translation>
     </message>
     <message>
+        <source>GitHub&apos;s answer could not be read.</source>
+        <translation>La réponse de GitHub est illisible.</translation>
+    </message>
+    <message>
         <source>No release has been published yet.</source>
         <translation>Aucune version n&apos;a encore été publiée.</translation>
     </message>
     <message>
         <source>The latest release carries no version tag.</source>
         <translation>La dernière version publiée n&apos;a pas de tag de version.</translation>
+    </message>
+    <message>
+        <source>GitHub did not answer in time. Try again later.</source>
+        <translation>GitHub n&apos;a pas répondu à temps. Réessaie plus tard.</translation>
+    </message>
+    <message>
+        <source>The secure connection to GitHub failed. Check this PC&apos;s date and time.</source>
+        <translation>La connexion sécurisée à GitHub a échoué. Vérifie la date et l&apos;heure de ce PC.</translation>
+    </message>
+    <message>
+        <source>GitHub cannot be reached. Check this PC&apos;s Internet connection.</source>
+        <translation>GitHub est injoignable. Vérifie la connexion Internet de ce PC.</translation>
+    </message>
+    <message>
+        <source>GitHub refused the request (HTTP error %1). Try again later.</source>
+        <translation>GitHub a refusé la demande (erreur HTTP %1). Réessaie plus tard.</translation>
+    </message>
+    <message>
+        <source>Network error (%1).</source>
+        <translation>Erreur réseau (%1).</translation>
     </message>
 </context>
 <context>
@@ -2862,6 +2886,22 @@ Appui long sur Start pour le désactiver</translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Déconnecter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Comme « Déconnecter » dans le menu en jeu : arrête le stream et revient à l&apos;accueil.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Quitter la session</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Comme « Quitter la session » dans le menu en jeu : ferme aussi l&apos;appli sur le PC distant.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Signale au lancement les réglages que ce PC ou le PC distant ne peut pas appliquer. Micro, multi-écran, VRR, PyroWave et manettes devinées sont toujours signalés.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3123,22 +3163,6 @@ Appui long sur Start pour le désactiver</translation>
     </message>
     <message>
         <source>Ouvre ou ferme le menu pendant le stream.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Quitter le stream</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>L&apos;appli continue sur le PC distant.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Quitter le stream et l&apos;appli</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Ferme aussi l&apos;appli sur le PC distant.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
