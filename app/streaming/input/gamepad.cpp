@@ -519,6 +519,10 @@ void SdlInputHandler::handleControllerDeviceEvent(SDL_ControllerDeviceEvent* eve
             }
         }
 #endif
+        // A layout guessed earlier, now turned off: not a game controller any more
+        if (MappingManager::isIgnoredGuess(event->which)) {
+            return;
+        }
         controller = SDL_GameControllerOpen(event->which);
         if (controller == NULL) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
@@ -802,7 +806,7 @@ void SdlInputHandler::handleJoystickArrivalEvent(SDL_JoyDeviceEvent* event)
         }
     }
 #endif
-    if (!SDL_IsGameController(event->which)) {
+    if (!MappingManager::isGameController(event->which)) {
         char guidStr[33];
         SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(event->which),
                                   guidStr, sizeof(guidStr));
@@ -970,7 +974,7 @@ QString SdlInputHandler::getUnmappedGamepads()
 
     int numJoysticks = SDL_NumJoysticks();
     for (int i = 0; i < numJoysticks; i++) {
-        if (!SDL_IsGameController(i)) {
+        if (!MappingManager::isGameController(i)) {
             char guidStr[33];
             SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(i),
                                       guidStr, sizeof(guidStr));
@@ -1039,7 +1043,7 @@ int SdlInputHandler::getAttachedGamepadMask()
             }
         }
 #endif
-        if (SDL_IsGameController(i)) {
+        if (MappingManager::isGameController(i)) {
             char guidStr[33];
             SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(i),
                                       guidStr, sizeof(guidStr));

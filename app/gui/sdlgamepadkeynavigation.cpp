@@ -61,7 +61,7 @@ void SdlGamepadKeyNavigation::enable()
     // Open all currently attached game controllers
     int numJoysticks = SDL_NumJoysticks();
     for (int i = 0; i < numJoysticks; i++) {
-        if (SDL_IsGameController(i)) {
+        if (MappingManager::isGameController(i)) {
             SDL_GameController* gc = SDL_GameControllerOpen(i);
             if (gc != nullptr) {
                 m_Gamepads.append(gc);
@@ -199,6 +199,10 @@ void SdlGamepadKeyNavigation::onPollingTimerFired()
             break;
         }
         case SDL_CONTROLLERDEVICEADDED:
+            // A layout guessed earlier, now turned off: not a game controller any more
+            if (MappingManager::isIgnoredGuess(event.cdevice.which)) {
+                break;
+            }
             SDL_GameController* gc = SDL_GameControllerOpen(event.cdevice.which);
             if (gc != nullptr) {
                 // SDL_CONTROLLERDEVICEADDED can be reported multiple times for the same
@@ -299,7 +303,7 @@ int SdlGamepadKeyNavigation::getConnectedGamepads()
     int count = 0;
     int numJoysticks = SDL_NumJoysticks();
     for (int i = 0; i < numJoysticks; i++) {
-        if (SDL_IsGameController(i)) {
+        if (MappingManager::isGameController(i)) {
             count++;
         }
     }

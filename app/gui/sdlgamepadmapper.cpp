@@ -279,14 +279,14 @@ QVariantList SdlGamepadMapper::enumerateDevices()
         SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(i), guidStr, sizeof(guidStr));
 
         const char* rawName = SDL_JoystickNameForIndex(i);
-        QString name = rawName ? QString::fromUtf8(rawName) : QStringLiteral("Unknown device");
+        QString name = rawName ? QString::fromUtf8(rawName) : tr("Unknown device");
 
         QVariantMap device;
         device[QStringLiteral("index")] = i;
         device[QStringLiteral("name")] = name;
         device[QStringLiteral("guid")] = QString::fromLatin1(guidStr);
-        device[QStringLiteral("recognized")] = SDL_IsGameController(i) == SDL_TRUE;
-        device[QStringLiteral("guessed")] = guessedGuids.contains(QString::fromLatin1(guidStr));
+        device[QStringLiteral("recognized")] = MappingManager::isGameController(i);
+        device[QStringLiteral("guessed")] = guessedGuids.contains(QString::fromLatin1(guidStr).toLower());
 
         SDL_Joystick* joy = SDL_JoystickOpen(i);
         if (joy != nullptr) {
@@ -335,7 +335,7 @@ void SdlGamepadMapper::startMapping(int deviceIndex)
     m_DeviceGuid = QString::fromLatin1(guidStr);
 
     const char* rawName = SDL_JoystickName(m_Joystick);
-    m_DeviceName = rawName ? QString::fromUtf8(rawName) : QStringLiteral("Unknown device");
+    m_DeviceName = rawName ? QString::fromUtf8(rawName) : tr("Unknown device");
     // Commas separate fields in an SDL mapping, so one in the name would
     // corrupt every field after it.
     m_DeviceName.replace(',', ' ');

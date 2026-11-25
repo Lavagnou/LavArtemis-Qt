@@ -207,6 +207,7 @@ SOURCES += \
     backend/updaterules.cpp \
     path.cpp \
     settings/mappingmanager.cpp \
+    settings/mappingmanagersettings.cpp \
     gui/sdlgamepadkeynavigation.cpp \
     gui/sdlgamepadmapper.cpp \
     streaming/video/overlaymanager.cpp \

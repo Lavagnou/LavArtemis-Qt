@@ -1,7 +1,7 @@
 #include "mappingmanager.h"
 #include "path.h"
-#include "artemissettings.h"
 
+#include <QCoreApplication>
 #include <QDir>
 
 #include "SDL_compat.h"
@@ -16,6 +16,7 @@
 #define AXIS_EXTREME_REST 24000
 
 MappingFetcher* MappingManager::s_MappingFetcher;
+QSet<QString> MappingManager::s_GuessedGuids;
 QStringList MappingManager::s_GuessedDeviceNames;
 QStringList MappingManager::s_GuessedDeviceGuids;
 
@@ -126,9 +127,38 @@ void MappingManager::applyMappings()
     // Last, so that a real entry from the database or from the user always
     // wins over a guess. Doing it here rather than at each call site means
     // every path that applies mappings gets the fallback for free.
-    if (ArtemisSettings::instance()->genericGamepadFallbackEnabled()) {
+    s_GuessedDeviceNames.clear();
+    s_GuessedDeviceGuids.clear();
+    if (fallbackEnabled()) {
         applyFallbackMappings();
     }
+}
+
+namespace {
+
+QString deviceGuid(int deviceIndex)
+{
+    char guidStr[33];
+    SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(deviceIndex), guidStr, sizeof(guidStr));
+    return QString::fromLatin1(guidStr).toLower();
+}
+
+QString deviceName(int deviceIndex)
+{
+    const char* name = SDL_JoystickNameForIndex(deviceIndex);
+    return name ? QString::fromUtf8(name) : QCoreApplication::translate("MappingManager", "Unknown gamepad");
+}
+
+}
+
+bool MappingManager::isIgnoredGuess(int deviceIndex)
+{
+    return !s_GuessedGuids.isEmpty() && !fallbackEnabled() && s_GuessedGuids.contains(deviceGuid(deviceIndex));
+}
+
+bool MappingManager::isGameController(int deviceIndex)
+{
+    return SDL_IsGameController(deviceIndex) && !isIgnoredGuess(deviceIndex);
 }
 
 QStringList MappingManager::getGuessedDeviceNames()
@@ -153,8 +183,9 @@ QString MappingManager::axisSourceToken(int axis, int restValue, int deviation)
                            : QStringLiteral("+a%1").arg(axis);
 }
 
-QString MappingManager::synthesizeMapping(int deviceIndex, int numAxes, int numButtons, int numHats,
-                                          const QVector<int>& axisRestValues)
+QString MappingManager::synthesizeMapping(const QString& guid, const QString& deviceName,
+                                          int numAxes, int numButtons, int numHats,
+                                          const QVector<int>& axisRestValues, const QString& platform)
 {
     // Same shape test SdlInputHandler::getUnmappedGamepads() uses to decide a
     // bare joystick is probably a gamepad. Reusing it keeps the thing we warn
@@ -163,19 +194,15 @@ QString MappingManager::synthesizeMapping(int deviceIndex, int numAxes, int numB
         return QString();
     }
 
-    char guidStr[33];
-    SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(deviceIndex),
-                              guidStr, sizeof(guidStr));
-
-    const char* rawName = SDL_JoystickNameForIndex(deviceIndex);
-    QString name = rawName ? QString::fromUtf8(rawName) : QStringLiteral("Unknown Gamepad");
+    // The name field is data, not text for the user: no translation
+    QString name = deviceName.isEmpty() ? QStringLiteral("Unknown Gamepad") : deviceName;
 
     // Fields are comma separated, so a comma in the device name would split
     // the mapping and corrupt every field after it.
     name.replace(',', ' ');
 
     QStringList parts;
-    parts << QString::fromLatin1(guidStr) << name;
+    parts << guid << name;
 
     // Axis roles follow the same reasoning the Android client applies to the
     // ranges a device reports (see ControllerHandler): the first pair is
@@ -225,20 +252,31 @@ QString MappingManager::synthesizeMapping(int deviceIndex, int numAxes, int numB
 
     // GUIDs differ between platforms for the same physical device, so a
     // mapping is only ever valid for the one that produced it.
-    parts << QStringLiteral("platform:%1").arg(QLatin1String(SDL_GetPlatform()));
+    parts << QStringLiteral("platform:%1").arg(platform);
 
     return parts.join(QLatin1Char(','));
 }
 
 void MappingManager::applyFallbackMappings()
 {
-    s_GuessedDeviceNames.clear();
-    s_GuessedDeviceGuids.clear();
-
     int numJoysticks = SDL_NumJoysticks();
     for (int i = 0; i < numJoysticks; i++) {
-        // Anything SDL already recognises is left strictly alone.
+        const QString guid = deviceGuid(i);
+
+        // A real mapping (the user's, or SDL's hint) for a device guessed
+        // earlier: it is no longer a guess.
+        if (m_Mappings.contains(guid)) {
+            s_GuessedGuids.remove(guid);
+        }
+
+        // Anything SDL already recognises is left strictly alone -- but a
+        // device it recognises through our own earlier guess is still a
+        // guess, and still announced as one (the mapper, the stream launch).
         if (SDL_IsGameController(i)) {
+            if (s_GuessedGuids.contains(guid)) {
+                s_GuessedDeviceNames.append(deviceName(i));
+                s_GuessedDeviceGuids.append(guid);
+            }
             continue;
         }
 
@@ -264,11 +302,14 @@ void MappingManager::applyFallbackMappings()
             axisRestValues[axis] = SDL_JoystickGetAxis(joy, axis);
         }
 
-        QString mapping = synthesizeMapping(i,
+        const char* rawName = SDL_JoystickNameForIndex(i);
+        QString mapping = synthesizeMapping(guid,
+                                            rawName ? QString::fromUtf8(rawName) : QString(),
                                             numAxes,
                                             SDL_JoystickNumButtons(joy),
                                             SDL_JoystickNumHats(joy),
-                                            axisRestValues);
+                                            axisRestValues,
+                                            QString::fromLatin1(SDL_GetPlatform()));
         SDL_JoystickClose(joy);
 
         if (mapping.isEmpty()) {
@@ -282,14 +323,9 @@ void MappingManager::applyFallbackMappings()
             continue;
         }
 
-        const char* name = SDL_JoystickNameForIndex(i);
-        s_GuessedDeviceNames.append(name ? QString::fromUtf8(name)
-                                         : QStringLiteral("Unknown Gamepad"));
-
-        char guessedGuidStr[33];
-        SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(i),
-                                  guessedGuidStr, sizeof(guessedGuidStr));
-        s_GuessedDeviceGuids.append(QString::fromLatin1(guessedGuidStr));
+        s_GuessedGuids.insert(guid);
+        s_GuessedDeviceNames.append(deviceName(i));
+        s_GuessedDeviceGuids.append(guid);
 
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
                     "Guessed a mapping for unrecognized gamepad: %s",
@@ -305,5 +341,6 @@ void MappingManager::addMapping(QString mappingString)
 
 void MappingManager::addMapping(SdlGamepadMapping& mapping)
 {
-    m_Mappings[mapping.getGuid()] = mapping;
+    // Lower case: SDL writes GUIDs that way, and a guessed device is matched by its GUID
+    m_Mappings[mapping.getGuid().toLower()] = mapping;
 }
