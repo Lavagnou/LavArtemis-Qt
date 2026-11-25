@@ -169,20 +169,47 @@ NvHTTP::getServerInfo(NvLogLevel logLevel, bool fastFail)
     // Check if we have a pinned cert and HTTPS port for this host yet
     if (!m_ServerCert.isNull() && httpsPort() != 0)
     {
-        // If we have a server cert, we must use HTTPS.
-        serverInfo = openConnectionToString(m_BaseUrlHttps,
-                                            "serverinfo",
-                                            deviceNameParam,
-                                            fastFail ? FAST_FAIL_TIMEOUT_MS : REQUEST_TIMEOUT_MS,
-                                            logLevel);
+        // If we have a server cert, try HTTPS first: only it reports the pairing status.
+        try {
+            serverInfo = openConnectionToString(m_BaseUrlHttps,
+                                                "serverinfo",
+                                                deviceNameParam,
+                                                fastFail ? FAST_FAIL_TIMEOUT_MS : REQUEST_TIMEOUT_MS,
+                                                logLevel);
+            // Only log response if not suppressing output (polling requests use NVLL_NONE)
+            if (logLevel != NvLogLevel::NVLL_NONE) {
+                qInfo() << "getServerInfo HTTPS response:" << serverInfo;
+            }
+            // The status first: a host that refuses our certificate answers a bare 401 document,
+            // without the test host tag (the HTTP fallback below checks it)
+            verifyResponseStatus(serverInfo);
 #ifdef LAV_TEST_BUILD
-        requireTestHost(serverInfo);
+            requireTestHost(serverInfo);
 #endif
-        // Only log response if not suppressing output (polling requests use NVLL_NONE)
-        if (logLevel != NvLogLevel::NVLL_NONE) {
-            qInfo() << "getServerInfo HTTPS response:" << serverInfo;
         }
-        verifyResponseStatus(serverInfo);
+        catch (const GfeHttpResponseException& e) {
+            if (e.getStatusCode() != 401) {
+                throw;
+            }
+
+            // 401: the host no longer knows our certificate (pairing removed on the host, or the
+            // host has a new certificate: openConnection() maps a pinned-cert mismatch to 401).
+            // Fall back to HTTP, as moonlight-qt and Android do: the host answers with PairStatus 0,
+            // so it shows as online and not paired (offered for pairing again) instead of offline
+            // forever. No recursion here: the HTTP branch below would go back to HTTPS.
+            serverInfo = openConnectionToString(m_BaseUrlHttp,
+                                                "serverinfo",
+                                                deviceNameParam,
+                                                fastFail ? FAST_FAIL_TIMEOUT_MS : REQUEST_TIMEOUT_MS,
+                                                logLevel);
+#ifdef LAV_TEST_BUILD
+            requireTestHost(serverInfo);
+#endif
+            if (logLevel != NvLogLevel::NVLL_NONE) {
+                qInfo() << "getServerInfo HTTP response after HTTPS 401:" << serverInfo;
+            }
+            verifyResponseStatus(serverInfo);
+        }
     }
     else
     {
