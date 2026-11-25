@@ -453,24 +453,20 @@
 <context>
     <name>ClipboardManager</name>
     <message>
-        <source>Clipboard sync only works with Apollo/Sunshine servers</source>
-        <translation>La synchro du presse-papiers ne marche qu&apos;avec un hôte Apollo/Sunshine</translation>
+        <source>Clipboard sent successfully</source>
+        <translation>Presse-papiers envoyé avec succès</translation>
     </message>
     <message>
-        <source>Clipboard uploaded to server</source>
-        <translation>Presse-papiers envoyé au PC</translation>
+        <source>Failed to send the clipboard: the PC did not accept it</source>
+        <translation>Échec de l&apos;envoi du presse-papiers : le PC ne l&apos;a pas accepté</translation>
     </message>
     <message>
-        <source>Failed to send clipboard to server</source>
-        <translation>Impossible d&apos;envoyer le presse-papiers au PC</translation>
+        <source>Clipboard fetched successfully</source>
+        <translation>Presse-papiers récupéré avec succès</translation>
     </message>
     <message>
-        <source>Clipboard downloaded from server</source>
-        <translation>Presse-papiers récupéré du PC</translation>
-    </message>
-    <message>
-        <source>Failed to get clipboard from server</source>
-        <translation>Impossible de récupérer le presse-papiers du PC</translation>
+        <source>Failed to fetch the clipboard: %1</source>
+        <translation>Échec de la récupération du presse-papiers : %1</translation>
     </message>
 </context>
 <context>
@@ -1715,12 +1711,16 @@
         <translation>← Retour</translation>
     </message>
     <message>
+        <source>Command of the host PC</source>
+        <translation>Commande du PC hôte</translation>
+    </message>
+    <message>
         <source>Quitter %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Quitter %1</translation>
     </message>
     <message>
         <source>Retour à Playnite, le stream continue</source>
-        <translation type="unfinished"></translation>
+        <translation>Retour à Playnite, le stream continue</translation>
     </message>
     <message>
         <source>Disconnect</source>
@@ -1787,24 +1787,16 @@
         <translation>Fin de la session…</translation>
     </message>
     <message>
-        <source>Restarting server...</source>
-        <translation>Redémarrage du PC…</translation>
-    </message>
-    <message>
-        <source>Server commands not available</source>
-        <translation>Commandes du PC hôte indisponibles</translation>
-    </message>
-    <message>
         <source>Are you sure you want to quit?</source>
         <translation>Tu veux vraiment quitter ?</translation>
     </message>
     <message>
         <source>No server commands</source>
-        <translation>Aucune commande</translation>
+        <translation>Aucune commande de serveur</translation>
     </message>
     <message>
         <source>Make sure the host runs Apollo / LavApollo and this client has the &quot;Server Command&quot; permission.</source>
-        <translation>Vérifie que le PC hôte utilise Apollo / LavApollo et que ce client a l&apos;autorisation « Commandes serveur ».</translation>
+        <translation>Vérifie que tu utilises Apollo comme logiciel hôte et que tu as donné à cet appareil l&apos;autorisation « Commande de serveur ».</translation>
     </message>
     <message>
         <source>Command &quot;%1&quot; sent</source>
@@ -1871,14 +1863,6 @@
         <translation>Bascule l&apos;affichage du stream.</translation>
     </message>
     <message>
-        <source>Shutting down server...</source>
-        <translation>Arrêt du PC…</translation>
-    </message>
-    <message>
-        <source>Suspending server...</source>
-        <translation>Mise en veille du PC…</translation>
-    </message>
-    <message>
         <source>Uploading clipboard to server...</source>
         <translation>Envoi du presse-papiers au PC…</translation>
     </message>
@@ -1923,15 +1907,11 @@
     <name>QuickMenuManager</name>
     <message>
         <source>Fermeture du jeu, retour à Playnite…</source>
-        <translation type="unfinished"></translation>
+        <translation>Fermeture du jeu, retour à Playnite…</translation>
     </message>
     <message>
         <source>Impossible de fermer le jeu dans Playnite</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Server commands not available</source>
-        <translation>Commandes du PC indisponibles</translation>
+        <translation>Impossible de fermer le jeu dans Playnite</translation>
     </message>
 </context>
 <context>
@@ -2147,20 +2127,16 @@
 <context>
     <name>ServerCommandManager</name>
     <message>
-        <source>Command of the host PC</source>
-        <translation>Commande du PC hôte</translation>
+        <source>the PC doesn&apos;t offer this command</source>
+        <translation>le PC ne propose pas cette commande</translation>
     </message>
     <message>
-        <source>Empty command</source>
-        <translation>Commande vide</translation>
+        <source>the stream is over</source>
+        <translation>le stream est terminé</translation>
     </message>
     <message>
-        <source>Server commands not available</source>
-        <translation>Commandes du PC indisponibles</translation>
-    </message>
-    <message>
-        <source>Another command is already executing</source>
-        <translation>Une autre commande est déjà en cours</translation>
+        <source>error %1</source>
+        <translation>erreur %1</translation>
     </message>
 </context>
 <context>
@@ -2215,10 +2191,6 @@
     <message>
         <source>The host PC reported a fatal video encoding error.</source>
         <translation>Le PC hôte a signalé une erreur fatale de l&apos;encodage vidéo.</translation>
-    </message>
-    <message>
-        <source>Try disabling HDR mode, changing the streaming resolution, or changing your host PC&apos;s display resolution.</source>
-        <translation>Essaie de désactiver le HDR, de changer la résolution du stream ou celle de ton PC hôte.</translation>
     </message>
     <message>
         <source>Connection terminated</source>
@@ -2287,6 +2259,64 @@
     <message>
         <source>Using software decoding due to your selection to force H.264 without GPU support. This may cause poor streaming performance.</source>
         <translation>Décodage logiciel : tu as forcé le H.264, que ton GPU ne décode pas. Les performances peuvent en souffrir.</translation>
+    </message>
+    <message>
+        <source>platform initialization</source>
+        <translation>initialisation de la plateforme</translation>
+    </message>
+    <message>
+        <source>name resolution</source>
+        <translation>résolution du nom</translation>
+    </message>
+    <message>
+        <source>audio stream initialization</source>
+        <translation>initialisation du flux audio</translation>
+    </message>
+    <message>
+        <source>RTSP handshake</source>
+        <translation>négociation RTSP</translation>
+    </message>
+    <message>
+        <source>control stream initialization</source>
+        <translation>initialisation du flux de contrôle</translation>
+    </message>
+    <message>
+        <source>video stream initialization</source>
+        <translation>initialisation du flux vidéo</translation>
+    </message>
+    <message>
+        <source>input stream initialization</source>
+        <translation>initialisation du flux d&apos;entrées</translation>
+    </message>
+    <message>
+        <source>control stream establishment</source>
+        <translation>ouverture du flux de contrôle</translation>
+    </message>
+    <message>
+        <source>video stream establishment</source>
+        <translation>ouverture du flux vidéo</translation>
+    </message>
+    <message>
+        <source>audio stream establishment</source>
+        <translation>ouverture du flux audio</translation>
+    </message>
+    <message>
+        <source>input stream establishment</source>
+        <translation>ouverture du flux d&apos;entrées</translation>
+    </message>
+    <message>
+        <source>Try changing the streaming resolution or your host PC&apos;s display resolution.</source>
+        <translation>Essaie de changer la résolution du stream ou celle de ton PC hôte.</translation>
+    </message>
+    <message>
+        <source>Slow connection to PC
+Reduce your bitrate</source>
+        <translation>Connexion lente au PC
+Baisse le débit</translation>
+    </message>
+    <message>
+        <source>Poor connection to PC</source>
+        <translation>Mauvaise connexion au PC</translation>
     </message>
     <message>
         <source>warming up</source>
@@ -2426,6 +2456,12 @@
     <message>
         <source>Your codec selection and force hardware decoding setting are not compatible. This PC&apos;s GPU lacks support for decoding your chosen codec.</source>
         <translation>Le codec choisi et le réglage du décodage matériel ne vont pas ensemble : le GPU de ce PC ne décode pas le codec que tu as choisi.</translation>
+    </message>
+    <message>
+        <source>Gamepad mouse mode active
+Long press Start to deactivate</source>
+        <translation>Mode souris à la manette
+Appui long sur Start pour le désactiver</translation>
     </message>
     <message>
         <source>Microphone muted</source>
@@ -2826,10 +2862,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Copier ici, coller là-bas, et inversement, pendant le stream (Apollo / LavApollo). Le menu en jeu envoie ou récupère aussi le presse-papiers à la demande.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Signale au lancement les réglages que ce PC ou le PC distant ne peut pas appliquer. Micro, multi-écran, VRR, PyroWave et manettes devinées sont toujours signalés.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3043,6 +3075,10 @@
     </message>
     <message>
         <source>Synchroniser le presse-papiers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Envoie ton presse-papiers au PC distant au début du stream et à chaque copie faite ici, et récupère le sien quand tu te déconnectes. Le menu en jeu le fait aussi à la demande.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3345,8 +3381,16 @@
         <translation>Démarrage de %1...</translation>
     </message>
     <message>
-        <source>Starting %1 failed: Error %2</source>
-        <translation>Le démarrage de %1 a échoué : Erreur %2</translation>
+        <source>Host display changed: reconnecting…</source>
+        <translation>Écran du PC modifié : reconnexion…</translation>
+    </message>
+    <message>
+        <source>Starting: %1</source>
+        <translation>Démarrage : %1</translation>
+    </message>
+    <message>
+        <source>Start failed: %1 (error %2)</source>
+        <translation>Échec au démarrage : %1 (erreur %2)</translation>
     </message>
     <message>
         <source>Check your firewall and port forwarding rules for port(s): %1</source>
@@ -3386,6 +3430,119 @@
     <message>
         <source>Sombre</source>
         <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>VideoStats</name>
+    <message>
+        <source>Video stream: %dx%d %.2f FPS (codec: %s)
+</source>
+        <translation>Stream vidéo : %dx%d %.2f FPS (codec : %s)
+</translation>
+    </message>
+    <message>
+        <source>Incoming frame rate from network: %.2f FPS
+Decoding frame rate: %.2f FPS
+Rendering frame rate: %.2f FPS
+</source>
+        <translation>Fréquence d&apos;images entrantes du réseau : %.2f FPS
+Fréquence d&apos;images de décodage : %.2f FPS
+Fréquence d&apos;images de rendu : %.2f FPS
+</translation>
+    </message>
+    <message>
+        <source>Host processing latency min/max/average: %.1f/%.1f/%.1f ms
+</source>
+        <translation>Latence de traitement de l&apos;hôte min/max/moyenne : %.1f/%.1f/%.1f ms
+</translation>
+    </message>
+    <message>
+        <source>%u ms (variance: %u ms)</source>
+        <translation>%u ms (variance : %u ms)</translation>
+    </message>
+    <message>
+        <source>N/A</source>
+        <translation>indisponible</translation>
+    </message>
+    <message>
+        <source>Frames dropped by your network connection: %.2f%%
+Frames dropped by client pacing: %.2f%%
+Frames skipped before decoding: %.2f%%
+Average network latency: %s
+Average decoding time: %.2f ms (waiting for the decoder %.2f ms)
+</source>
+        <translation>Images perdues par ta connexion réseau : %.2f %%
+Images jetées par le pacing du client : %.2f %%
+Images sautées avant le décodage : %.2f %%
+Latence réseau moyenne : %s
+Temps moyen de décodage : %.2f ms (attente du décodeur %.2f ms)
+</translation>
+    </message>
+    <message>
+        <source>Average frame queue delay: %.2f ms
+Average rendering time (including monitor V-sync latency): %.2f ms
+</source>
+        <translation>Attente moyenne en file : %.2f ms
+Temps moyen de rendu (latence V-Sync de l&apos;écran comprise) : %.2f ms
+</translation>
+    </message>
+    <message>
+        <source>Incoming smoothness (host): %.2f%%
+</source>
+        <translation>Régularité des images reçues (hôte) : %.2f %%
+</translation>
+    </message>
+    <message>
+        <source>Incoming smoothness (host): N/A
+</source>
+        <translation>Régularité des images reçues (hôte) : indisponible
+</translation>
+    </message>
+    <message>
+        <source>VRR pacing: %s (starting...)
+</source>
+        <translation>Pacing VRR : %s (démarrage…)
+</translation>
+    </message>
+    <message>
+        <source>Active</source>
+        <translation>actif</translation>
+    </message>
+    <message>
+        <source>Inactive</source>
+        <translation>inactif</translation>
+    </message>
+    <message>
+        <source>collecting</source>
+        <translation>mesure en cours</translation>
+    </message>
+    <message>
+        <source>VRR pacing: %s | Smoothness (%s): %s / %.2f%% target%s
+Client interval error (1s): %s | Tolerance: %.2f ms | Dropped (30s): %llu
+</source>
+        <translation>Pacing VRR : %s | Régularité (%s) : %s / objectif %.2f %%%s
+Écart d&apos;intervalle du client (1 s) : %s | Tolérance : %.2f ms | Jetées (30 s) : %llu
+</translation>
+    </message>
+    <message>
+        <source> (buffer limit)</source>
+        <translation> (limite du tampon)</translation>
+    </message>
+    <message>
+        <source>VRR pacing: %s | Smoothness (30s): %.2f%%%s
+Average miss (30s): %.3f ms | Dropped (30s): %llu
+</source>
+        <translation>Pacing VRR : %s | Régularité (30 s) : %.2f %%%s
+Retard moyen (30 s) : %.3f ms | Jetées (30 s) : %llu
+</translation>
+    </message>
+    <message>
+        <source>VRR pacing: %s | Client ready on time (30s): %.2f%% / %.2f%% target%s
+Late &gt;1 ms: %.2f%% | &gt;2 ms: %.2f%% | Dropped (30s): %llu
+</source>
+        <translation>Pacing VRR : %s | Images prêtes à temps (30 s) : %.2f %% / objectif %.2f %%%s
+En retard &gt;1 ms : %.2f %% | &gt;2 ms : %.2f %% | Jetées (30 s) : %llu
+</translation>
     </message>
 </context>
 <context>

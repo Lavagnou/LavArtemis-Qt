@@ -6,6 +6,7 @@
 #include "settings/streamingpreferences.h"
 #include "settings/artemissettings.h"
 
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
 #include <QStandardPaths>
@@ -1404,24 +1405,21 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
             double peakVideoMbps = m_BwTracker.GetPeakMbps();
 #endif
 
+            // The overlay's texts are in the app's language, with the wording of Android's perf_overlay_*
             ret = snprintf(&output[offset],
                            length - offset,
-                           "Video stream: %dx%d %.2f FPS (Codec: %s)\n"
-#ifdef DISPLAY_BITRATE
-                           "Bitrate: %.1f Mbps, Peak (%us): %.1f\n"
-#endif
-                           ,
+                           QCoreApplication::translate("VideoStats", "Video stream: %dx%d %.2f FPS (codec: %s)\n").toUtf8().constData(),
                            m_VideoDecoderCtx != nullptr ? m_VideoDecoderCtx->width : m_OriginalVideoWidth,
                            m_VideoDecoderCtx != nullptr ? m_VideoDecoderCtx->height : m_OriginalVideoHeight,
                            stats.totalFps,
-                           codecString
+                           codecString);
 #ifdef DISPLAY_BITRATE
-                           ,
-                           avgVideoMbps,
-                           m_BwTracker.GetWindowSeconds(),
-                           peakVideoMbps
+            if (ret >= 0 && ret < length - offset) {
+                offset += ret;
+                ret = snprintf(&output[offset], length - offset, "Bitrate: %.1f Mbps, Peak (%us): %.1f\n",
+                               avgVideoMbps, m_BwTracker.GetWindowSeconds(), peakVideoMbps);
+            }
 #endif
-                           );
             if (ret < 0 || ret >= length - offset) {
                 SDL_assert(false);
                 return;
@@ -1432,9 +1430,7 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
 
         ret = snprintf(&output[offset],
                        length - offset,
-                       "Incoming frame rate from network: %.2f FPS\n"
-                       "Decoding frame rate: %.2f FPS\n"
-                       "Rendering frame rate: %.2f FPS\n",
+                       QCoreApplication::translate("VideoStats", "Incoming frame rate from network: %.2f FPS\nDecoding frame rate: %.2f FPS\nRendering frame rate: %.2f FPS\n").toUtf8().constData(),
                        stats.receivedFps,
                        stats.decodedFps,
                        stats.renderedFps);
@@ -1449,7 +1445,7 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
     if (stats.framesWithHostProcessingLatency > 0) {
         ret = snprintf(&output[offset],
                        length - offset,
-                       "Host processing latency min/max/average: %.1f/%.1f/%.1f ms\n",
+                       QCoreApplication::translate("VideoStats", "Host processing latency min/max/average: %.1f/%.1f/%.1f ms\n").toUtf8().constData(),
                        (float)stats.minHostProcessingLatency / 10,
                        (float)stats.maxHostProcessingLatency / 10,
                        (float)stats.totalHostProcessingLatency / 10 / stats.framesWithHostProcessingLatency);
@@ -1465,19 +1461,15 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
         char rttString[32];
 
         if (stats.lastRtt != 0) {
-            snprintf(rttString, sizeof(rttString), "%u ms (variance: %u ms)", stats.lastRtt, stats.lastRttVariance);
+            snprintf(rttString, sizeof(rttString), QCoreApplication::translate("VideoStats", "%u ms (variance: %u ms)").toUtf8().constData(), stats.lastRtt, stats.lastRttVariance);
         }
         else {
-            snprintf(rttString, sizeof(rttString), "N/A");
+            snprintf(rttString, sizeof(rttString), "%s", QCoreApplication::translate("VideoStats", "N/A").toUtf8().constData());
         }
 
         ret = snprintf(&output[offset],
                        length - offset,
-                       "Frames dropped by your network connection: %.2f%%\n"
-                       "Frames dropped by client pacing: %.2f%%\n"
-                       "Frames skipped before decoding: %.2f%%\n"
-                       "Average network latency: %s\n"
-                       "Average decoding time: %.2f ms (waiting for the decoder %.2f ms)\n",
+                       QCoreApplication::translate("VideoStats", "Frames dropped by your network connection: %.2f%%\nFrames dropped by client pacing: %.2f%%\nFrames skipped before decoding: %.2f%%\nAverage network latency: %s\nAverage decoding time: %.2f ms (waiting for the decoder %.2f ms)\n").toUtf8().constData(),
                        (float)stats.networkDroppedFrames / stats.totalFrames * 100,
                        (float)stats.pacerDroppedFrames / stats.decodedFrames * 100,
                        (float)stats.decoderSkippedFrames / stats.totalFrames * 100,
@@ -1494,8 +1486,7 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
         // Only advanced tracing replaces the normal rows with a breakdown.
         if (!advancedStats || !stats.vrrPresentedFrames) {
             ret = snprintf(&output[offset], length - offset,
-                           "Average frame queue delay: %.2f ms\n"
-                           "Average rendering time (including monitor V-sync latency): %.2f ms\n",
+                           QCoreApplication::translate("VideoStats", "Average frame queue delay: %.2f ms\nAverage rendering time (including monitor V-sync latency): %.2f ms\n").toUtf8().constData(),
                            stats.totalQueuePacingTimeUs / (stats.renderedFrames * 1000.0),
                            stats.totalRenderingTimeUs / (stats.renderedFrames * 1000.0));
             if (ret < 0 || ret >= length - offset) { SDL_assert(false); return; }
@@ -1507,11 +1498,11 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
         const double smoothPercent = IncomingFrameTiming::smoothnessPercent(
             stats.incomingTimingVarianceTicksSquared);
         ret = snprintf(&output[offset], length - offset,
-                       "Incoming smoothness (host): %.2f%%\n", smoothPercent);
+                       QCoreApplication::translate("VideoStats", "Incoming smoothness (host): %.2f%%\n").toUtf8().constData(), smoothPercent);
     }
     else {
-        ret = snprintf(&output[offset], length - offset,
-                       "Incoming smoothness (host): N/A\n");
+        ret = snprintf(&output[offset], length - offset, "%s",
+                       QCoreApplication::translate("VideoStats", "Incoming smoothness (host): N/A\n").toUtf8().constData());
     }
     if (ret < 0 || ret >= length - offset) {
         SDL_assert(false);
@@ -1586,8 +1577,8 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
         if (stats.vrrReadiness.samples == 0) {
             ret = snprintf(&output[offset],
                            length - offset,
-                           "VRR pacing: %s (starting...)\n",
-                           stats.vrrTelemetryActive ? "Active" : "Inactive");
+                           QCoreApplication::translate("VideoStats", "VRR pacing: %s (starting...)\n").toUtf8().constData(),
+                           stats.vrrTelemetryActive ? QCoreApplication::translate("VideoStats", "Active").toUtf8().constData() : QCoreApplication::translate("VideoStats", "Inactive").toUtf8().constData());
         }
         else {
             const auto& readiness = stats.vrrReadiness;
@@ -1606,10 +1597,10 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
                 if (interval.evaluatedUs)
                     snprintf(score, sizeof(score), "%.2f%%",
                         interval.qualityPercent());
-                else snprintf(score, sizeof(score), "collecting");
+                else snprintf(score, sizeof(score), "%s", QCoreApplication::translate("VideoStats", "collecting").toUtf8().constData());
                 if (interval.averageValid)
                     snprintf(average, sizeof(average), "%.3f ms", interval.averageErrorUs / 1000.0);
-                else snprintf(average, sizeof(average), "collecting");
+                else snprintf(average, sizeof(average), "%s", QCoreApplication::translate("VideoStats", "collecting").toUtf8().constData());
                 if (advancedStats) {
                     ret = snprintf(&output[offset], length - offset,
                         "Client timing: %s (target %.2f%% over %s)\n"
@@ -1622,35 +1613,32 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
                 }
                 else {
                     ret = snprintf(&output[offset], length - offset,
-                        "VRR pacing: %s | Smoothness (%s): %s / %.2f%% target%s\n"
-                        "Client interval error (1s): %s | Tolerance: %.2f ms | Dropped (30s): %llu\n",
-                        stats.vrrTelemetryActive ? "Active" : "Inactive",
+                        QCoreApplication::translate("VideoStats", "VRR pacing: %s | Smoothness (%s): %s / %.2f%% target%s\nClient interval error (1s): %s | Tolerance: %.2f ms | Dropped (30s): %llu\n").toUtf8().constData(),
+                        stats.vrrTelemetryActive ? QCoreApplication::translate("VideoStats", "Active").toUtf8().constData() : QCoreApplication::translate("VideoStats", "Inactive").toUtf8().constData(),
                         scoreWindow, score,
                         stats.vrrOnTimeTargetPerMillion / 10000.0,
-                        stats.vrrBufferAtLimit ? " (buffer limit)" : "", average,
+                        stats.vrrBufferAtLimit ? QCoreApplication::translate("VideoStats", " (buffer limit)").toUtf8().constData() : "", average,
                         interval.toleranceUs / 1000.0,
                         static_cast<unsigned long long>(readiness.dropped));
                 }
             }
             else if (readiness.meanMissPolicy) {
                 ret = snprintf(&output[offset], length - offset,
-                    "VRR pacing: %s | Smoothness (30s): %.2f%%%s\n"
-                    "Average miss (30s): %.3f ms | Dropped (30s): %llu\n",
-                    stats.vrrTelemetryActive ? "Active" : "Inactive",
+                    QCoreApplication::translate("VideoStats", "VRR pacing: %s | Smoothness (30s): %.2f%%%s\nAverage miss (30s): %.3f ms | Dropped (30s): %llu\n").toUtf8().constData(),
+                    stats.vrrTelemetryActive ? QCoreApplication::translate("VideoStats", "Active").toUtf8().constData() : QCoreApplication::translate("VideoStats", "Inactive").toUtf8().constData(),
                     Vrr13::ReadinessWindow::meanMissScore(readiness),
-                    stats.vrrBufferAtLimit ? " (buffer limit)" : "",
+                    stats.vrrBufferAtLimit ? QCoreApplication::translate("VideoStats", " (buffer limit)").toUtf8().constData() : "",
                     Vrr13::ReadinessWindow::meanMissUs(readiness) / 1000.0,
                     static_cast<unsigned long long>(readiness.dropped));
             }
             else {
                 ret = snprintf(&output[offset],
                            length - offset,
-                           "VRR pacing: %s | Client ready on time (30s): %.2f%% / %.2f%% target%s\n"
-                           "Late >1 ms: %.2f%% | >2 ms: %.2f%% | Dropped (30s): %llu\n",
-                           stats.vrrTelemetryActive ? "Active" : "Inactive",
+                           QCoreApplication::translate("VideoStats", "VRR pacing: %s | Client ready on time (30s): %.2f%% / %.2f%% target%s\nLate >1 ms: %.2f%% | >2 ms: %.2f%% | Dropped (30s): %llu\n").toUtf8().constData(),
+                           stats.vrrTelemetryActive ? QCoreApplication::translate("VideoStats", "Active").toUtf8().constData() : QCoreApplication::translate("VideoStats", "Inactive").toUtf8().constData(),
                            readyOnTimePercent,
                            stats.vrrOnTimeTargetPerMillion / 10000.0,
-                           stats.vrrBufferAtLimit ? " (buffer limit)" : "",
+                           stats.vrrBufferAtLimit ? QCoreApplication::translate("VideoStats", " (buffer limit)").toUtf8().constData() : "",
                            readiness.over1ms * 100.0 / readiness.samples,
                            readiness.over2ms * 100.0 / readiness.samples,
                            static_cast<unsigned long long>(readiness.dropped));
