@@ -645,11 +645,12 @@ session, réglages).
 | `mouse` (stream) | `{action:"move", x, y}` ; `{action:"button", button?, down}` ; `{action:"click", button?, x?, y?}` | `{x, y, buttons, windowW, windowH}` |
 | `gamepad` (stream) | `{attach:true}` d'abord ; puis `{button, value}` (bool ou 0/1), `{axis, value}` ; `{detach:true}` | `{pad, instance, attached?, …}` |
 | `screenshot` | `path` (absolu, disque local, PNG), `window?` (0) | `{path, width, height, dpr}` |
-| `state` | — | `{page, pageTitle, pageBusy, quickMenu, pad, computers:[{name, uuid, address, online, state, paired, testHost, thisPc, currentGameId, apps:[noms]}], session:{active, streaming, frames, received, decoded, rendered, dropped, width, height, fps}}` |
+| `state` | — | `{page, pageTitle, pageBusy, quickMenu, pad, computers:[{name, uuid, address, online, state, paired, testHost, thisPc, currentGameId, apps:[noms]}], session:{active, streaming, frames, received, decoded, rendered, dropped, width, height, fps, restarts, overlayStats:{shown, text}, statusMessage, micActive, micMuted, zoom}, toasts:[…], toast}` |
 | `setting` | `action:"get"/"set"/"reset"/"list"`, `key`, `value` | `{key, source:"streaming"/"artemis", value}` ; `list` → `{streaming:{…}, artemis:{…}}` |
 | `reset` | — | `{folders, registry, notYetRemoved, quitting:true}`, puis le client quitte |
 | `quit` | — | `{quitting:true, session}`, puis le client quitte |
 | `commands` | — | `commands:[…]` |
+| `clipboard` | `action:"get"` (défaut) / `"set"`, `text` | `{text}` : le presse-papiers de **ce PC** vu par le client, un texte en mémoire (`ClipboardManager::testClipboardText`), **jamais** celui du système ; `set` = une copie faite ici (la synchro réagit) |
 
 - **`tree`** : visibles seulement (`isVisible`, opacité effective > 0, partie visible non vide, coupée par la fenêtre et
   les ancêtres `clip`) ; `x,y,w,h` = cette partie visible ; `text` = la propriété `text` ; `type` = type QML (`Text`,
@@ -699,6 +700,11 @@ session, réglages).
   référence au sous-système joystick (la session le quitte avant lui, ce qui détacherait la manette sous nos pieds) ;
   manette retirée à la fin du stream (contrôle toutes les 500 ms), par `detach` et à `quit`. Les deux
   `SDL_assert(!SDL_WasInit(SDL_INIT_JOYSTICK))` d'`input.cpp` ne sont donc compilés que hors du build de test.
+- **`state.session`**, en plus : `restarts` = reconnexions après un changement d'écran du PC depuis le lancement du
+  client (`Session::testRestartCount`) ; `overlayStats` = statistiques à l'écran (affichées, texte) ; `statusMessage` =
+  messages d'état sur le stream (connexion, micro coupé, notifications) ; `micActive`/`micMuted` ; `zoom`
+  (`PanZoom::scale`). **`toasts`** = toutes les notifications montrées sur le stream depuis le lancement (presse-papiers,
+  commandes du PC, Playnite), `toast` la dernière : elles ne restent que 3 s à l'écran.
 - **`state.session`** : `Session::benchmarkSnapshot()` (cumul du stream, publié à chaque fenêtre de stats ≈ 1 s, 0
   avant) : `frames` envoyées par l'hôte, `decoded`, `rendered`, `dropped` = perdues réseau + jetées par le pacer ;
   `active` = une session existe (connexion comprise), `streaming` = sa boucle SDL tourne
@@ -1191,6 +1197,50 @@ par `tests/hostdisplay`.
 > ⚠️ **La session relancée lit le mode dans `NvComputer`**, que le `ComputerManager` ne rafraîchit pas
 > pendant un stream : `hostDisplayWatchTick()` y écrit le nouveau mode **avant** de demander la
 > relance, sinon elle repartirait à l'ancien.
+
+> ⚠️ **La reconnexion reprend la session, elle ne relance jamais l'appli** : `createRestartSession()` pose
+> `m_ForceResume` (`/resume`, et la règle « calée » s'applique), car `currentGameId` n'est pas rafraîchi pendant un
+> stream. Lancée avec l'écran virtuel, une session qui relançait (`/launch`, pas de calage) retrouvait l'écart et se
+> reconnectait en boucle toutes les 5-8 s. Et « Quitter l'appli sur le PC distant à la fin » ne s'applique pas à la fin
+> qui précède une reconnexion (`isRestartRequested()`, faux si la session a aussi été quittée) : l'appli était fermée
+> puis relancée. Le suivi reste actif comme sur Android (dès que l'hôte annonce son écran) : au plus une reconnexion.
+> Pendant la reconnexion, la fenêtre dit « Écran du PC modifié : reconnexion… » (`StreamSegue.isRestart`) et les
+> avertissements de lancement ne sont pas rejoués. Banc : scénario 10 (S1, S2).
+
+## 🎮 Session et menu en jeu (moteur)
+
+- **Une seule façon de finir un stream : `Session::requestStreamEnd()`** (déconnexion, quitter, fin côté hôte,
+  changement d'écran, benchmark, `interrupt()`). Refusé une fois la boucle SDL finie : `endStreamLoop()` (fin de
+  `exec()`, ou stream qui n'a jamais eu de boucle) marque la fin, **vide les `SDL_QUIT` en attente**, cache le menu en
+  jeu et coupe la synchro du presse-papiers, sous le même verrou. Un `SDL_QUIT` laissé dans la file terminait le
+  stream suivant dès son ouverture (double « Quitter la session »), ou le programme entier (`SdlGamepadKeyNavigation`
+  quitte sur `SDL_QUIT`) ; un menu resté ouvert après la fin du stream y poussait le sien.
+- **Le menu n'agit que sur un stream en cours** (`isStreamLoopRunning()`, thread principal) : déconnecter, quitter,
+  micro (`toggleMicrophoneMute` : le streamer est supprimé par le worker de nettoyage), commandes du PC.
+- **Position** : `streamWindowLogicalRect()` convertit le rectangle SDL (pixels physiques sous Windows) en coordonnées
+  logiques Qt, écran par écran, et le menu se recentre à chaque ouverture et quand la fenêtre bouge. Il était décalé de
+  240 px à 125 % (le PC du banc).
+- **Notifications** (`Session::showNotification`) : sur le stream, comme « Micro coupé » (`StatusSource::Notification`,
+  ~3 s, effacée par `menuTick()` dans la boucle SDL), jamais une fenêtre Qt par-dessus (plein écran exclusif).
+  `Toast.qml` est supprimé.
+- **Presse-papiers** (`ClipboardManager`), aux moments d'Android : envoyé au début du stream, récupéré sur
+  « Déconnecter » (avant la fin : l'hôte ne le sert qu'à un client qui streame ; `disconnectFromMenu()`, 4 s au plus),
+  à la demande dans le menu ; en plus, une copie faite ici pendant le stream part tout de suite. Jamais hors d'un stream.
+  Requêtes sur un worker avec une copie de l'hôte (`NvHttpTarget`), jamais le thread GUI (qui fait tourner la boucle
+  SDL). Résultat notifié : toujours pour une demande du menu, avec « Notifier » pour une synchro automatique. Les
+  réglages sont relus dans `ArtemisSettings` à chaque fois.
+- **Commandes du PC hôte** (`ServerCommandManager`) : la liste `ServerCommand` du `serverinfo`, exécutée par son index
+  (`LiSendExecServerCmd`), comme Android. Vide → « Aucune commande de serveur » + l'explication d'Android. Plus aucun
+  point d'accès deviné (6 requêtes synchrones à chaque ouverture du menu, qui retardaient le lancement).
+- **Workers et `NvComputer`** : un worker (jaquettes, suivi de l'écran du PC, presse-papiers, Playnite du menu) ne
+  touche jamais le `NvComputer`, que le thread GUI peut supprimer (PC oublié) : il reçoit un `NvHttpTarget` copié sous
+  le verrou, et les jaquettes reviennent par uuid.
+- Zoom (`PanZoom`, statique) remis à 1× au début de chaque stream. « Retenir le mode tactile » écrit cette seule clé
+  (`saveAbsoluteTouchMode`) : `save()` enregistrait aussi les valeurs passées en ligne de commande.
+- **Textes** : étapes de connexion traduites (`stageLabel`, = `utils/StreamStages` d'Android, « Démarrage : négociation
+  RTSP », « Échec au démarrage : … (erreur n) »), messages de connexion et de souris à la manette, statistiques à
+  l'écran (contexte `VideoStats`, formulations des `perf_overlay_*` d'Android ; la trace VRR avancée,
+  `MOONLIGHT_VRR_DEEP_TRACE`, reste en anglais). Un quit refusé par l'hôte est dit (message de `PendingQuitTask`).
 
 ## ⚠️ Pièges / Gotchas
 
