@@ -197,9 +197,19 @@ IdentityManager::getSslKey()
 QSslConfiguration
 IdentityManager::getSslConfig()
 {
+    // A certificate and a key of this request's own, never the cached objects: Qt's Schannel
+    // backend (Windows) writes into the local certificate's shared private data during every
+    // handshake, without a lock -- it replaces its CERT_CONTEXT (CertFreeCertificateContext on
+    // the previous one) and attaches an imported NCrypt key to it (CertSetCertificateContextProperty).
+    // The HTTPS requests run at the same time on several threads (each host's poll, box art,
+    // pairing, server commands), so with one shared QSslCertificate a context or a key handle
+    // was freed twice: access violation in ncrypt.dll!NCryptFreeObject, under crypt32's
+    // CertFreeCertificateContext or CertSetCertificateContextProperty called from
+    // qschannelbackend.dll (both testbench dumps, 2026-11-25). The caches are filled by the
+    // constructor, so reading them here is safe.
     QSslConfiguration sslConfig(QSslConfiguration::defaultConfiguration());
-    sslConfig.setLocalCertificate(getSslCertificate());
-    sslConfig.setPrivateKey(getSslKey());
+    sslConfig.setLocalCertificate(QSslCertificate(m_CachedPemCert));
+    sslConfig.setPrivateKey(QSslKey(getSslKey().toPem(), QSsl::Rsa));
     return sslConfig;
 }
 

@@ -1181,6 +1181,15 @@ par `tests/hostdisplay`.
    `encrypt()` lisait au-delà, l'hôte calculait une autre clé et le client affichait « PIN incorrect » pour le bon
    PIN. Prendre `.left(n)` / `.mid()` sur le `QByteArray` lui-même. (Android : `Arrays.copyOf`, pas touché.)
 
+9. **Un certificat client et une clé par requête HTTPS** (`IdentityManager::getSslConfig()`, refaits depuis le PEM à
+   chaque appel). Le backend TLS Schannel de Qt (Windows) **écrit** dans les données partagées du certificat local à
+   chaque poignée de main, sans verrou (il remplace son `CERT_CONTEXT` et y attache une clé NCrypt importée) ; les
+   requêtes partent en même temps de plusieurs threads (sondage de chaque PC, jaquettes, appairage, commandes du
+   serveur). Avec un seul `QSslCertificate` partagé, un contexte ou une clé était libéré deux fois : violation
+   d'accès dans `ncrypt.dll!NCryptFreeObject`, sous `CertFreeCertificateContext` ou
+   `CertSetCertificateContextProperty` appelés par `qschannelbackend.dll` (deux dumps du banc de test, symbolisés
+   avec les PDB Microsoft, 2026-11-25). Ne jamais remettre les objets en cache dans une `QSslConfiguration`.
+
 ## 🤖 CI
 
 Les minutes Actions sont comptées : **tout est manuel**, et le client est buildé en local avant chaque push.
