@@ -7,6 +7,7 @@
 #include "backend/clipboardmanager.h"
 #include "backend/computermanager.h"
 #include "backend/nvcomputer.h"
+#include "backend/nvhttp.h"
 #include "settings/artemissettings.h"
 #include "settings/profilemanager.h"
 #include "settings/streamingpreferences.h"
@@ -365,6 +366,7 @@ void TestControl::registerCommands()
     m_Dispatcher.add("reset", bind(&TestControl::cmdReset));
     m_Dispatcher.add("quit", bind(&TestControl::cmdQuit));
     m_Dispatcher.add("clipboard", bind(&TestControl::cmdClipboard));
+    m_Dispatcher.add("appasset", bind(&TestControl::cmdAppAsset));
     m_Dispatcher.add("commands", [this](const QJsonObject&, QJsonObject& result, QString&) {
         result["commands"] = QJsonArray::fromStringList(m_Dispatcher.commands());
         return true;
@@ -918,8 +920,20 @@ bool TestControl::cmdState(const QJsonObject&, QJsonObject& result, QString& err
         for (NvComputer* computer : hosts) {
             QReadLocker lock(&computer->lock);
             QJsonArray apps;
+            // The same list with what LavApollo says of each app (Playnite games: installed, last
+            // activity in Unix seconds, play time in seconds, background), in the client's order
+            QJsonArray appDetails;
             for (const NvApp& app : computer->appList) {
                 apps.append(app.name);
+                appDetails.append(QJsonObject{
+                    {"name", app.name},
+                    {"id", app.id},
+                    {"playniteGame", app.isPlayniteGame},
+                    {"installed", app.playniteInstalled},
+                    {"lastActivity", app.playniteLastActivity},
+                    {"playtime", app.playnitePlaytime},
+                    {"hasBackground", app.playniteHasBackground},
+                });
             }
             computers.append(QJsonObject{
                 {"name", computer->name},
@@ -934,6 +948,15 @@ bool TestControl::cmdState(const QJsonObject&, QJsonObject& result, QString& err
                 {"currentGameId", computer->currentGameId},
                 {"benchmarkAppId", computer->benchmarkAppId},
                 {"apps", apps},
+                {"appDetails", appDetails},
+                // Prototype data (wave 5): kind of PC, link, round trip, session and Playnite game starts
+                // (ms since the epoch, this PC's clock; 0 = unknown)
+                {"formFactor", computer->hostFormFactor},
+                {"link", computer->hostLink},
+                {"latencyMs", computer->latencyMs},
+                {"sessionStartedAt", computer->currentGameStartedAt},
+                {"playniteGameName", computer->playniteGameName},
+                {"playniteGameStartedAt", computer->playniteGameStartedAt},
             });
         }
     }
@@ -1010,6 +1033,47 @@ bool TestControl::cmdState(const QJsonObject&, QJsonObject& result, QString& err
         benchmark["historyDir"] = Benchmark::History::defaultDirectory();
     }
     result["benchmark"] = benchmark;
+    return true;
+}
+
+bool TestControl::cmdAppAsset(const QJsonObject& args, QJsonObject& result, QString& error)
+{
+    // Fetches an app's image the way the client does (NvHTTP::getBoxArt / getBackground), to show
+    // what the host serves: {"host": name, "appId": id, "kind": "cover" | "background"} ->
+    // {"width", "height"}, 0 x 0 when the host has none
+    auto* manager = m_Engine->singletonInstance<ComputerManager*>("ComputerManager", "ComputerManager");
+    if (manager == nullptr) {
+        error = QStringLiteral("ComputerManager singleton unavailable");
+        return false;
+    }
+    const QString hostName = args.value("host").toString();
+    const int appId = args.value("appId").toInt();
+    const QString kind = args.value("kind").toString("cover");
+    if (kind != "cover" && kind != "background") {
+        error = QStringLiteral("kind: \"cover\" (default) or \"background\"");
+        return false;
+    }
+    NvComputer* target = nullptr;
+    for (NvComputer* computer : manager->getComputers()) {
+        QReadLocker lock(&computer->lock);
+        if (computer->name == hostName) {
+            target = computer;
+            break;
+        }
+    }
+    if (target == nullptr) {
+        error = QStringLiteral("no host named ") + hostName;
+        return false;
+    }
+    QImage image;
+    try {
+        NvHTTP http(target);
+        image = kind == "background" ? http.getBackground(appId) : http.getBoxArt(appId);
+    } catch (...) {
+        // 404 and other failures: no image
+    }
+    result["width"] = image.isNull() ? 0 : image.width();
+    result["height"] = image.isNull() ? 0 : image.height();
     return true;
 }
 
