@@ -64,6 +64,8 @@ SettingRow {
 
             Rectangle {
                 id: groove
+                // Test build: the bench clicks at a fraction of it (the track's MouseArea takes it)
+                objectName: "sliderGroove"
                 x: 12
                 width: parent.width - 24
                 height: 8

@@ -67,6 +67,10 @@ public:
     // Test build (app/testctl, "setting reset"): while set on this thread, value() returns the
     // built-in default it is given, as on a fresh install. Nothing is read or written.
     static void setReadDefaultsForTest(bool readDefaults);
+    // Test build ("setting raw"): what is stored for `key`, in the global settings and in each
+    // profile, without the fall-through of value(): {global, globalStored, profiles:[{id, name,
+    // active, stored, value}]}
+    QVariantMap testRawValue(const QString& key) const;
 #endif
 
 signals:

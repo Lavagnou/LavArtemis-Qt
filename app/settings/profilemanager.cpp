@@ -22,6 +22,28 @@ void ProfileManager::setReadDefaultsForTest(bool readDefaults)
 {
     s_ReadDefaultsForTest = readDefaults;
 }
+
+QVariantMap ProfileManager::testRawValue(const QString& key) const
+{
+    QVariantMap raw;
+    const bool globalStored = settings()->contains(key);
+    raw.insert(QStringLiteral("globalStored"), globalStored);
+    raw.insert(QStringLiteral("global"), globalStored ? settings()->value(key) : QVariant());
+    QVariantList profiles;
+    for (const Profile& profile : m_Profiles) {
+        auto it = profile.options.constFind(key);
+        const bool stored = it != profile.options.constEnd();
+        profiles.append(QVariantMap{
+            {QStringLiteral("id"), profile.id},
+            {QStringLiteral("name"), profile.name},
+            {QStringLiteral("active"), profile.id == m_ActiveProfileId},
+            {QStringLiteral("stored"), stored},
+            {QStringLiteral("value"), stored ? it.value() : QVariant()},
+        });
+    }
+    raw.insert(QStringLiteral("profiles"), profiles);
+    return raw;
+}
 #endif
 
 ProfileManager::ProfileManager(QObject* parent)

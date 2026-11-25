@@ -511,6 +511,59 @@ void popupTests()
     check(UiProbe::coveringItem(windows, behind) == nullptr, "nonModalPopupDoesNotCover");
 }
 
+// Réglages rows ("set:<key>": label, checked, value, valueText) and a Flickable's "moving"
+const char* const kRowScene = R"QML(
+import QtQuick
+Window {
+    width: 400; height: 300
+    Item {
+        objectName: "set:vsync"; x: 0; y: 0; width: 200; height: 40
+        property string label: "V-Sync"
+        property bool checked: true
+    }
+    Item {
+        objectName: "set:fps"; x: 0; y: 50; width: 200; height: 40
+        property string label: "Images par seconde"
+        property var value: 60
+        property string valueText: "60"
+        property var options: [1, 2]
+    }
+    Item { objectName: "plain"; x: 0; y: 100; width: 200; height: 40; property bool checked: true }
+    Flickable { objectName: "list"; x: 0; y: 150; width: 200; height: 100; contentHeight: 400 }
+}
+)QML";
+
+void rowTests()
+{
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData(kRowScene, QUrl());
+    std::unique_ptr<QObject> root(component.create());
+    auto* window = qobject_cast<QQuickWindow*>(root.get());
+    check(window != nullptr, "rowSceneLoads");
+    if (window == nullptr) {
+        std::fprintf(stderr, "%s\n", qPrintable(component.errorString()));
+        return;
+    }
+    window->show();
+    QCoreApplication::processEvents();
+    QJsonObject byName;
+    for (const UiProbe::Item& item : UiProbe::collect(UiProbe::windows(window))) {
+        if (!item.objectName.isEmpty()) {
+            byName[item.objectName] = UiProbe::toJson(item);
+        }
+    }
+    const QJsonObject vsync = byName["set:vsync"].toObject()["row"].toObject();
+    check(vsync["label"] == "V-Sync" && vsync["checked"] == true && !vsync.contains("value"), "rowToggle");
+    const QJsonObject fps = byName["set:fps"].toObject()["row"].toObject();
+    check(fps["value"] == 60 && fps["valueText"] == "60" && !fps.contains("options") && !fps.contains("checked"),
+          "rowChoiceScalarsOnly");
+    check(!byName["plain"].toObject().contains("row"), "rowOnlyForSetNames");
+    const QJsonObject list = byName["list"].toObject();
+    check(list.contains("moving") && list["moving"] == false, "flickableMovingAtRest");
+    check(!byName["set:vsync"].toObject().contains("moving"), "movingOnlyForFlickables");
+}
+
 void pageTests()
 {
     QQmlEngine engine;
@@ -544,6 +597,7 @@ int main(int argc, char** argv)
     qputenv("QT_QUICK_BACKEND", "software");
     QGuiApplication app(argc, argv);
     uiTests();
+    rowTests();
     pageTests();
     popupTests();
     removeTreeTests();

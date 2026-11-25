@@ -785,6 +785,7 @@ FocusScope {
                         spacing: 12
 
                         SettingChoice {
+                            objectName: "set:activeProfile"
                             label: qsTr("Profil actif")
                             // What stays common: ArtemisSettings, plus ProfileManager::isGlobalKey()
                             description: qsTr("Un jeu de réglages de stream par usage, par exemple à la maison et à distance. Ce qui tient à ce PC reste commun : langue, apparence, micro et tampon audio, presse-papiers, recherche des PC, mises à jour.")
@@ -849,6 +850,7 @@ FocusScope {
                         spacing: 12
 
                         SettingChoice {
+                            objectName: "set:resolution"
                             label: qsTr("Résolution")
                             description: qsTr("Plus haute, l'image est plus nette, mais le PC distant et le réseau travaillent plus.")
                             dropdown: true
@@ -865,6 +867,7 @@ FocusScope {
                         }
 
                         SettingChoice {
+                            objectName: "set:fps"
                             label: qsTr("Images par seconde")
                             description: qsTr("Idéalement la fréquence de ton écran.")
                             segmentMax: 6
@@ -877,6 +880,7 @@ FocusScope {
                         }
 
                         SettingChoice {
+                            objectName: "set:windowMode"
                             label: qsTr("Affichage du stream")
                             available: SystemProperties.hasDesktopEnvironment
                             enabled: !SystemProperties.rendererAlwaysFullScreen && !settingsPage.vrrForced
@@ -896,6 +900,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:enableVsync"
                             label: qsTr("Synchronisation verticale (V-Sync)")
                             description: qsTr("Évite les déchirures d'image ; la couper réduit un peu la latence.")
                             checked: StreamingPreferences.enableVsync
@@ -903,6 +908,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:framePacing"
                             label: qsTr("Régularité des images (frame pacing)")
                             description: StreamingPreferences.enableVsync
                                          ? qsTr("Retient les images arrivées trop tôt pour éviter les micro-saccades.")
@@ -913,6 +919,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:enableVrr"
                             label: qsTr("Fréquence variable (VRR, G-Sync / FreeSync)")
                             expert: true
                             // Windows only: elsewhere a request falls back to fixed pacing, and
@@ -928,6 +935,7 @@ FocusScope {
                         }
 
                         SettingChoice {
+                            objectName: "set:vrrLatencyMode"
                             label: qsTr("Marge du VRR")
                             expert: true
                             available: StreamingPreferences.enableVrr
@@ -948,6 +956,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:smoothVrrFrameTiming"
                             label: qsTr("Lisser la cadence (VRR)")
                             expert: true
                             available: StreamingPreferences.enableVrr
@@ -958,6 +967,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:useVirtualDisplay"
                             label: qsTr("Écran virtuel")
                             description: qsTr("Le PC distant crée un écran à la taille de celui-ci (Apollo / LavApollo).")
                             checked: StreamingPreferences.useVirtualDisplay
@@ -965,6 +975,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:useMultiDisplay"
                             label: qsTr("Un écran virtuel par moniteur")
                             description: StreamingPreferences.useVirtualDisplay
                                          ? qsTr("Recrée tous tes moniteurs sur le PC distant, chacun réaffiché sur le sien.")
@@ -976,6 +987,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:keepAwake"
                             label: qsTr("Garder l'écran allumé pendant le stream")
                             expert: true
                             description: qsTr("Empêche la veille et l'économiseur d'écran de ce PC pendant le stream.")
@@ -992,6 +1004,7 @@ FocusScope {
                         spacing: 12
 
                         SettingSlider {
+                            objectName: "set:bitrateKbps"
                             label: qsTr("Débit vidéo")
                             description: qsTr("Baisse-le si le réseau est lent, monte-le pour une image plus nette.")
                             from: settingsPage.bitrateMin
@@ -1031,6 +1044,7 @@ FocusScope {
                         }
 
                         SettingChoice {
+                            objectName: "set:videoCodecConfig"
                             label: qsTr("Format vidéo (codec)")
                             description: settingsPage.pyroWave
                                          ? qsTr("PyroWave : réseau filaire avec des centaines de Mbit/s et un hôte LavApollo, sinon H.264.")
@@ -1123,6 +1137,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:enableYUV444"
                             label: qsTr("Couleurs complètes (4:4:4)")
                             expert: true
                             description: qsTr("Texte plus net sur le bureau ; déconseillé pour les jeux rapides.")
@@ -1135,6 +1150,7 @@ FocusScope {
                         }
 
                         SettingChoice {
+                            objectName: "set:videoDecoderSelection"
                             label: qsTr("Décodage vidéo")
                             expert: true
                             description: qsTr("Laisse « Auto », sauf souci avec le décodeur de ce PC.")
@@ -1148,6 +1164,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:showPerformanceOverlay"
                             label: qsTr("Statistiques à l'écran pendant le stream")
                             description: qsTr("FPS, latence et décodage en surimpression. Ctrl+Alt+Maj+S les affiche ou les masque en jeu.")
                             checked: StreamingPreferences.showPerformanceOverlay
@@ -1163,6 +1180,7 @@ FocusScope {
                         spacing: 12
 
                         SettingChoice {
+                            objectName: "set:audioConfig"
                             label: qsTr("Canaux audio")
                             description: qsTr("Ce que ton casque ou tes enceintes savent restituer.")
                             options: [
@@ -1175,6 +1193,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:playAudioOnHost"
                             label: qsTr("Couper le son du PC distant")
                             description: qsTr("Le son ne sort que d'ici. Relance le jeu en cours pour que ça s'applique.")
                             checked: !StreamingPreferences.playAudioOnHost
@@ -1182,6 +1201,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:muteOnFocusLoss"
                             label: qsTr("Couper le son quand la fenêtre n'est pas au premier plan")
                             expert: true
                             available: SystemProperties.hasDesktopEnvironment
@@ -1191,6 +1211,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:micPassthroughEnabled"
                             label: qsTr("Envoyer mon micro au PC distant")
                             description: qsTr("Pour le chat vocal (LavApollo 2.2 ou plus). Prends un casque ; Ctrl+Alt+Maj+U le coupe en jeu.")
                             checked: ArtemisSettings.micPassthroughEnabled
@@ -1198,6 +1219,7 @@ FocusScope {
                         }
 
                         SettingChoice {
+                            objectName: "set:micDeviceName"
                             label: qsTr("Micro utilisé")
                             expert: true
                             enabled: ArtemisSettings.micPassthroughEnabled
@@ -1210,6 +1232,7 @@ FocusScope {
                         }
 
                         SettingSlider {
+                            objectName: "set:maxPendingAudioMs"
                             label: qsTr("Tampon audio")
                             expert: true
                             description: qsTr("Plus bas, moins de latence ; plus haut, moins de craquements sur un réseau instable. Effet à la prochaine connexion.")
@@ -1233,6 +1256,7 @@ FocusScope {
                         // Same row as the Android client (« Écran tactile », Multitouch / Trackpad, same
                         // texts): the two touch modes the user keeps on both clients.
                         SettingChoice {
+                            objectName: "set:absoluteTouchMode"
                             label: qsTr("Écran tactile")
                             // Only with a touchscreen, or when the trackpad is on (a setting that acts
                             // never vanishes from under the user)
@@ -1248,6 +1272,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:absoluteMouseMode"
                             label: qsTr("Souris pour le bureau à distance")
                             description: qsTr("Curseur libre, sans capture : idéal pour le bureau, pas pour les jeux. Ctrl+Alt+Maj+M en stream.")
                             checked: StreamingPreferences.absoluteMouseMode
@@ -1257,6 +1282,7 @@ FocusScope {
                         // Android's row (checkbox_remember_mouse_mode), same texts: the menu's
                         // « Passer en trackpad / multitouch » then writes « Écran tactile »
                         SettingToggle {
+                            objectName: "set:rememberTouchMode"
                             label: qsTr("Retenir le mode tactile choisi en jeu")
                             expert: true
                             available: SystemProperties.hasTouchScreen || StreamingPreferences.rememberTouchMode
@@ -1266,6 +1292,7 @@ FocusScope {
                         }
 
                         SettingChoice {
+                            objectName: "set:captureSysKeysMode"
                             label: qsTr("Envoyer les raccourcis système au PC distant")
                             available: SystemProperties.hasDesktopEnvironment
                             description: qsTr("Alt+Tab, touche Windows… partent au PC distant (pas Ctrl+Alt+Suppr).")
@@ -1299,6 +1326,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:swapFaceButtons"
                             label: qsTr("Inverser A/B et X/Y")
                             expert: true
                             description: qsTr("Disposition des boutons façon Nintendo.")
@@ -1307,6 +1335,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:multiController"
                             label: qsTr("Toujours brancher une manette sur le PC distant")
                             expert: true
                             description: qsTr("Pour les jeux qui ne voient pas une manette branchée après leur lancement.")
@@ -1315,6 +1344,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:backgroundGamepad"
                             label: qsTr("Manette active en arrière-plan")
                             expert: true
                             available: SystemProperties.hasDesktopEnvironment
@@ -1324,6 +1354,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:genericGamepadFallbackEnabled"
                             label: qsTr("Deviner la disposition des manettes inconnues")
                             expert: true
                             description: qsTr("Une manette non reconnue reçoit une disposition devinée au lieu d'être ignorée.")
@@ -1402,6 +1433,7 @@ FocusScope {
                         }
 
                         SettingChoice {
+                            objectName: "set:themeMode"
                             label: qsTr("Clair ou sombre")
                             description: qsTr("« Système » suit le mode clair ou sombre de Windows, en direct.")
                             options: [
@@ -1414,6 +1446,7 @@ FocusScope {
                         }
 
                         SettingChoice {
+                            objectName: "set:language"
                             label: qsTr("Langue")
                             description: settingsPage.languageNote !== "" ? settingsPage.languageNote
                                          : qsTr("Langue de l'appli ; la nouvelle interface est en français.")
@@ -1435,6 +1468,7 @@ FocusScope {
                         }
 
                         SettingChoice {
+                            objectName: "set:uiDisplayMode"
                             label: qsTr("Fenêtre de l'appli au démarrage")
                             available: SystemProperties.hasDesktopEnvironment
                             description: qsTr("Comment LavArtemis s'ouvre, hors stream.")
@@ -1456,6 +1490,7 @@ FocusScope {
                         spacing: 12
 
                         SettingToggle {
+                            objectName: "set:quitAppAfter"
                             label: qsTr("Quitter l'appli sur le PC distant à la fin")
                             description: qsTr("Ferme le jeu quand tu arrêtes le stream : la progression non sauvegardée est perdue.")
                             checked: StreamingPreferences.quitAppAfter
@@ -1463,6 +1498,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:clipboardSync"
                             label: qsTr("Synchroniser le presse-papiers")
                             expert: true
                             description: qsTr("Envoie ton presse-papiers au PC distant au début du stream et à chaque copie faite ici, et récupère le sien quand tu te déconnectes. Le menu en jeu le fait aussi à la demande.")
@@ -1472,6 +1508,7 @@ FocusScope {
                         }
 
                         SettingSlider {
+                            objectName: "set:clipboardMaxSizeMB"
                             label: qsTr("Taille maximale")
                             expert: true
                             enabled: ClipboardManager.isEnabled
@@ -1486,6 +1523,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:clipboardNotifications"
                             label: qsTr("Notifier chaque synchronisation")
                             expert: true
                             enabled: ClipboardManager.isEnabled
@@ -1495,6 +1533,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:enableMdns"
                             label: qsTr("Trouver les PC sur le réseau local")
                             expert: true
                             description: qsTr("Détecte tout seul les PC du réseau (recommandé).")
@@ -1511,6 +1550,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:detectNetworkBlocking"
                             label: qsTr("Détecter les connexions bloquées")
                             expert: true
                             description: qsTr("Prévient quand un pare-feu ou le réseau bloque le stream (recommandé).")
@@ -1643,6 +1683,7 @@ FocusScope {
                         spacing: 12
 
                         SettingToggle {
+                            objectName: "set:autoUpdateEnabled"
                             label: qsTr("Chercher les mises à jour au démarrage")
                             description: qsTr("Vérifie s'il existe une nouvelle version de LavArtemis.")
                             checked: ArtemisSettings.autoUpdateEnabled
@@ -1675,6 +1716,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:connectionWarnings"
                             label: qsTr("Avertir quand la connexion se dégrade")
                             expert: true
                             description: qsTr("Un message à l'écran quand le réseau faiblit pendant le stream.")
@@ -1683,6 +1725,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:configurationWarnings"
                             label: qsTr("Avertissements de configuration")
                             expert: true
                             // Session::emitLaunchWarning() obeys it, emitLavArtemisWarning() does not
@@ -1693,6 +1736,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:perfCsvLoggingEnabled"
                             label: qsTr("Enregistrer les performances (CSV)")
                             expert: true
                             description: qsTr("Une ligne par seconde (FPS, décodage, latence), un fichier par stream dans le dossier de l'appli. À couper après la mesure.")
@@ -1710,6 +1754,7 @@ FocusScope {
                         }
 
                         SettingToggle {
+                            objectName: "set:traceVrrFrames"
                             label: qsTr("Trace détaillée du VRR")
                             expert: true
                             available: StreamingPreferences.enableVrr || StreamingPreferences.traceVrrFrames

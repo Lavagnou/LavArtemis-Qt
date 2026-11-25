@@ -26,6 +26,7 @@
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
 #include <QReadLocker>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QtDebug>
@@ -849,6 +850,20 @@ bool TestControl::cmdState(const QJsonObject&, QJsonObject& result, QString& err
     }
     result["computers"] = computers;
 
+    // Réglages › Profil: the profiles and the one in use ("" = the global settings)
+    ProfileManager* profiles = ProfileManager::instance();
+    QJsonArray profileList;
+    for (const QVariant& entry : profiles->profileList()) {
+        const QVariantMap profile = entry.toMap();
+        profileList.append(QJsonObject{
+            {"id", profile.value("id").toString()},
+            {"name", profile.value("name").toString()},
+            {"active", profile.value("active").toBool()},
+        });
+    }
+    result["profiles"] = profileList;
+    result["activeProfileId"] = profiles->activeProfileId();
+
     QJsonObject session;
     Session* active = Session::get();
     session["active"] = active != nullptr;
@@ -927,6 +942,26 @@ bool TestControl::cmdSetting(const QJsonObject& args, QJsonObject& result, QStri
     }
 
     const QString key = args.value("key").toString();
+    if (action == "raw") {
+        // What is stored under a storage key (StreamingPreferences' QSettings names: "bitrate",
+        // "autoadjustbitrate", "fps"...), with no fall-through: the global value, each profile's,
+        // and artemis-settings.ini's (ArtemisSettings keys)
+        if (key.isEmpty()) {
+            error = QStringLiteral("raw needs \"key\" (a storage key, e.g. \"bitrate\")");
+            return false;
+        }
+        const QVariantMap raw = ProfileManager::instance()->testRawValue(key);
+        result["key"] = key;
+        result["globalStored"] = raw.value("globalStored").toBool();
+        result["global"] = QJsonValue::fromVariant(raw.value("global"));
+        result["profiles"] = QJsonArray::fromVariantList(raw.value("profiles").toList());
+        QSettings artemis(QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) +
+                              QStringLiteral("/artemis-settings.ini"),
+                          QSettings::IniFormat);
+        result["artemisStored"] = artemis.contains(key);
+        result["artemis"] = QJsonValue::fromVariant(artemis.value(key));
+        return true;
+    }
     SettingRef setting;
     if (!findSetting(key, setting)) {
         error = QStringLiteral("unknown setting \"%1\" (\"setting\" with \"action\": \"list\" lists them)").arg(key);
@@ -988,7 +1023,7 @@ bool TestControl::cmdSetting(const QJsonObject& args, QJsonObject& result, QStri
         ArtemisSettings::instance()->save();
     }
     else if (action != "get") {
-        error = QStringLiteral("action: \"get\", \"set\", \"reset\" or \"list\"");
+        error = QStringLiteral("action: \"get\", \"set\", \"reset\", \"list\" or \"raw\"");
         return false;
     }
 

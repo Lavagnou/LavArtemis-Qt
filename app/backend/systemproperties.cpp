@@ -128,6 +128,12 @@ SystemProperties::SystemProperties()
             hasTouchScreen = true;
         }
     }
+#ifdef LAV_TEST_BUILD
+    // Test build: no real touch ever reaches the stream (testinput.h), so this PC's screen does not
+    // count. LAV_TEST_TOUCHSCREEN=1 (set by the bench) fakes one: the touch rows of Réglages and the
+    // touch-mode entry of the in-game menu show, the same on every PC.
+    hasTouchScreen = qgetenv("LAV_TEST_TOUCHSCREEN") == "1";
+#endif
     isRunningWayland = WMUtils::isRunningWayland();
     isRunningXWayland = isRunningWayland && QGuiApplication::platformName() == "xcb";
     usesMaterial3Theme = QLibraryInfo::version() >= QVersionNumber(6, 5, 0);

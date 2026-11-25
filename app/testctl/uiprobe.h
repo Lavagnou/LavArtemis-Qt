@@ -33,6 +33,12 @@ struct Item
     QString text;
     bool focus = false;           // on the focus chain: keyTarget() or a focused ancestor of it
     bool enabled = true;
+    // A Réglages row (objectName "set:<key>", SettingsView2.qml): its label, and checked / value /
+    // valueText when the row has them (SettingToggle, SettingChoice, SettingSlider)
+    QJsonObject row;
+    // A Flickable (ListView...): 1 while it moves (after a wheel or a flick it takes the next press
+    // to stop itself, so a click then reaches nothing under it), 0 at rest; -1 = not a Flickable
+    int moving = -1;
 };
 
 // Visible Qt Quick windows: `main` first (when visible), then the others in

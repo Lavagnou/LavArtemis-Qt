@@ -82,6 +82,24 @@ void visit(QQuickItem* item, int windowIndex, qreal parentOpacity, const QRectF&
         }
         entry.focus = focusChain.contains(item);
         entry.enabled = item->isEnabled();
+        // A Flickable (ListView...) still moving after a wheel or a flick takes the next press to stop
+        // itself: the item under it never sees that click
+        const QVariant moving = item->property("moving");
+        if (moving.isValid() && moving.typeId() == QMetaType::Bool) {
+            entry.moving = moving.toBool() ? 1 : 0;
+        }
+        if (entry.objectName.startsWith(QLatin1String("set:"))) {
+            for (const char* name : {"label", "checked", "value", "valueText"}) {
+                const QVariant value = item->property(name);
+                if (!value.isValid()) {
+                    continue;
+                }
+                const QJsonValue json = QJsonValue::fromVariant(value);
+                if (json.isBool() || json.isDouble() || json.isString()) {
+                    entry.row.insert(QLatin1String(name), json);
+                }
+            }
+        }
         if (!textOnly || !entry.text.isEmpty() || !entry.objectName.isEmpty()) {
             out.append(entry);
         }
@@ -132,6 +150,12 @@ QJsonObject toJson(const Item& item)
     json["h"] = qRound(item.rect.height());
     json["focus"] = item.focus;
     json["enabled"] = item.enabled;
+    if (item.moving >= 0) {
+        json["moving"] = item.moving == 1;
+    }
+    if (!item.row.isEmpty()) {
+        json["row"] = item.row;
+    }
     return json;
 }
 
