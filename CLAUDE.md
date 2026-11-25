@@ -158,7 +158,7 @@ l'accueil n'a pas d'événement de navigation sur lequel sauvegarder.
 
 | Feature | Où | Note |
 |---|---|---|
-| **Profils de réglages** | `settings/profilemanager.{h,cpp}` | `profiles.json` dans `AppConfigLocation`. Un profil est un **snapshot complet**, pas un patch épars. `language`, `defaultver` et les clés propres à la machine (`mdns`, `detectnetblocking`, `uidisplaymode`, `tracevrrframes`) **bypassent** les profils (`isGlobalKey()`). |
+| **Profils de réglages** | `settings/profilemanager.{h,cpp}` | `profiles.json` dans `AppConfigLocation`. Un profil est un **snapshot complet**, pas un patch épars ; un **nouveau profil part du profil en cours** (`createProfile()` copie ses options, comme Android ; créé sans profil actif, il part des réglages globaux). Avant le 2026-11-25 il partait toujours des globaux : créé sous « Maison », il en perdait les valeurs. `language`, `defaultver` et les clés propres à la machine (`mdns`, `detectnetblocking`, `uidisplaymode`, `tracevrrframes`) **bypassent** les profils (`isGlobalKey()`). |
 | **Send keys + macros** | `backend/keymacromanager.{h,cpp}` | 15 presets (mêmes que l'Android Dev ; le raccourci HDR Win+Alt+B est retiré des deux) + `keyboard-macros.json`. **Même format et mêmes noms `VK_` que l'Android** → un fichier marche sur les deux. Table des 174 noms extraite de `KeyMapper.java`, pas retapée. |
 | **Liens `art://` + `.art`** | `cli/artlink.{h,cpp}` | `rewriteArguments()` **traduit le lien en ligne de commande existante** au lieu d'ajouter un chemin de lancement parallèle → hérite du host seeking, du wake-on-LAN et de l'UI de segue. Export via `AppModel::exportArtFile()`. |
 | **Pan & zoom** | `streaming/panzoom.{h,cpp}` | Combos Ctrl+Alt+Shift (`+`/`-`/`0`, flèches). |
@@ -289,6 +289,17 @@ trouvée (`window.updateVersion`, `updateDownloadUrl`, `updateBrowserUrl`) pour 
 > (`QSettings`, `updateSkippedVersion`) ; le check **du démarrage** (`start()`, `m_AutomaticCheck`) finit
 > alors par `noUpdateAvailable` pour cette version, `checkNow()` la propose toujours. La pastille
 > « Mise à jour » disparaît aussitôt.
+
+> 📋 **Échecs en français, et jamais sans fin** (depuis la passe de vérification du 2026-11-25) :
+> `describeNetworkError()` traduit l'erreur Qt (`errorString()`, anglais et technique : « Host api.github.com
+> not found ») en une phrase : GitHub injoignable, pas de réponse à temps, connexion sécurisée échouée, refus
+> HTTP (avec son code : 403 = limite de requêtes anonymes de GitHub), sinon « Erreur réseau (n) ». Le check et
+> le téléchargement ont un **`setTransferTimeout`** (15 s / 30 s sans données) : sans lui, un portail captif
+> laissait « Vérification… » tourner et `m_CheckInProgress` refusait tous les checks suivants.
+> `onUpdateDownloadUrl` part **avant chaque** `onUpdateAvailable`, **vide** compris : une release sans
+> installeur pour ce PC remplaçait sinon la version annoncée mais pas l'URL gardée par `main.qml`, qui
+> aurait installé l'ancienne. `reportRelease()` fait ce chemin pour les réponses de GitHub **et** pour le
+> banc (`LAV_TEST_UPDATE`, voir « Build de test »).
 
 > ⚠️ **Le bouton des réglages appelle `checkNow()`, pas `start()`.** `start()` respecte la case
 > « vérifier au démarrage » — décochée, elle lui faisait refuser le check qu'on venait de demander.
@@ -516,7 +527,15 @@ blanche, protocole du canal, et `uiprobe` sur des scènes QML offscreen (rendu l
   `%LOCALAPPDATA%` / `%APPDATA%\LavArtemis Test`. `ChannelMigration` ne tourne pas (rien n'est importé d'une autre appli).
 - Pas de découverte mDNS (`ComputerManager::startPolling`) : les PC s'ajoutent par adresse.
 - Pas de mise à jour in-app (`AutoUpdateChecker` émet `noUpdateAvailable` sans requête), ni `CompatFetcher` /
-  `MappingFetcher` (données embarquées ou en cache, comme quand le téléchargement échoue).
+  `MappingFetcher` (données embarquées ou en cache, comme quand le téléchargement échoue). **`LAV_TEST_UPDATE`**
+  (posée par le banc) scripte les réponses aux checks **demandés dans Réglages** (pas celui du démarrage), une par
+  check, séparées par `;` : `fail:<QNetworkReply::NetworkError>[:<statut HTTP>]`, `available:<version>[:<URL de
+  l'installeur>]`, autre chose ou rien = à jour. Elles passent par les mêmes `describeNetworkError()` /
+  `reportRelease()` qu'une vraie réponse. Rien n'est jamais téléchargé (OK du dialogue : ne pas cliquer, il
+  ouvrirait le navigateur).
+- **Écran tactile** : celui de ce PC ne compte pas (aucun toucher n'atteint le stream) ; `SystemProperties::hasTouchScreen`
+  vaut **`LAV_TEST_TOUCHSCREEN=1`** (posée par le banc) : les lignes tactiles des Réglages et l'entrée « Passer en
+  trackpad / multitouch » du menu en jeu apparaissent, pareil sur tous les PC. Toujours aucun toucher injectable.
 - Tout hôte de test est sur 127.0.0.1 : `isThisPc` vaut `testHostThisPc` (balise `LavTestHostThisPc`), voir « Pas de
   stream vers son propre PC ».
 
@@ -645,8 +664,8 @@ session, réglages).
 | `mouse` (stream) | `{action:"move", x, y}` ; `{action:"button", button?, down}` ; `{action:"click", button?, x?, y?}` | `{x, y, buttons, windowW, windowH}` |
 | `gamepad` (stream) | `{attach:true}` d'abord ; puis `{button, value}` (bool ou 0/1), `{axis, value}` ; `{detach:true}` | `{pad, instance, attached?, …}` |
 | `screenshot` | `path` (absolu, disque local, PNG), `window?` (0) | `{path, width, height, dpr}` |
-| `state` | — | `{page, pageTitle, pageBusy, quickMenu, pad, computers:[{name, uuid, address, online, state, paired, testHost, thisPc, currentGameId, apps:[noms]}], session:{active, streaming, frames, received, decoded, rendered, dropped, width, height, fps, restarts, overlayStats:{shown, text}, statusMessage, micActive, micMuted, zoom}, toasts:[…], toast}` |
-| `setting` | `action:"get"/"set"/"reset"/"list"`, `key`, `value` | `{key, source:"streaming"/"artemis", value}` ; `list` → `{streaming:{…}, artemis:{…}}` |
+| `state` | — | `{page, pageTitle, pageBusy, quickMenu, pad, computers:[{name, uuid, address, online, state, paired, testHost, thisPc, currentGameId, apps:[noms]}], profiles:[{id, name, active}], activeProfileId, session:{active, streaming, frames, received, decoded, rendered, dropped, width, height, fps, restarts, overlayStats:{shown, text}, statusMessage, micActive, micMuted, zoom}, toasts:[…], toast}` |
+| `setting` | `action:"get"/"set"/"reset"/"list"/"raw"`, `key`, `value` | `{key, source:"streaming"/"artemis", value}` ; `list` → `{streaming:{…}, artemis:{…}}` ; `raw` → `{key, globalStored, global, profiles:[{id, name, active, stored, value}], artemisStored, artemis}` |
 | `reset` | — | `{folders, registry, notYetRemoved, quitting:true}`, puis le client quitte |
 | `quit` | — | `{quitting:true, session}`, puis le client quitte |
 | `commands` | — | `commands:[…]` |
@@ -656,6 +675,12 @@ session, réglages).
   les ancêtres `clip`) ; `x,y,w,h` = cette partie visible ; `text` = la propriété `text` ; `type` = type QML (`Text`,
   `MouseArea`, `LavPill`, `SettingChoice`…) ; `focus` = sur la chaîne de focus (l'élément qui prend les touches,
   `keyTarget()`, et ses ancêtres qui ont le focus), pas le focus actif, que personne n'a dans ces fenêtres.
+  - Les lignes des Réglages portent `objectName: "set:<clé>"` (`SettingsView2.qml` ; clé = propriété de
+    `StreamingPreferences` / `ArtemisSettings` quand la ligne en lit une seule, sinon `resolution`, `fps`,
+    `activeProfile`, `themeMode`, `clipboardSync`…) : leur entrée a en plus **`row`** = `{label, checked?, value?,
+    valueText?}`. Le sillon d'un curseur s'appelle `sliderGroove` (cliquer à une fraction de sa largeur règle le
+    curseur). Un `Flickable` (dont `ListView`) a **`moving`** : ⚠️ tant qu'il bouge (après une molette), il prend le
+    prochain appui pour s'arrêter et l'élément dessous ne voit jamais ce clic ; attendre `moving` faux.
 - **`click`** : `text` exact (casse comprise), `contains:true` = sous-chaîne, `objectName` exact ; `index` (défaut 0,
   négatif = depuis la fin) parmi les correspondances dans l'ordre de l'arbre (profondeur d'abord, fenêtres dans l'ordre
   de `windows`) ; clic au centre de la partie visible. **Refusé** (`"covered: a … takes the click at its centre"`) si
@@ -738,7 +763,11 @@ session, réglages).
   une de ces requêtes pendant qu'une connexion se termine, `Session::exec()` peut tourner dans cette requête : la file
   du canal attend alors la fin du stream. Peu probable, et c'est une propriété de l'appli, pas du canal.
 - `text` vers le stream = touches US lues avec la disposition de l'hôte (ci-dessus) ; `quit` n'attend la session que
-  30 s ; pas de toucher ; un `click` peut ouvrir un `FileDialog` qui, lui, s'active.
+  30 s ; pas de toucher (`LAV_TEST_TOUCHSCREEN` ne fait qu'annoncer un écran tactile) ; un `click` peut ouvrir un
+  `FileDialog` qui, lui, s'active.
+- `setting raw` lit les **clés de stockage** (`bitrate`, `autoadjustbitrate`, `fps`… : les `SER_*` de
+  `streamingpreferences.cpp`, pas les noms de propriétés) sans le repli de `ProfileManager::value()` : ce qui est
+  écrit dans les réglages globaux, dans chaque profil et dans `artemis-settings.ini`.
 
 ## 🎨 Interface v2 (LavArtemis Dev)
 
@@ -872,8 +901,8 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   (« Desktop »), dans le menu, les dialogues et les segues.
 - **`SettingsView2.qml`** (Réglages) : pages à gauche, lignes à droite, d'après le tri Normal / Expert
   / Supprimer des réglages. Les lignes *expert* n'apparaissent qu'avec `ArtemisSettings.uiExpertMode`
-  (bascule en tête de la liste des pages, propre à la machine) ; une page sans ligne visible disparaît
-  (Manettes hors mode expert). Briques : `SettingRow` (+ `SettingToggle`, `SettingChoice` segmenté ou
+  (bascule en tête de la liste des pages, propre à la machine) ; une page sans ligne visible disparaîtrait
+  (aucune aujourd'hui : Manettes a des lignes normales, « Configurer une manette » en tête). Briques : `SettingRow` (+ `SettingToggle`, `SettingChoice` segmenté ou
   `LavDropdown`, `SettingSlider`, `SettingAction`), popups `LavPopup` / `LavDialog`,
   `PyroWaveCalibration` (SDR seulement). Les réglages retirés par le tri sont **forcés à leur valeur
   par défaut** dans `StreamingPreferences::reload()` (HDR, mise à l'échelle, boutons de souris inversés,
@@ -965,6 +994,18 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   rien ne borne plus la valeur enregistrée, une valeur saisie, calibrée (PyroWave) ou débloquée auparavant
   reste telle quelle, le curseur se pose alors en bout de piste. PyroWave garde son débit par défaut et son
   calibrage (propres au PC). Le benchmark plafonne à 800 Mbit/s comme Android.
+  **Suivi automatique** (`autoAdjustBitrate`, texte choisi : « Suit la résolution et les images/s tant que tu ne le
+  changes pas ») : résolution, images/s, 4:4:4 ou bascule PyroWave remettent le débit recommandé tant qu'on n'a pas
+  bougé le curseur ; « Rétablir » le fait suivre de nouveau. Android suit la même règle (`SettingsStore`). **Quitter
+  PyroWave** pour un codec plafonné à 800 Mbit/s y ramène un débit plus haut choisi à la main (`setCodec()`, comme
+  Android) : 1,5 Gbit/s n'a pas de sens en HEVC. Sur la piste, 20 Mbit/s tombe vers 29 % de la course.
+- **Langue** : la liste couvre **toutes** les valeurs de `StreamingPreferences::Language` (une langue enregistrée
+  absente de la liste laissait la ligne vide), chaque nom dans sa langue (« Norsk bokmål », pas « Norwegian »).
+- **Raccourcis clavier** (page de référence) : **Ctrl+Alt+Maj+Q = « Déconnecter »** (`disconnectFromMenu()` :
+  presse-papiers récupéré d'abord quand la synchro est active, retour à l'accueil ; le combo manette
+  Start+Select+L1+R1 aussi), **Ctrl+Alt+Maj+E = « Quitter la session »** (l'appli est quittée sur le PC, retour à
+  l'accueil). E fermait aussi tout le client (`setShouldExit`), ce que l'entrée du menu ne fait plus depuis
+  0.7.0-dev.7 ; un stream lancé en ligne de commande ou par `art://` quitte toujours le client à la fin.
 - **Mise à jour** : `main.qml` lance le check et expose `window.updateVersion` et `openUpdateDialog()` ;
   l'accueil (pastille « Mise à jour » de l'en-tête) et Réglages › Avancé (« Installer ») les utilisent.
   Pas de dialogue au démarrage (Android en a un : écart voulu).
