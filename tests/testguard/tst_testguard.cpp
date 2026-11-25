@@ -52,7 +52,7 @@ void allowlistTests()
     check(TestGuard::isAllowedAddress("127.0.0.1", 40989), "loopbackFirstTestHost");
     check(!TestGuard::isAllowedAddress("127.0.0.1", 47989), "defaultPortRefused");
     check(!TestGuard::isAllowedAddress("127.0.0.1", 45989), "realHostOfThisPcRefused");
-    check(!TestGuard::isAllowedAddress("192.168.1.231", 40989), "lanAddressRefused");
+    check(!TestGuard::isAllowedAddress("192.168.0.10", 40989), "lanAddressRefused");
     check(TestGuard::isAllowedAddress("localhost", 41984), "localhostAllowed");
     check(!TestGuard::isAllowedAddress("127.0.0.1", 39999), "belowRangeRefused");
     check(!TestGuard::isAllowedAddress("127.0.0.1", 45000), "aboveRangeRefused");
