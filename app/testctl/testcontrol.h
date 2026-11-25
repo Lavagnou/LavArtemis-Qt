@@ -68,6 +68,7 @@ private:
     bool cmdWheel(const QJsonObject& args, QJsonObject& result, QString& error);
     bool cmdMouse(const QJsonObject& args, QJsonObject& result, QString& error);
     bool cmdGamepad(const QJsonObject& args, QJsonObject& result, QString& error);
+    bool cmdJoystick(const QJsonObject& args, QJsonObject& result, QString& error);
     bool cmdScreenshot(const QJsonObject& args, QJsonObject& result, QString& error);
     bool cmdWindows(const QJsonObject& args, QJsonObject& result, QString& error);
     bool cmdState(const QJsonObject& args, QJsonObject& result, QString& error);
@@ -88,6 +89,7 @@ private:
     bool attachPad(QString& error);
     void detachPad();
     void checkPadSession();
+    void detachJoystick();
 
     void beginQuit();
 
@@ -116,5 +118,8 @@ private:
     _SDL_Joystick* m_Pad = nullptr;
     int m_PadInstance = -1;
     Session* m_PadSession = nullptr;
+    // The generic joystick of "joystick": no mapping of its own, lives until detached or quit
+    _SDL_Joystick* m_Joystick = nullptr;
+    int m_JoystickInstance = -1;
     QTimer* m_PadTimer;
 };

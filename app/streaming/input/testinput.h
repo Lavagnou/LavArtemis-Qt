@@ -21,3 +21,6 @@
 
 constexpr Uint32 kTestInjectedMouseId = 0x4C415654; // 'LAVT'
 constexpr const char* kTestGamepadName = "LavArtemis Test Pad";
+// The channel's generic joystick ("joystick" command): a HID device SDL has no mapping for, to
+// test the guessed layout. Never opened by the stream (only the pad is).
+constexpr const char* kTestJoystickName = "LavArtemis Test Joystick";

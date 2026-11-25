@@ -3,6 +3,7 @@
 
 #include "SDL_compat.h"
 #include <SDL_syswm.h>
+#include "backend/benchmark/benchmarkrunner.h"
 #include "backend/clipboardmanager.h"
 #include "backend/computermanager.h"
 #include "backend/nvcomputer.h"
@@ -236,6 +237,7 @@ bool TestControl::start()
 void TestControl::shutdown()
 {
     detachPad();
+    detachJoystick();
     m_Pending.clear();
     if (m_Socket != nullptr) {
         m_Socket->flush();
@@ -355,6 +357,7 @@ void TestControl::registerCommands()
     m_Dispatcher.add("wheel", bind(&TestControl::cmdWheel));
     m_Dispatcher.add("mouse", bind(&TestControl::cmdMouse));
     m_Dispatcher.add("gamepad", bind(&TestControl::cmdGamepad));
+    m_Dispatcher.add("joystick", bind(&TestControl::cmdJoystick));
     m_Dispatcher.add("screenshot", bind(&TestControl::cmdScreenshot));
     m_Dispatcher.add("windows", bind(&TestControl::cmdWindows));
     m_Dispatcher.add("state", bind(&TestControl::cmdState));
@@ -739,6 +742,91 @@ bool TestControl::cmdGamepad(const QJsonObject& args, QJsonObject& result, QStri
     return false;
 }
 
+bool TestControl::cmdJoystick(const QJsonObject& args, QJsonObject& result, QString& error)
+{
+    if (args.value("detach").toBool(false)) {
+        result["detached"] = m_Joystick != nullptr;
+        detachJoystick();
+        return true;
+    }
+    if (!args.value("attach").toBool(false)) {
+        error = QStringLiteral("joystick needs {\"attach\": true, \"kind\": \"generic\", \"axes\", \"buttons\", \"hats\"} "
+                               "or {\"detach\": true}");
+        return false;
+    }
+    if (m_Joystick != nullptr) {
+        error = QStringLiteral("a joystick is already attached (detach it first)");
+        return false;
+    }
+    if (args.value("kind").toString(QStringLiteral("generic")) != QLatin1String("generic")) {
+        error = QStringLiteral("kind: \"generic\" (a HID joystick SDL has no mapping for)");
+        return false;
+    }
+    const int axes = args.value("axes").toInt(4);
+    const int buttons = args.value("buttons").toInt(8);
+    const int hats = args.value("hats").toInt(1);
+    if (axes < 0 || axes > 16 || buttons < 0 || buttons > 32 || hats < 0 || hats > 4) {
+        error = QStringLiteral("axes 0-16, buttons 0-32, hats 0-4");
+        return false;
+    }
+
+    // Our own reference to the subsystem, like the pad. Usable outside a stream (the mapper, the
+    // guessed-layout warning at launch); the stream never opens it (testinput.h: only the pad).
+    if (SDL_InitSubSystem(SDL_INIT_JOYSTICK) != 0) {
+        error = QStringLiteral("SDL_InitSubSystem(SDL_INIT_JOYSTICK) failed: %1").arg(SDL_GetError());
+        return false;
+    }
+    // Type unknown, no VID/PID: SDL has no mapping for it, like a generic HID joystick
+    SDL_VirtualJoystickDesc desc;
+    SDL_zero(desc);
+    desc.version = SDL_VIRTUAL_JOYSTICK_DESC_VERSION;
+    desc.type = SDL_JOYSTICK_TYPE_UNKNOWN;
+    desc.naxes = static_cast<Uint16>(axes);
+    desc.nbuttons = static_cast<Uint16>(buttons);
+    desc.nhats = static_cast<Uint16>(hats);
+    desc.name = kTestJoystickName;
+    const int index = SDL_JoystickAttachVirtualEx(&desc);
+    if (index < 0) {
+        error = QStringLiteral("SDL_JoystickAttachVirtualEx failed: %1").arg(SDL_GetError());
+        SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
+        return false;
+    }
+    m_Joystick = SDL_JoystickOpen(index);
+    if (m_Joystick == nullptr) {
+        error = QStringLiteral("SDL_JoystickOpen failed: %1").arg(SDL_GetError());
+        SDL_JoystickDetachVirtual(index);
+        SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
+        return false;
+    }
+    m_JoystickInstance = SDL_JoystickInstanceID(m_Joystick);
+    char guid[33];
+    SDL_JoystickGetGUIDString(SDL_JoystickGetGUID(m_Joystick), guid, sizeof(guid));
+    result["name"] = kTestJoystickName;
+    result["guid"] = QString::fromLatin1(guid);
+    result["instance"] = m_JoystickInstance;
+    result["gameController"] = SDL_IsGameController(index) == SDL_TRUE;
+    qInfo() << "Test build: generic joystick attached, instance" << m_JoystickInstance << guid;
+    return true;
+}
+
+void TestControl::detachJoystick()
+{
+    if (m_Joystick == nullptr) {
+        return;
+    }
+    SDL_JoystickClose(m_Joystick);
+    m_Joystick = nullptr;
+    for (int i = 0; i < SDL_NumJoysticks(); i++) {
+        if (SDL_JoystickGetDeviceInstanceID(i) == m_JoystickInstance) {
+            SDL_JoystickDetachVirtual(i);
+            break;
+        }
+    }
+    SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
+    m_JoystickInstance = -1;
+    qInfo() << "Test build: generic joystick detached";
+}
+
 bool TestControl::cmdScreenshot(const QJsonObject& args, QJsonObject& result, QString& error)
 {
     const QString path = args.value("path").toString();
@@ -844,6 +932,7 @@ bool TestControl::cmdState(const QJsonObject&, QJsonObject& result, QString& err
                 {"testHost", computer->isTestHost},
                 {"thisPc", computer->isThisPc},
                 {"currentGameId", computer->currentGameId},
+                {"benchmarkAppId", computer->benchmarkAppId},
                 {"apps", apps},
             });
         }
@@ -896,12 +985,14 @@ bool TestControl::cmdState(const QJsonObject&, QJsonObject& result, QString& err
                 ? QString::fromStdString(overlay.getOverlayText(Overlay::OverlayStatusUpdate)) : QString();
         session["micActive"] = active->isMicrophoneActive();
         session["micMuted"] = active->isMicrophoneMuted();
+        session["launchWarnings"] = QJsonArray::fromStringList(active->property("launchWarnings").toStringList());
     }
     else {
         session["overlayStats"] = QJsonObject{{"shown", false}, {"text", QString()}};
         session["statusMessage"] = QString();
         session["micActive"] = false;
         session["micMuted"] = false;
+        session["launchWarnings"] = QJsonArray();
     }
     session["zoom"] = PanZoom::scale();
     result["session"] = session;
@@ -909,6 +1000,16 @@ bool TestControl::cmdState(const QJsonObject&, QJsonObject& result, QString& err
     const QStringList& toasts = Session::testToasts();
     result["toasts"] = QJsonArray::fromStringList(toasts);
     result["toast"] = toasts.isEmpty() ? QString() : toasts.last();
+
+    // Benchmark des réglages: the runner and its report as saved (docs/benchmark.md)
+    QJsonObject benchmark;
+    if (auto* runner = m_Engine->singletonInstance<BenchmarkRunner*>("BenchmarkRunner", "BenchmarkRunner")) {
+        benchmark["running"] = runner->running();
+        benchmark["message"] = runner->message();
+        benchmark["report"] = runner->testReportJson();
+        benchmark["historyDir"] = Benchmark::History::defaultDirectory();
+    }
+    result["benchmark"] = benchmark;
     return true;
 }
 
@@ -1099,6 +1200,7 @@ void TestControl::beginQuit()
         timer->stop();
         delete clock;
         detachPad();
+        detachJoystick();
         QCoreApplication::quit();
     });
     timer->start();
