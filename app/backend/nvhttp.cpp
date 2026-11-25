@@ -59,6 +59,22 @@ NvHTTP::NvHTTP(NvComputer* computer, QNetworkAccessManager* nam) :
 {
 }
 
+NvHTTP::NvHTTP(const NvHttpTarget& target, QNetworkAccessManager* nam) :
+    NvHTTP(target.address, target.httpsPort, target.serverCert, target.useTrueUid, nam)
+{
+}
+
+NvHttpTarget NvHttpTarget::of(NvComputer* computer)
+{
+    QReadLocker lock(&computer->lock);
+    NvHttpTarget target;
+    target.address = computer->activeAddress;
+    target.httpsPort = computer->activeHttpsPort;
+    target.serverCert = computer->serverCert;
+    target.useTrueUid = !computer->isNvidiaServerSoftware;
+    return target;
+}
+
 void NvHTTP::setServerCert(QSslCertificate serverCert)
 {
     m_ServerCert = serverCert;
@@ -856,7 +872,10 @@ NvHTTP::sendClipboardContent(const QString& content)
         request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
 #endif
 
-        // Send POST request with clipboard content
+        // Send POST request with clipboard content. The host's certificate is pinned, as for every other
+        // request (openConnection): without this, the self-signed certificate failed the handshake and
+        // no clipboard was ever sent.
+        auto sslErrorsConnection = connect(m_Nam, &QNetworkAccessManager::sslErrors, this, &NvHTTP::handleSslErrors);
         QNetworkReply* reply = m_Nam->post(request, content.toUtf8());
 
         // Wait for response with timeout
@@ -867,6 +886,7 @@ NvHTTP::sendClipboardContent(const QString& content)
         
         qDebug() << "NvHTTP: Sending clipboard content to server:" << url.toString();
         loop.exec(QEventLoop::ExcludeUserInputEvents);
+        disconnect(sslErrorsConnection);
 
         // Check for timeout
         if (!reply->isFinished()) {

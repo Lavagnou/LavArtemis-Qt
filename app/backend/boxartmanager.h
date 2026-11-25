@@ -24,21 +24,24 @@ public:
     deleteBoxArt(const QString& computerUuid);
 
 signals:
+    // By uuid: the NvComputer may be gone when a fetch ends (a PC forgotten meanwhile)
     void
-    boxArtLoadComplete(NvComputer* computer, NvApp app, QUrl image);
+    boxArtLoadComplete(QString computerUuid, NvApp app, QUrl image);
 
 public slots:
 
 private slots:
     void
-    handleBoxArtLoadComplete(NvComputer* computer, NvApp app, QUrl image);
+    handleBoxArtLoadComplete(QString computerUuid, NvApp app, QUrl image);
 
 private:
+    // Worker thread: copies only, never the NvComputer
+    static
     QUrl
-    loadBoxArtFromNetwork(NvComputer* computer, int appId);
+    loadBoxArtFromNetwork(const NvHttpTarget& target, const QString& cachePath, int appId);
 
     QString
-    getFilePathForBoxArt(NvComputer* computer, int appId);
+    getFilePathForBoxArt(const QString& computerUuid, int appId);
 
     // Fetches under way, and covers the host does not have (LavApollo answers 404 for a Playnite
     // game without one): asked once per model, instead of on every data() call. Keyed by cache path.

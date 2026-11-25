@@ -98,6 +98,22 @@ private:
     QByteArray m_ErrorText;
 };
 
+class NvComputer;
+
+// What a request to a host needs, copied from its NvComputer under its lock. A worker thread
+// builds its NvHTTP from this, never from the NvComputer itself: the GUI thread owns that object
+// and may delete it meanwhile (a PC forgotten while its covers load, its clipboard syncs...).
+struct NvHttpTarget
+{
+    NvAddress address;
+    uint16_t httpsPort = 0;
+    QSslCertificate serverCert;
+    bool useTrueUid = true;
+
+    // Reads the computer under its lock (any thread)
+    static NvHttpTarget of(NvComputer* computer);
+};
+
 class NvHTTP : public QObject
 {
     Q_OBJECT
@@ -112,6 +128,8 @@ public:
     explicit NvHTTP(NvAddress address, uint16_t httpsPort, QSslCertificate serverCert, bool useTrueUid, QNetworkAccessManager* nam = nullptr);
 
     explicit NvHTTP(NvComputer* computer, QNetworkAccessManager* nam = nullptr);
+
+    explicit NvHTTP(const NvHttpTarget& target, QNetworkAccessManager* nam = nullptr);
 
     static
     int

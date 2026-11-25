@@ -502,9 +502,9 @@ void AppModel::handleComputerStateChanged(NvComputer* computer)
     }
 }
 
-void AppModel::handleBoxArtLoaded(NvComputer* computer, NvApp app, QUrl /* image */)
+void AppModel::handleBoxArtLoaded(QString computerUuid, NvApp app, QUrl /* image */)
 {
-    if (computer != m_Computer || m_Computer == nullptr) {
+    if (m_Computer == nullptr || computerUuid != m_Computer->uuid) {
         return;
     }
 

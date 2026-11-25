@@ -20,30 +20,34 @@ BoxArtManager::BoxArtManager(QObject *parent) :
 }
 
 QString
-BoxArtManager::getFilePathForBoxArt(NvComputer* computer, int appId)
+BoxArtManager::getFilePathForBoxArt(const QString& computerUuid, int appId)
 {
     QDir dir = m_BoxArtDir;
 
     // Create the cache directory if it did not already exist
-    if (!dir.exists(computer->uuid)) {
-        dir.mkdir(computer->uuid);
+    if (!dir.exists(computerUuid)) {
+        dir.mkdir(computerUuid);
     }
 
     // Change to this computer's box art cache folder
-    dir.cd(computer->uuid);
+    dir.cd(computerUuid);
 
     // Try to open the cached file
     return dir.filePath(QString::number(appId) + ".png");
 }
 
+// Runs on the pool with copies only (the host's uuid, how to reach it, the cache file): the GUI
+// thread may delete the NvComputer meanwhile (a PC forgotten while its covers load).
 class NetworkBoxArtLoadTask : public QObject, public QRunnable
 {
     Q_OBJECT
 
 public:
-    NetworkBoxArtLoadTask(BoxArtManager* boxArtManager, NvComputer* computer, NvApp& app)
-        : m_Bam(boxArtManager),
-          m_Computer(computer),
+    NetworkBoxArtLoadTask(BoxArtManager* boxArtManager, const QString& computerUuid, const NvHttpTarget& target,
+                          const QString& cachePath, NvApp& app)
+        : m_ComputerUuid(computerUuid),
+          m_Target(target),
+          m_CachePath(cachePath),
           m_App(app)
     {
         connect(this, &NetworkBoxArtLoadTask::boxArtFetchCompleted,
@@ -51,28 +55,35 @@ public:
     }
 
 signals:
-    void boxArtFetchCompleted(NvComputer* computer, NvApp app, QUrl image);
+    void boxArtFetchCompleted(QString computerUuid, NvApp app, QUrl image);
 
 private:
     void run()
     {
-        QUrl image = m_Bam->loadBoxArtFromNetwork(m_Computer, m_App.id);
+        QUrl image = BoxArtManager::loadBoxArtFromNetwork(m_Target, m_CachePath, m_App.id);
         if (image.isEmpty()) {
             // Give it another shot if it fails once
-            image = m_Bam->loadBoxArtFromNetwork(m_Computer, m_App.id);
+            image = BoxArtManager::loadBoxArtFromNetwork(m_Target, m_CachePath, m_App.id);
         }
-        emit boxArtFetchCompleted(m_Computer, m_App, image);
+        emit boxArtFetchCompleted(m_ComputerUuid, m_App, image);
     }
 
-    BoxArtManager* m_Bam;
-    NvComputer* m_Computer;
+    QString m_ComputerUuid;
+    NvHttpTarget m_Target;
+    QString m_CachePath;
     NvApp m_App;
 };
 
 QUrl BoxArtManager::loadBoxArt(NvComputer* computer, NvApp& app)
 {
+    QString uuid;
+    {
+        QReadLocker lock(&computer->lock);
+        uuid = computer->uuid;
+    }
+
     // Try to open the cached file if it exists and contains data
-    QFile cacheFile(getFilePathForBoxArt(computer, app.id));
+    QFile cacheFile(getFilePathForBoxArt(uuid, app.id));
     if (cacheFile.exists() && cacheFile.size() > 0) {
         return QUrl::fromLocalFile(cacheFile.fileName());
     }
@@ -86,7 +97,8 @@ QUrl BoxArtManager::loadBoxArt(NvComputer* computer, NvApp& app)
 
     // If we get here, we need to fetch asynchronously.
     // Kick off a worker on our thread pool to do just that.
-    NetworkBoxArtLoadTask* netLoadTask = new NetworkBoxArtLoadTask(this, computer, app);
+    NetworkBoxArtLoadTask* netLoadTask = new NetworkBoxArtLoadTask(this, uuid, NvHttpTarget::of(computer),
+                                                                   cacheFile.fileName(), app);
     m_ThreadPool.start(netLoadTask);
 
     // Return the placeholder then we can notify the caller
@@ -106,23 +118,22 @@ void BoxArtManager::deleteBoxArt(const QString& computerUuid)
     }
 }
 
-void BoxArtManager::handleBoxArtLoadComplete(NvComputer* computer, NvApp app, QUrl image)
+void BoxArtManager::handleBoxArtLoadComplete(QString computerUuid, NvApp app, QUrl image)
 {
-    QString key = getFilePathForBoxArt(computer, app.id);
+    QString key = getFilePathForBoxArt(computerUuid, app.id);
     m_Pending.remove(key);
     if (image.isEmpty()) {
         m_Missing.insert(key);
     }
     else {
-        emit boxArtLoadComplete(computer, app, image);
+        emit boxArtLoadComplete(computerUuid, app, image);
     }
 }
 
-QUrl BoxArtManager::loadBoxArtFromNetwork(NvComputer* computer, int appId)
+QUrl BoxArtManager::loadBoxArtFromNetwork(const NvHttpTarget& target, const QString& cachePath, int appId)
 {
-    NvHTTP http(computer);
+    NvHTTP http(target);
 
-    QString cachePath = getFilePathForBoxArt(computer, appId);
     QImage image;
     try {
         image = http.getBoxArt(appId);

@@ -93,7 +93,7 @@ public:
 private slots:
     void handleComputerStateChanged(NvComputer* computer);
 
-    void handleBoxArtLoaded(NvComputer* computer, NvApp app, QUrl image);
+    void handleBoxArtLoaded(QString computerUuid, NvApp app, QUrl image);
 
     void handleComputerRemoved(NvComputer* computer);
 
