@@ -348,6 +348,10 @@ FocusScope {
         // switching in or out resets a default
         if (pyroWave !== wasPyroWave && StreamingPreferences.autoAdjustBitrate) {
             StreamingPreferences.bitrateKbps = defaultBitrate()
+        } else if (wasPyroWave && !pyroWave && StreamingPreferences.bitrateKbps > bitrateMax) {
+            // A bitrate chosen for PyroWave (1,5 Gbit/s) is no use to the other codecs: back onto
+            // their track (800 Mbit/s), as Android (SettingsStore.setChoice)
+            StreamingPreferences.bitrateKbps = bitrateMax
         }
         persist()
     }
@@ -456,7 +460,7 @@ FocusScope {
         {text: "English", value: StreamingPreferences.LANG_EN},
         {text: "Français", value: StreamingPreferences.LANG_FR},
         {text: "简体中文", value: StreamingPreferences.LANG_ZH_CN},
-        {text: "Norwegian Bokmål", value: StreamingPreferences.LANG_NB_NO},
+        {text: "Norsk bokmål", value: StreamingPreferences.LANG_NB_NO},
         {text: "русский", value: StreamingPreferences.LANG_RU},
         {text: "Español", value: StreamingPreferences.LANG_ES},
         {text: "日本語", value: StreamingPreferences.LANG_JA},
@@ -467,14 +471,21 @@ FocusScope {
         {text: "Nederlands", value: StreamingPreferences.LANG_NL},
         {text: "Svenska", value: StreamingPreferences.LANG_SV},
         {text: "Türkçe", value: StreamingPreferences.LANG_TR},
+        {text: "Українська", value: StreamingPreferences.LANG_UK},
         {text: "繁體中文", value: StreamingPreferences.LANG_ZH_TW},
         {text: "Português", value: StreamingPreferences.LANG_PT},
         {text: "Português do Brasil", value: StreamingPreferences.LANG_PT_BR},
         {text: "Ελληνικά", value: StreamingPreferences.LANG_EL},
         {text: "Italiano", value: StreamingPreferences.LANG_IT},
+        {text: "हिन्दी", value: StreamingPreferences.LANG_HI},
         {text: "Język polski", value: StreamingPreferences.LANG_PL},
         {text: "Čeština", value: StreamingPreferences.LANG_CS},
+        {text: "עברית", value: StreamingPreferences.LANG_HE},
+        {text: "کوردیی ناوەندی", value: StreamingPreferences.LANG_CKB},
+        {text: "Lietuvių", value: StreamingPreferences.LANG_LT},
+        {text: "Eesti", value: StreamingPreferences.LANG_ET},
         {text: "Български", value: StreamingPreferences.LANG_BG},
+        {text: "Esperanto", value: StreamingPreferences.LANG_EO},
         {text: "தமிழ்", value: StreamingPreferences.LANG_TA}
     ]
     property string languageNote: ""

@@ -208,6 +208,15 @@ QString ProfileManager::createProfile(const QString& name)
     profile.createdUtc = QDateTime::currentSecsSinceEpoch();
     profile.modifiedUtc = profile.createdUtc;
 
+    // A snapshot of the settings in use, as on Android: created under a profile, the new one
+    // starts with that profile's values. Left empty, it read the global settings once switched to
+    // (value() falls through), and Réglages then saved those into it: a profile made under
+    // « 4K maison » came out with the global resolution.
+    const Profile* active = findProfile(m_ActiveProfileId);
+    if (active != nullptr) {
+        profile.options = active->options;
+    }
+
     m_Profiles.append(profile);
     save();
     emit profilesChanged();

@@ -47,8 +47,9 @@ public:
     QString activeProfileName() const;
     QVariantList profileList() const;
 
-    // Returns the new profile's id. The profile starts empty, which means it
-    // inherits the current global settings until something is saved into it.
+    // Returns the new profile's id. The profile starts as a copy of the active profile (Android:
+    // a new profile is a snapshot of the settings in use), or empty with no profile active, so
+    // that it reads the global settings; what it does not hold falls through to the global values.
     Q_INVOKABLE QString createProfile(const QString& name);
     Q_INVOKABLE void renameProfile(const QString& id, const QString& name);
     Q_INVOKABLE void deleteProfile(const QString& id);
