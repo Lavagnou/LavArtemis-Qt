@@ -91,11 +91,7 @@ bool AppModel::startsInsidePlaynite(int appId)
         return false;
     }
 
-    QReadLocker lock(&m_Computer->lock);
-    return app.isPlayniteGame &&
-           m_Computer->playniteHostRunning &&
-           m_Computer->currentGameId != 0 &&
-           m_Computer->currentGameId != app.id;
+    return m_Computer->startsInsidePlaynite(app);
 }
 
 QString AppModel::getRunningPlayniteGameName()

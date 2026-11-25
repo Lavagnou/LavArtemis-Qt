@@ -64,6 +64,13 @@ public:
     bool
     wake() const;
 
+    // A Playnite game touched while the Playnite front end runs on the host (another app is
+    // current): the host starts it inside Playnite and the client joins the session (resume),
+    // instead of quitting Playnite first. The home and the command line decide alike.
+    // Takes the lock.
+    bool
+    startsInsidePlaynite(const NvApp& app);
+
     enum ReachabilityType
     {
         RI_UNKNOWN,

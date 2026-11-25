@@ -185,12 +185,11 @@ QStringList toArguments(const Target& target)
 
 QStringList rewriteArguments(const QStringList& args, QString* error)
 {
-    for (int i = 1; i < args.count(); i++) {
-        if (!isArtArgument(args.at(i))) {
-            continue;
-        }
-
-        const QString& arg = args.at(i);
+    // Only the first argument: that is where the OS link handler and a double-clicked .art file
+    // put it ("%1"). Further along it is an argument of an ordinary command line, such as an app
+    // whose name ends in ".art" (`stream PC "Mon jeu.art"`).
+    if (args.count() >= 2 && isArtArgument(args.at(1))) {
+        const QString& arg = args.at(1);
         Target target = arg.startsWith(QLatin1String("art://"), Qt::CaseInsensitive)
                             ? parseUrl(arg)
                             : parseFile(arg);

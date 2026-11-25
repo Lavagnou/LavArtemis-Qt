@@ -95,6 +95,12 @@ ApplicationWindow {
             window.showFullScreen()
         }
 
+        // A malformed art:// link or .art file opened the app: say what was wrong with it
+        if (startupError !== "") {
+            startupErrorDialog.text = startupError
+            startupErrorDialog.open()
+        }
+
         // Display any modal dialogs for configuration warnings
         if (runConfigChecks) {
             if (SystemProperties.isWow64) {
@@ -255,6 +261,10 @@ ApplicationWindow {
 
         // Poll for gamepad input only when the window is in focus
         SdlGamepadKeyNavigation.notifyWindowFocus(visible && active)
+    }
+
+    ErrorMessageDialog {
+        id: startupErrorDialog
     }
 
     ErrorMessageDialog {

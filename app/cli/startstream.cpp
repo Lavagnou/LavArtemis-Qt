@@ -100,7 +100,8 @@ public:
                 if (-1 != index) {
                     app = m_Computer->appList[index];
                     m_TimeoutTimer->stop();
-                    if (isNotStreaming() || isStreamingApp(app)) {
+                    // A Playnite game while Playnite runs starts inside it (resume), as on the home
+                    if (isNotStreaming() || isStreamingApp(app) || m_Computer->startsInsidePlaynite(app)) {
                         m_State = StateStartSession;
                         session = new Session(m_Computer, app, m_Preferences);
                         emit q->sessionCreated(app.name, session);

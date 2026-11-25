@@ -854,16 +854,25 @@ int main(int argc, char *argv[])
     }
 #endif
 
+    // Apply the initial translation based on user preference. Before the art:// link is read:
+    // its error is shown to the user, in their language.
+    StreamingPreferences::get()->retranslate();
+
     // An art:// link or a .art file is translated into the equivalent command
     // line here, so the rest of the startup path sees an ordinary invocation
     // and inherits host seeking, wake-on-LAN and the segue UI unchanged.
     QString artLinkError;
     QStringList arguments = ArtLink::rewriteArguments(app.arguments(), &artLinkError);
+    QString startupError;
     if (!artLinkError.isEmpty()) {
-        // Fall through to a normal start rather than exiting: the user
-        // double-clicked something, and a window they can act on beats a
-        // process that vanishes.
+        // A normal start rather than an exit: the user double-clicked something, and a window
+        // they can act on beats a process that vanishes. The link itself is dropped (left in,
+        // the command-line parser refused it and the process quit), and the home says what was
+        // wrong with it.
         qWarning() << "Ignoring malformed art link:" << artLinkError;
+        arguments = QStringList { arguments.value(0) };
+        startupError = QCoreApplication::translate("ArtLink", "This art:// link or .art file can't be opened.")
+                       + "\n\n" + artLinkError;
     }
 
     GlobalCommandLineParser parser;
@@ -918,9 +927,6 @@ int main(int argc, char *argv[])
         SDL_SetHint("SDL_KMSDRM_ATOMIC", "0");
 #endif
     }
-
-    // Apply the initial translation based on user preference
-    StreamingPreferences::get()->retranslate();
 
     // Trickily declare the translation for dialog buttons
     QCoreApplication::translate("QPlatformTheme", "&Yes");
@@ -1159,6 +1165,8 @@ int main(int argc, char *argv[])
 
     if (hasGUI) {
         engine.rootContext()->setContextProperty("initialView", initialView);
+        // A malformed art:// link or .art file: shown over the home (main.qml)
+        engine.rootContext()->setContextProperty("startupError", startupError);
 #ifdef LAV_TEST_BUILD
         engine.rootContext()->setContextProperty("lavTestBuild", true);
 #else

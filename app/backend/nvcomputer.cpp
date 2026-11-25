@@ -168,6 +168,15 @@ bool NvComputer::isThisMachine(const QByteArray& mac, const QString& address)
     return false;
 }
 
+bool NvComputer::startsInsidePlaynite(const NvApp& app)
+{
+    QReadLocker readLocker(&lock);
+    return app.isPlayniteGame &&
+           playniteHostRunning &&
+           currentGameId != 0 &&
+           currentGameId != app.id;
+}
+
 bool NvComputer::isSupportedAppVersion(const QString& appVersion)
 {
     const QString trimmed = appVersion.trimmed();
