@@ -160,8 +160,16 @@ l'accueil n'a pas d'événement de navigation sur lequel sauvegarder.
 |---|---|---|
 | **Profils de réglages** | `settings/profilemanager.{h,cpp}` | `profiles.json` dans `AppConfigLocation`. Un profil est un **snapshot complet**, pas un patch épars ; un **nouveau profil part du profil en cours** (`createProfile()` copie ses options, comme Android ; créé sans profil actif, il part des réglages globaux). Avant le 2026-11-25 il partait toujours des globaux : créé sous « Maison », il en perdait les valeurs. `language`, `defaultver` et les clés propres à la machine (`mdns`, `detectnetblocking`, `uidisplaymode`, `tracevrrframes`) **bypassent** les profils (`isGlobalKey()`). |
 | **Send keys + macros** | `backend/keymacromanager.{h,cpp}` | 15 presets (mêmes que l'Android Dev ; le raccourci HDR Win+Alt+B est retiré des deux) + `keyboard-macros.json`. **Même format et mêmes noms `VK_` que l'Android** → un fichier marche sur les deux. Table des 174 noms extraite de `KeyMapper.java`, pas retapée. |
-| **Liens `art://` + `.art`** | `cli/artlink.{h,cpp}` | `rewriteArguments()` **traduit le lien en ligne de commande existante** au lieu d'ajouter un chemin de lancement parallèle → hérite du host seeking, du wake-on-LAN et de l'UI de segue. Export via `AppModel::exportArtFile()`. |
+| **Liens `art://` + `.art`** | `cli/artlink.{h,cpp}` | `rewriteArguments()` **traduit le lien en ligne de commande existante** au lieu d'ajouter un chemin de lancement parallèle → hérite du host seeking, du wake-on-LAN et de l'UI de segue. Export via `AppModel::exportArtFile()`. **Seul `argv[1]`** peut être un lien ou un fichier `.art` (c'est là que le gestionnaire de liens et le double-clic les mettent) : plus loin, c'est un argument ordinaire (`stream PC "Mon jeu.art"`). Testé par `tests/artlink`. |
 | **Pan & zoom** | `streaming/panzoom.{h,cpp}` | Combos Ctrl+Alt+Shift (`+`/`-`/`0`, flèches). |
+
+> ⚠️ **Un lien ou un `.art` mal formé ouvre l'accueil avec un message en français** (« Impossible d'ouvrir ce
+> lien art:// ou ce fichier .art. » + la raison) : `main.cpp` le lit **après** `retranslate()` (sinon la raison
+> restait en anglais), remplace les arguments par `argv[0]` seul (laissé, le lien faisait refuser la ligne de
+> commande par le parseur, qui quittait avec un code 1) et passe le texte à `main.qml` (`startupError`).
+> 📋 **Un jeu Playnite pendant que Playnite tourne**, lancé en ligne de commande, par un `.art` ou un lien,
+> démarre **dans** Playnite comme depuis l'accueil (reprise, pas de question « Quitter Playnite ? ») : une
+> seule règle, `NvComputer::startsInsidePlaynite()`, lue par `AppModel` et `CliStartStream`.
 
 > ⚠️ **Le bug Android des profils n'est pas reproduit.** Côté Android,
 > `OverlaySharedPreferences.edit()` renvoie l'éditeur de base (`ProfilesManager.java:251`) : les
@@ -240,6 +248,21 @@ Trois autres règles dont dépend la justesse des captures :
 > `SdlGamepadKeyNavigation.disable()` sur `StackView.onActivated` et `.enable()` sur
 > `onDeactivating`. Et `Escape` doit être **consommé** (`event.accepted = true`) tant qu'une capture
 > attend, sinon le `Keys.onEscapePressed` du `StackView` dépile la page sous la capture.
+
+> ⚠️ **Une disposition devinée le reste pour tout le processus** (`s_GuessedGuids`, depuis le 2026-11-25). SDL
+> garde une disposition ajoutée jusqu'à la fin du processus : au deuxième `applyMappings()` (« Actualiser »
+> du mapper, chaque lancement de stream), l'appareil était déjà un *game controller* et n'était plus annoncé
+> comme deviné. Les GUID devinés sont donc gardés, et `getGuessedDeviceNames/Guids()` = les appareils branchés
+> dont la disposition n'est qu'une supposition, recalculés à chaque `applyMappings()`. Une vraie disposition
+> (enregistrée par le mapper, ou du hint SDL : `m_Mappings`) retire l'appareil des devinés.
+>
+> ⚠️ **Couper « Deviner la disposition » vaut tout de suite**, sans redémarrage. SDL ne sait pas oublier une
+> disposition : tout ce qui choisit les manettes passe par `MappingManager::isGameController()` (et
+> `isIgnoredGuess()` sur `SDL_CONTROLLERDEVICEADDED`) au lieu de `SDL_IsGameController()` — navigation
+> (`SdlGamepadKeyNavigation`), stream (`gamepad.cpp` : arrivée, appareils sans disposition, masque des
+> manettes), mapper (« Reconnue »). Tout nouveau site fait pareil. Le réglage est lu par `fallbackEnabled()`,
+> à part dans `mappingmanagersettings.cpp` pour que `tests/mapping` se lie sans les réglages (axes,
+> disposition devinée, deux `applyMappings()`, réglage coupé puis remis, sur un joystick virtuel SDL).
 
 > 📋 **Choix assumé : pas de notification au démarrage pour un appareil deviné.** Il *fonctionne* ;
 > un modal à chaque lancement serait du harcèlement. L'information est donnée là où elle est
@@ -320,6 +343,16 @@ trouvée (`window.updateVersion`, `updateDownloadUrl`, `updateBrowserUrl`) pour 
 > puis quitte : le seul processus qui pourrait nettoyer est celui qu'on remplace. C'est donc le
 > **démarrage suivant** qui le fait (`cleanupDownloadedInstallers()`, appelé depuis le constructeur),
 > et à ce moment-là l'installeur a forcément fini — l'app qu'il a installée est celle qui tourne.
+
+> 📋 **Les règles sont des fonctions pures** (`backend/updaterules.{h,cpp}`, testées par `tests/updater`) :
+> `compareVersionStrings()` (numérotation < 20.0.0 plus récente que les 21.x, stable après ses prereleases),
+> `pickDevRelease()`, `findAssetDownloadUrl()` / `platformAssetSuffix()`, `isStaleInstaller()`. Le dialogue de
+> mise à jour est une question : icône « ? », pas celle d'erreur (`imageSrc` de `updateDialog`).
+>
+> ⚠️ **Le nettoyage reste dans son canal** : la stable et la Dev partagent `%TEMP%`, et chacune peut être en
+> train d'y télécharger son installeur. La stable ne supprime jamais un installeur `-dev.` et la Dev jamais
+> un installeur stable, quelle que soit la version (avant le 2026-11-25, une stable 1.0.0 effaçait le
+> 0.7.0-dev.12 que la Dev téléchargeait).
 
 > ⚠️ **Le nettoyage compare des versions, pas des dates.** Un installeur **plus récent** que la version
 > qui tourne peut être un téléchargement en cours dans une **autre instance** — il n'y a pas de verrou
@@ -669,6 +702,7 @@ session, réglages).
 | `reset` | — | `{folders, registry, notYetRemoved, quitting:true}`, puis le client quitte |
 | `quit` | — | `{quitting:true, session}`, puis le client quitte |
 | `commands` | — | `commands:[…]` |
+| `joystick` | `{attach:true, kind:"generic", axes?(4), buttons?(8), hats?(1)}` ; `{detach:true}` | `{name, guid, instance, gameController}` : un joystick HID générique (« LavArtemis Test Joystick », type inconnu, sans VID/PID) que SDL ne connaît pas, **hors stream aussi** (mapper, avertissement de lancement) ; jamais ouvert par le stream ; retiré à `quit` |
 | `clipboard` | `action:"get"` (défaut) / `"set"`, `text` | `{text}` : le presse-papiers de **ce PC** vu par le client, un texte en mémoire (`ClipboardManager::testClipboardText`), **jamais** celui du système ; `set` = une copie faite ici (la synchro réagit) |
 
 - **`tree`** : visibles seulement (`isVisible`, opacité effective > 0, partie visible non vide, coupée par la fenêtre et
@@ -730,6 +764,10 @@ session, réglages).
   messages d'état sur le stream (connexion, micro coupé, notifications) ; `micActive`/`micMuted` ; `zoom`
   (`PanZoom::scale`). **`toasts`** = toutes les notifications montrées sur le stream depuis le lancement (presse-papiers,
   commandes du PC, Playnite), `toast` la dernière : elles ne restent que 3 s à l'écran.
+- **`state`**, en plus : `computers[].benchmarkAppId` (0 = le PC n'offre pas le benchmark),
+  `session.launchWarnings` (avertissements du lancement, `Session::launchWarnings`), **`benchmark`** =
+  `{running, message, report, historyDir}` (`report` = le JSON du rapport en cours ou affiché,
+  `BenchmarkRunner::testReportJson()`).
 - **`state.session`** : `Session::benchmarkSnapshot()` (cumul du stream, publié à chaque fenêtre de stats ≈ 1 s, 0
   avant) : `frames` envoyées par l'hôte, `decoded`, `rendered`, `dropped` = perdues réseau + jetées par le pacer ;
   `active` = une session existe (connexion comprise), `streaming` = sa boucle SDL tourne
@@ -1211,6 +1249,23 @@ deux clients (planification, mesures, formules, JSON) : `LavApollo/docs/benchmar
   fait qu'échouer ce run.
 - L'app de l'hôte est quittée avant le premier run, entre deux runs dont la demande VRR diffère (l'écran à
   1000 Hz n'existe qu'au `/launch`) et après le dernier.
+- **La référence enregistre ce qu'elle a streamé** (`requested` = `effective` pour `baseline` et
+  `baseline-repeat`, comme Android) : en Auto il n'y a pas de codec demandé, et l'adaptatif montait le débit
+  puis confirmait sur la supposition (HEVC) au lieu du codec réellement streamé.
+- **Notes en anglais dans le JSON, traduites à l'affichage** (`benchmarknotes.{h,cpp}`, `Benchmark::Notes`,
+  contexte de traduction `BenchmarkNotes`), mêmes phrases qu'Android (`BenchmarkNotes.java`) : liste dans
+  `LavApollo/docs/benchmark.md`, « Notes ». L'étape qui échoue est notée par son nom anglais
+  (`Session::failedStageName()`), une connexion coupée par son code (`terminationErrorCode()`) ; seul un
+  message d'erreur de lancement reste tel qu'il a été affiché. Noms de mode et d'objectif traduits
+  (`modeLabel`/`goalLabel` dans la vue du rapport et l'historique).
+- **« Arrêter »** : pendant que l'appli de l'hôte se ferme (avant le premier passage, ou le redémarrage de la
+  scène entre un passage VRR et un autre), `cancel()` termine tout de suite ; `launch()` vérifie donc
+  `m_Running` / `m_CancelRequested` (sinon le lancement retenu par la fermeture démarrait un stream après
+  l'arrêt). Arrêté avant tout passage : la page de départ revient, avec « Benchmark arrêté avant le premier
+  passage : rien n'a été mesuré. » (avant : page vide).
+- Build de test : `LAV_TEST_BENCHMARK="warmup,measure,window[,quitDelayMs]"` raccourcit les passages
+  (`warmupSeconds()`…) et retient chaque fermeture de l'appli de l'hôte (une fenêtre pour « Arrêter ») ;
+  scénario 12 du banc.
 - Rapports dans `AppDataLocation/benchmarks/`, 50 au plus ; « Ouvrir un fichier de rapport… » ouvre aussi ceux de
   l'Android (même JSON). Les appliquer n'est possible que pour un rapport desktop (noms de pacing différents).
 
