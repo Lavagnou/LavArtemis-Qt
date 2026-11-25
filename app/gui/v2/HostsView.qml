@@ -231,8 +231,9 @@ FocusScope {
         }
         var i = indexOfUuid(uuid)
         if (i < 0) {
-            // Forgotten meanwhile (it can't be missing otherwise)
+            // Forgotten meanwhile (it can't be missing otherwise): say so, the add did nothing visible
             console.warn("Added host", uuid, "is not in the list")
+            toast.show(qsTr("%1 a été oublié pendant l'ajout : ajoute-le à nouveau").arg(address))
             return
         }
         if (!role(i, "paired")) pairHost(i)
