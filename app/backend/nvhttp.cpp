@@ -521,6 +521,19 @@ NvHTTP::getAppList()
                 else if (XML_NAME_EQUALS(name, "IsPlayniteHost")) {
                     apps.last().isPlayniteHost = xmlReader.readElementText() == "1";
                 }
+                // LavApollo: a Playnite game's state (LavArtemis Dev, prototype data)
+                else if (XML_NAME_EQUALS(name, "PlayniteInstalled")) {
+                    apps.last().playniteInstalled = xmlReader.readElementText() != "0";
+                }
+                else if (XML_NAME_EQUALS(name, "PlayniteLastActivity")) {
+                    apps.last().playniteLastActivity = qMax<qint64>(0, xmlReader.readElementText().toLongLong());
+                }
+                else if (XML_NAME_EQUALS(name, "PlaynitePlaytime")) {
+                    apps.last().playnitePlaytime = qMax<qint64>(0, xmlReader.readElementText().toLongLong());
+                }
+                else if (XML_NAME_EQUALS(name, "PlayniteBackground")) {
+                    apps.last().playniteHasBackground = xmlReader.readElementText() == "1";
+                }
             }
         }
     }
@@ -574,6 +587,21 @@ NvHTTP::getBoxArt(int appId)
                                           "appasset",
                                           "appid="+QString::number(appId)+
                                           "&AssetType=2&AssetIdx=0",
+                                          REQUEST_TIMEOUT_MS,
+                                          NvLogLevel::NVLL_VERBOSE);
+    QImage image = QImageReader(reply).read();
+    delete reply;
+
+    return image;
+}
+
+QImage
+NvHTTP::getBackground(int appId)
+{
+    QNetworkReply* reply = openConnection(m_BaseUrlHttps,
+                                          "appasset",
+                                          "appid="+QString::number(appId)+
+                                          "&asset=background",
                                           REQUEST_TIMEOUT_MS,
                                           NvLogLevel::NVLL_VERBOSE);
     QImage image = QImageReader(reply).read();

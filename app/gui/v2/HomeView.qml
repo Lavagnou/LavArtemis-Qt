@@ -24,7 +24,8 @@ FocusScope {
 
     // ---- hosts ---------------------------------------------------------------------------
     property ComputerModel computerModel: createComputerModel()
-    // [{name, online, paired, busy, uuid, wakeable, statusUnknown, serverSupported, serverVersion, thisPc}]
+    // [{name, online, paired, busy, uuid, wakeable, statusUnknown, serverSupported, serverVersion, thisPc,
+    //   sessionStartedAt}]
     // A snapshot, rebuilt 50 ms after the model changes: a host is always found again by its uuid
     property var hosts: []
     property int hostPos: 0          // position in `hosts` of the shown host
@@ -57,6 +58,7 @@ FocusScope {
             required property bool serverSupported
             required property string serverVersion
             required property bool thisPc
+            required property real sessionStartedAt
         }
         onObjectAdded: refreshHostsLater.restart()
         onObjectRemoved: refreshHostsLater.restart()
@@ -89,7 +91,8 @@ FocusScope {
             if (o && o.paired) {
                 list.push({name: o.name, online: o.online, paired: o.paired, busy: o.busy, uuid: o.uuid,
                            wakeable: o.wakeable, statusUnknown: o.statusUnknown,
-                           serverSupported: o.serverSupported, serverVersion: o.serverVersion, thisPc: o.thisPc})
+                           serverSupported: o.serverSupported, serverVersion: o.serverVersion, thisPc: o.thisPc,
+                           sessionStartedAt: o.sessionStartedAt})
             }
         }
         // Online hosts first, keeping the model order otherwise
@@ -165,9 +168,10 @@ FocusScope {
     readonly property bool appsLoading: { rev; return appModel !== null && appModel.rowCount() === 0 && hiddenCount === 0 }
 
     // ---- how long the session has been running (Android's SessionClock) ------------------------
-    // The host does not say when a session started: the duration counts from the first time this
-    // PC saw that app running on that host, kept across restarts ("<runningId>:<ms>" per host
-    // uuid), forgotten when nothing runs. Under a minute nothing is shown.
+    // LavApollo says when the running app started (ComputerModel sessionStartedAt). An older host
+    // does not: the duration then counts from the first time this PC saw that app running on that
+    // host, kept across restarts ("<runningId>:<ms>" per host uuid), forgotten when nothing runs.
+    // Under a minute nothing is shown.
     Settings {
         id: sessionClockStore
         category: "uiV2SessionClock"
@@ -190,6 +194,10 @@ FocusScope {
         if (runningId === 0) {
             if (stored !== "") sessionClockStore.setValue(host.uuid, "")
             sessionSince = 0
+            return
+        }
+        if (host.sessionStartedAt > 0) {
+            sessionSince = host.sessionStartedAt
             return
         }
         var since = 0

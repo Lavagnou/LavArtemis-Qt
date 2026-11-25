@@ -2,6 +2,7 @@
 #include "nvapp.h"
 #include "settings/compatfetcher.h"
 
+#include <QDateTime>
 #include <QUdpSocket>
 #include <QHostInfo>
 #include <QNetworkInterface>
@@ -204,11 +205,20 @@ bool NvComputer::isSupportedAppVersion(const QString& appVersion)
 
 void NvComputer::sortApps(QVector<NvApp>& apps)
 {
-    // By name, except the Playnite library (LavApollo Link): it keeps the host's order, most
-    // recently played first like Playnite's "Recent activity", after the other apps. All its
-    // games compare equal here, and stable_sort keeps them as the host listed them.
+    // By name, except the Playnite library (LavApollo Link), after the other apps: most recently
+    // played first like Playnite's "Recent activity" (PlayniteLastActivity), never played last. A
+    // host that does not send the date (all 0) keeps its own order: stable_sort.
     std::stable_sort(apps.begin(), apps.end(), [](const NvApp& app1, const NvApp& app2) {
         if (app1.isPlayniteGame || app2.isPlayniteGame) {
+            if (app1.isPlayniteGame && app2.isPlayniteGame) {
+                if (app1.playniteLastActivity == app2.playniteLastActivity) {
+                    return false;
+                }
+                if (app1.playniteLastActivity == 0 || app2.playniteLastActivity == 0) {
+                    return app2.playniteLastActivity == 0;
+                }
+                return app1.playniteLastActivity > app2.playniteLastActivity;
+            }
             return !app1.isPlayniteGame && app2.isPlayniteGame;
         }
         return app1.name.toLower() < app2.name.toLower();
@@ -258,6 +268,25 @@ NvComputer::NvComputer(NvHTTP& http, QString serverInfo)
     // LavApollo Link (Playnite), absent without the extension
     this->playniteHostRunning = NvHTTP::getXmlString(serverInfo, "PlayniteHostRunning") == "1";
     this->playniteGameName = NvHTTP::getXmlString(serverInfo, "PlayniteGameName");
+
+    // LavApollo: how long ago the running app and the Playnite game started, as dates on this
+    // PC's clock (the host's clock needs not agree), and what kind of PC it is on which link
+    {
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        bool ok = false;
+        const qint64 appElapsed = NvHTTP::getXmlString(serverInfo, "CurrentGameElapsed").toLongLong(&ok);
+        this->currentGameStartedAt = ok && appElapsed >= 0 ? now - appElapsed * 1000 : 0;
+        const qint64 gameElapsed = NvHTTP::getXmlString(serverInfo, "PlayniteGameElapsed").toLongLong(&ok);
+        this->playniteGameStartedAt = ok && gameElapsed >= 0 && !this->playniteGameName.isEmpty() ? now - gameElapsed * 1000 : 0;
+    }
+    this->hostFormFactor = NvHTTP::getXmlString(serverInfo, "HostFormFactor");
+    if (this->hostFormFactor != "tower" && this->hostFormFactor != "mini" && this->hostFormFactor != "laptop") {
+        this->hostFormFactor.clear();
+    }
+    this->hostLink = NvHTTP::getXmlString(serverInfo, "HostLink");
+    if (this->hostLink != "wired" && this->hostLink != "wifi") {
+        this->hostLink.clear();
+    }
 
     // The scene LavArtemis' benchmark streams, absent when the host does not offer it
     this->benchmarkAppId = NvHTTP::getXmlString(serverInfo, "BenchmarkAppId").toInt();
@@ -614,13 +643,8 @@ NvComputer::ReachabilityType NvComputer::getActiveAddressReachability() const
 }
 
 bool NvComputer::updateAppList(QVector<NvApp> newAppList) {
-    // Compared in the stored order: the host's own order made every fetch look like a change
-    sortApps(newAppList);
-    if (appList == newAppList) {
-        return false;
-    }
-
-    // Propagate client-side attributes to the new app list
+    // Propagate client-side attributes to the new app list first: compared without them, a host
+    // with a hidden app looked changed at every fetch
     for (const NvApp& existingApp : std::as_const(appList)) {
         for (NvApp& newApp : newAppList) {
             if (existingApp.id == newApp.id) {
@@ -628,6 +652,12 @@ bool NvComputer::updateAppList(QVector<NvApp> newAppList) {
                 newApp.directLaunch = existingApp.directLaunch;
             }
         }
+    }
+
+    // Compared in the stored order: the host's own order made every fetch look like a change
+    sortApps(newAppList);
+    if (appList == newAppList) {
+        return false;
     }
 
     appList = newAppList;
@@ -721,6 +751,25 @@ bool NvComputer::update(const NvComputer& that)
     ASSIGN_IF_CHANGED(currentDisplayRefreshRate);
     ASSIGN_IF_CHANGED(playniteHostRunning);
     ASSIGN_IF_CHANGED(playniteGameName);
+    // Recomputed from an elapsed time in whole seconds at every poll: only a real change counts
+    // (another session, another game), not the rounding of each answer
+    for (auto field : {&NvComputer::currentGameStartedAt, &NvComputer::playniteGameStartedAt}) {
+        const qint64 mine = this->*field;
+        const qint64 theirs = that.*field;
+        if ((mine == 0) != (theirs == 0) || qAbs(mine - theirs) > 5000) {
+            this->*field = theirs;
+            changed = true;
+        }
+    }
+    ASSIGN_IF_CHANGED(hostFormFactor);
+    ASSIGN_IF_CHANGED(hostLink);
+    // -1 from a poll that could not measure it: keep the last one. A jitter of a millisecond or a
+    // quarter is not a change: every model of this host would refresh at every poll.
+    if (that.latencyMs >= 0 &&
+            (this->latencyMs < 0 || qAbs(that.latencyMs - this->latencyMs) >= qMax(2, this->latencyMs / 4))) {
+        this->latencyMs = that.latencyMs;
+        changed = true;
+    }
     ASSIGN_IF_CHANGED(benchmarkAppId);
     ASSIGN_IF_CHANGED(benchmarkAppUuid);
     ASSIGN_IF_CHANGED(currentGameId);

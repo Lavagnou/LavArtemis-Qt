@@ -18,7 +18,11 @@ public:
                 hidden == other.hidden &&
                 directLaunch == other.directLaunch &&
                 isPlayniteGame == other.isPlayniteGame &&
-                isPlayniteHost == other.isPlayniteHost;
+                isPlayniteHost == other.isPlayniteHost &&
+                playniteInstalled == other.playniteInstalled &&
+                playniteLastActivity == other.playniteLastActivity &&
+                playnitePlaytime == other.playnitePlaytime &&
+                playniteHasBackground == other.playniteHasBackground;
     }
 
     bool operator!=(const NvApp& other) const
@@ -48,6 +52,15 @@ public:
     bool isPlayniteGame = false;
     // The host's Playnite front end (LavApollo Link), where those games start.
     bool isPlayniteHost = false;
+    // A Playnite game's state, from LavApollo's /applist (absent on older hosts: these defaults).
+    // Installed: a game that is not is installed by Playnite when launched.
+    bool playniteInstalled = true;
+    // Last time it was played, Unix seconds (0: never, or an older host)
+    qint64 playniteLastActivity = 0;
+    // Play time, seconds
+    qint64 playnitePlaytime = 0;
+    // The host serves a background image for it (/appasset?asset=background)
+    bool playniteHasBackground = false;
 };
 
 Q_DECLARE_METATYPE(NvApp)

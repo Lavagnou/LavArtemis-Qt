@@ -9,6 +9,10 @@
 #define SER_DIRECTLAUNCH "directlaunch"
 #define SER_PLAYNITEGAME "playnitegame"
 #define SER_PLAYNITEHOST "playnitehost"
+#define SER_PLAYNITEINSTALLED "playniteinstalled"
+#define SER_PLAYNITELASTACTIVITY "playnitelastactivity"
+#define SER_PLAYNITEPLAYTIME "playniteplaytime"
+#define SER_PLAYNITEBACKGROUND "playnitebackground"
 
 NvApp::NvApp(QSettings& settings)
 {
@@ -21,6 +25,10 @@ NvApp::NvApp(QSettings& settings)
     directLaunch = settings.value(SER_DIRECTLAUNCH).toBool();
     isPlayniteGame = settings.value(SER_PLAYNITEGAME).toBool();
     isPlayniteHost = settings.value(SER_PLAYNITEHOST).toBool();
+    playniteInstalled = settings.value(SER_PLAYNITEINSTALLED, true).toBool();
+    playniteLastActivity = settings.value(SER_PLAYNITELASTACTIVITY).toLongLong();
+    playnitePlaytime = settings.value(SER_PLAYNITEPLAYTIME).toLongLong();
+    playniteHasBackground = settings.value(SER_PLAYNITEBACKGROUND).toBool();
 }
 
 void NvApp::serialize(QSettings& settings) const
@@ -34,4 +42,8 @@ void NvApp::serialize(QSettings& settings) const
     settings.setValue(SER_DIRECTLAUNCH, directLaunch);
     settings.setValue(SER_PLAYNITEGAME, isPlayniteGame);
     settings.setValue(SER_PLAYNITEHOST, isPlayniteHost);
+    settings.setValue(SER_PLAYNITEINSTALLED, playniteInstalled);
+    settings.setValue(SER_PLAYNITELASTACTIVITY, playniteLastActivity);
+    settings.setValue(SER_PLAYNITEPLAYTIME, playnitePlaytime);
+    settings.setValue(SER_PLAYNITEBACKGROUND, playniteHasBackground);
 }

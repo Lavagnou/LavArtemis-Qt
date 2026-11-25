@@ -215,6 +215,11 @@ public:
     QImage
     getBoxArt(int appId);
 
+    // A Playnite game's background image (LavApollo, apps flagged PlayniteBackground). Null when
+    // the host has none (404).
+    QImage
+    getBackground(int appId);
+
     // Artemis clipboard sync endpoints (Apollo servers only)
     QString
     getClipboardContent();

@@ -10,6 +10,8 @@ AppModel::AppModel(QObject *parent)
 {
     connect(&m_BoxArtManager, &BoxArtManager::boxArtLoadComplete,
             this, &AppModel::handleBoxArtLoaded);
+    connect(&m_BoxArtManager, &BoxArtManager::backgroundLoadComplete,
+            this, &AppModel::handleBackgroundLoaded);
 }
 
 bool AppModel::initialize(ComputerManager* computerManager, QString hostUuid, bool showHiddenGames)
@@ -208,6 +210,17 @@ QVariant AppModel::data(const QModelIndex &index, int role) const
         return app.isPlayniteHost;
     case KindRole:
         return kindOf(app);
+    case InstalledRole:
+        return app.playniteInstalled;
+    case LastActivityRole:
+        return app.playniteLastActivity * 1000;
+    case PlaytimeRole:
+        return app.playnitePlaytime;
+    case BackgroundRole:
+        if (m_Computer == nullptr) {
+            return QString();
+        }
+        return const_cast<BoxArtManager&>(m_BoxArtManager).loadBackground(m_Computer, app).toString();
     default:
         return QVariant();
     }
@@ -226,6 +239,10 @@ QHash<int, QByteArray> AppModel::roleNames() const
     names[PlayniteGameRole] = "playniteGame";
     names[PlayniteHostRole] = "playniteHost";
     names[KindRole] = "kind";
+    names[InstalledRole] = "installed";
+    names[LastActivityRole] = "lastActivity";
+    names[PlaytimeRole] = "playtime";
+    names[BackgroundRole] = "background";
 
     return names;
 }
@@ -297,9 +314,9 @@ void AppModel::updateAppList(QVector<NvApp> newList)
     }
 
     // Then moves and additions, in the order of the new list: the computer's own order
-    // (NvComputer::sortApps), by name except the Playnite library, which keeps the host's
-    // order, most recently played first, and moves when a game is played. Inserting by name
-    // here sorted the library alphabetically.
+    // (NvComputer::sortApps), by name except the Playnite library, most recently played first
+    // (PlayniteLastActivity, else the host's order), which moves when a game is played.
+    // Inserting by name here sorted the library alphabetically.
     for (int i = 0; i < newVisibleList.count(); i++) {
         const NvApp& newApp = newVisibleList.at(i);
         if (i < m_VisibleApps.count() && m_VisibleApps.at(i).id == newApp.id) {
@@ -500,20 +517,31 @@ void AppModel::handleComputerStateChanged(NvComputer* computer)
 
 void AppModel::handleBoxArtLoaded(QString computerUuid, NvApp app, QUrl /* image */)
 {
+    notifyImageLoaded(computerUuid, app, BoxArtRole);
+}
+
+void AppModel::handleBackgroundLoaded(QString computerUuid, NvApp app, QUrl /* image */)
+{
+    notifyImageLoaded(computerUuid, app, BackgroundRole);
+}
+
+void AppModel::notifyImageLoaded(const QString& computerUuid, const NvApp& app, int role)
+{
     if (m_Computer == nullptr || computerUuid != m_Computer->uuid) {
         return;
     }
 
-    int index = m_VisibleApps.indexOf(app);
+    // By id: the app's other fields may have changed since the fetch began (a game played meanwhile)
+    int index = rowOfAppId(app.id);
 
     // Make sure we're not delivering a callback to an app that's already been removed
     if (index >= 0) {
-        // Let our view know the box art data has changed for this app
+        // Let our view know the image has changed for this app
         emit dataChanged(createIndex(index, 0),
                          createIndex(index, 0),
-                         QVector<int>() << BoxArtRole);
+                         QVector<int>() << role);
     }
     else {
-        qWarning() << "App not found for box art callback:" << app.name;
+        qWarning() << "App not found for image callback:" << app.name;
     }
 }

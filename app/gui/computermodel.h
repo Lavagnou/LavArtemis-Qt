@@ -25,7 +25,17 @@ class ComputerModel : public QAbstractListModel
         ServerVersionRole,
         // The host is this PC (NvComputer::isThisPc): no stream to itself. Keep new roles last,
         // HostsView reads them by number.
-        ThisPcRole
+        ThisPcRole,
+        // LavApollo (prototype data): "tower", "mini", "laptop" or "" (the card's icon and « Tour »)
+        FormFactorRole,
+        // "wired", "wifi" or "": the host's link toward this client (« réseau filaire »)
+        LinkRole,
+        // Round trip to the host in ms (« En ligne · 4 ms »), -1 when unknown
+        LatencyRole,
+        // When the running app and the game running in Playnite started, ms since the epoch on
+        // this PC's clock (« depuis 42 min »), 0 when unknown or nothing runs
+        SessionStartedRole,
+        PlayniteGameStartedRole
     };
 
 public:

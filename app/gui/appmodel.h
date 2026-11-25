@@ -25,6 +25,15 @@ public:
         // "desktop", "playnite" (the Playnite front end), "game" (Playnite library) or "app":
         // the sections of the redesigned home (gui/v2, AppKindModel)
         KindRole,
+        // A Playnite game's state (LavApollo; older hosts: installed, never played, 0 s, no background).
+        // Installed: a game that is not is installed by Playnite when launched.
+        InstalledRole,
+        // Last time it was played, ms since the epoch (a JS Date's value), 0 = never
+        LastActivityRole,
+        // Play time, seconds ("N h jouées")
+        PlaytimeRole,
+        // Its background image (file url once loaded), "" when the host has none or while it loads
+        BackgroundRole,
     };
 
 public:
@@ -94,6 +103,10 @@ private slots:
     void handleComputerStateChanged(NvComputer* computer);
 
     void handleBoxArtLoaded(QString computerUuid, NvApp app, QUrl image);
+
+    void handleBackgroundLoaded(QString computerUuid, NvApp app, QUrl image);
+
+    void notifyImageLoaded(const QString& computerUuid, const NvApp& app, int role);
 
     void handleComputerRemoved(NvComputer* computer);
 

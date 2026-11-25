@@ -160,6 +160,17 @@ public:
     // Playnite game starts without ending the session, and the game running in Playnite (empty if none)
     bool playniteHostRunning;
     QString playniteGameName;
+    // When the running app and the game running in Playnite started, in ms since the epoch on this
+    // PC's clock (LavApollo sends how long ago: CurrentGameElapsed, PlayniteGameElapsed). 0 = unknown.
+    qint64 currentGameStartedAt = 0;
+    qint64 playniteGameStartedAt = 0;
+    // What kind of PC the host is ("tower", "mini", "laptop") and whether its interface toward this
+    // client is "wired" or "wifi" (LavApollo HostFormFactor / HostLink). Empty = unknown.
+    QString hostFormFactor;
+    QString hostLink;
+    // Round trip to the host, ms: the TCP connect time of the latest poll (PcMonitorThread), at least
+    // 1 when it answered. -1 = unknown (offline, never polled).
+    int latencyMs = -1;
 
     // LavApollo's hidden "Benchmark" app (docs/benchmark.md), 0 / empty when the host
     // does not offer it. Not in appList: it is launched by these.

@@ -20,7 +20,7 @@ BoxArtManager::BoxArtManager(QObject *parent) :
 }
 
 QString
-BoxArtManager::getFilePathForBoxArt(const QString& computerUuid, int appId)
+BoxArtManager::getFilePathForBoxArt(const QString& computerUuid, int appId, bool background)
 {
     QDir dir = m_BoxArtDir;
 
@@ -33,7 +33,7 @@ BoxArtManager::getFilePathForBoxArt(const QString& computerUuid, int appId)
     dir.cd(computerUuid);
 
     // Try to open the cached file
-    return dir.filePath(QString::number(appId) + ".png");
+    return dir.filePath(QString::number(appId) + (background ? "-background.jpg" : ".png"));
 }
 
 // Runs on the pool with copies only (the host's uuid, how to reach it, the cache file): the GUI
@@ -44,34 +44,36 @@ class NetworkBoxArtLoadTask : public QObject, public QRunnable
 
 public:
     NetworkBoxArtLoadTask(BoxArtManager* boxArtManager, const QString& computerUuid, const NvHttpTarget& target,
-                          const QString& cachePath, NvApp& app)
+                          const QString& cachePath, NvApp& app, bool background)
         : m_ComputerUuid(computerUuid),
           m_Target(target),
           m_CachePath(cachePath),
-          m_App(app)
+          m_App(app),
+          m_Background(background)
     {
         connect(this, &NetworkBoxArtLoadTask::boxArtFetchCompleted,
                 boxArtManager, &BoxArtManager::handleBoxArtLoadComplete);
     }
 
 signals:
-    void boxArtFetchCompleted(QString computerUuid, NvApp app, QUrl image);
+    void boxArtFetchCompleted(QString computerUuid, NvApp app, QUrl image, bool background);
 
 private:
     void run()
     {
-        QUrl image = BoxArtManager::loadBoxArtFromNetwork(m_Target, m_CachePath, m_App.id);
+        QUrl image = BoxArtManager::loadBoxArtFromNetwork(m_Target, m_CachePath, m_App.id, m_Background);
         if (image.isEmpty()) {
             // Give it another shot if it fails once
-            image = BoxArtManager::loadBoxArtFromNetwork(m_Target, m_CachePath, m_App.id);
+            image = BoxArtManager::loadBoxArtFromNetwork(m_Target, m_CachePath, m_App.id, m_Background);
         }
-        emit boxArtFetchCompleted(m_ComputerUuid, m_App, image);
+        emit boxArtFetchCompleted(m_ComputerUuid, m_App, image, m_Background);
     }
 
     QString m_ComputerUuid;
     NvHttpTarget m_Target;
     QString m_CachePath;
     NvApp m_App;
+    bool m_Background;
 };
 
 QUrl BoxArtManager::loadBoxArt(NvComputer* computer, NvApp& app)
@@ -98,12 +100,39 @@ QUrl BoxArtManager::loadBoxArt(NvComputer* computer, NvApp& app)
     // If we get here, we need to fetch asynchronously.
     // Kick off a worker on our thread pool to do just that.
     NetworkBoxArtLoadTask* netLoadTask = new NetworkBoxArtLoadTask(this, uuid, NvHttpTarget::of(computer),
-                                                                   cacheFile.fileName(), app);
+                                                                   cacheFile.fileName(), app, false);
     m_ThreadPool.start(netLoadTask);
 
     // Return the placeholder then we can notify the caller
     // later when the real image is ready.
     return QUrl("qrc:/res/no_app_image.png");
+}
+
+QUrl BoxArtManager::loadBackground(NvComputer* computer, NvApp& app)
+{
+    if (!app.playniteHasBackground) {
+        return QUrl();
+    }
+
+    QString uuid;
+    {
+        QReadLocker lock(&computer->lock);
+        uuid = computer->uuid;
+    }
+
+    QFile cacheFile(getFilePathForBoxArt(uuid, app.id, true));
+    if (cacheFile.exists() && cacheFile.size() > 0) {
+        return QUrl::fromLocalFile(cacheFile.fileName());
+    }
+
+    QString key = cacheFile.fileName();
+    if (m_Pending.contains(key) || m_Missing.contains(key)) {
+        return QUrl();
+    }
+    m_Pending.insert(key);
+    m_ThreadPool.start(new NetworkBoxArtLoadTask(this, uuid, NvHttpTarget::of(computer),
+                                                 cacheFile.fileName(), app, true));
+    return QUrl();
 }
 
 // By uuid: the host may already be deleted (ComputerManager::deleteHost, a host forgotten during
@@ -118,25 +147,28 @@ void BoxArtManager::deleteBoxArt(const QString& computerUuid)
     }
 }
 
-void BoxArtManager::handleBoxArtLoadComplete(QString computerUuid, NvApp app, QUrl image)
+void BoxArtManager::handleBoxArtLoadComplete(QString computerUuid, NvApp app, QUrl image, bool background)
 {
-    QString key = getFilePathForBoxArt(computerUuid, app.id);
+    QString key = getFilePathForBoxArt(computerUuid, app.id, background);
     m_Pending.remove(key);
     if (image.isEmpty()) {
         m_Missing.insert(key);
+    }
+    else if (background) {
+        emit backgroundLoadComplete(computerUuid, app, image);
     }
     else {
         emit boxArtLoadComplete(computerUuid, app, image);
     }
 }
 
-QUrl BoxArtManager::loadBoxArtFromNetwork(const NvHttpTarget& target, const QString& cachePath, int appId)
+QUrl BoxArtManager::loadBoxArtFromNetwork(const NvHttpTarget& target, const QString& cachePath, int appId, bool background)
 {
     NvHTTP http(target);
 
     QImage image;
     try {
-        image = http.getBoxArt(appId);
+        image = background ? http.getBackground(appId) : http.getBoxArt(appId);
     } catch (...) {}
 
     // Cache the box art on disk if it loaded

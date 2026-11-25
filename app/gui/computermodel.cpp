@@ -82,6 +82,16 @@ QVariant ComputerModel::data(const QModelIndex& index, int role) const
         return computer->appVersion;
     case ThisPcRole:
         return computer->isThisPc;
+    case FormFactorRole:
+        return computer->hostFormFactor;
+    case LinkRole:
+        return computer->hostLink;
+    case LatencyRole:
+        return computer->state == NvComputer::CS_ONLINE ? computer->latencyMs : -1;
+    case SessionStartedRole:
+        return computer->currentGameId != 0 ? computer->currentGameStartedAt : 0;
+    case PlayniteGameStartedRole:
+        return computer->playniteGameName.isEmpty() ? 0 : computer->playniteGameStartedAt;
     default:
         return QVariant();
     }
@@ -115,6 +125,11 @@ QHash<int, QByteArray> ComputerModel::roleNames() const
     names[RunningAppRole] = "runningApp";
     names[ServerVersionRole] = "serverVersion";
     names[ThisPcRole] = "thisPc";
+    names[FormFactorRole] = "formFactor";
+    names[LinkRole] = "link";
+    names[LatencyRole] = "latencyMs";
+    names[SessionStartedRole] = "sessionStartedAt";
+    names[PlayniteGameStartedRole] = "playniteGameStartedAt";
 
     return names;
 }

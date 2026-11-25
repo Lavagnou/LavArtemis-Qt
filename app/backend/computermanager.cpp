@@ -8,6 +8,9 @@
 #include <Limelight.h>
 #include <QtEndian>
 
+#include <QElapsedTimer>
+#include <QNetworkProxy>
+#include <QTcpSocket>
 #include <QThread>
 #include <QThreadPool>
 #include <QCoreApplication>
@@ -47,6 +50,30 @@ public:
     }
 
 private:
+    // The round trip to the host ("En ligne · 4 ms"): one TCP connect to the address that just
+    // answered. A whole serverinfo request would add TLS and the host's work to it. -1 if it fails.
+    static int measureLatencyMs(const NvAddress& address)
+    {
+#ifdef LAV_TEST_BUILD
+        // The test client reaches the bench's loopback hosts only, raw sockets included
+        if (!TestGuard::isAllowedAddress(address.address(), address.port())) {
+            return -1;
+        }
+#endif
+        QTcpSocket socket;
+        socket.setProxy(QNetworkProxy::NoProxy);
+        QElapsedTimer timer;
+        timer.start();
+        socket.connectToHost(address.address(), address.port());
+        if (!socket.waitForConnected(1000)) {
+            return -1;
+        }
+        const qint64 us = timer.nsecsElapsed() / 1000;
+        socket.abort();
+        // At least 1 ms: a host that answers is never "0 ms" away
+        return (int)qMax<qint64>(1, (us + 500) / 1000);
+    }
+
     bool tryPollComputer(QNetworkAccessManager* nam, NvAddress address, bool& changed)
     {
         QSslCertificate serverCert;
@@ -73,6 +100,8 @@ private:
             qInfo() << "Found unexpected PC" << newState.name << "looking for" << m_Computer->name;
             return false;
         }
+
+        newState.latencyMs = measureLatencyMs(address);
 
         changed = m_Computer->update(newState);
         return true;
@@ -143,6 +172,7 @@ private:
             if (!online && m_Computer->state != NvComputer::CS_OFFLINE) {
                 qInfo() << m_Computer->name << "is now offline";
                 m_Computer->state = NvComputer::CS_OFFLINE;
+                m_Computer->latencyMs = -1;
                 stateChanged = true;
             }
 
