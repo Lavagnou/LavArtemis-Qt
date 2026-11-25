@@ -3,11 +3,11 @@
 #include <QObject>
 #include <QJsonArray>
 #include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include <QPointer>
 
 class QFile;
 class QJsonObject;
-class QNetworkReply;
 
 class AutoUpdateChecker : public QObject
 {
@@ -43,8 +43,15 @@ public:
     // (Windows x64/arm64). Other platforms should open the release page.
     Q_INVOKABLE bool canSelfInstall() const;
 
+    // What a failed request means, in a sentence for the user (French through qml_fr.ts): the
+    // QNetworkReply::errorString() of Qt is English and technical ("Host api.github.com not found").
+    // httpStatus: the HTTP status of the answer, 0 when there was none.
+    static QString describeNetworkError(QNetworkReply::NetworkError error, int httpStatus);
+
 signals:
     void onUpdateAvailable(QString newVersion, QString url);
+    // Emitted before every onUpdateAvailable, empty when the release has no installer for this
+    // PC: the UI keeps the last one, and a stale URL would install an older release.
     void onUpdateDownloadUrl(QString downloadUrl);
 
     // Every check ends in exactly one of onUpdateAvailable, noUpdateAvailable
@@ -65,6 +72,10 @@ private:
     // Issues the request. Both start() and checkNow() land here once they have
     // decided whether the check should happen at all.
     void performCheck();
+
+    // The newest release found: compared with this version, then announced (onUpdateDownloadUrl
+    // + onUpdateAvailable) or not (noUpdateAvailable, skipped version included).
+    void reportRelease(const QString& version, const QString& pageUrl, const QString& downloadUrl);
 
     // Deletes update installers left in the temp directory. Called once per
     // process, at construction, before any download of this run can start.

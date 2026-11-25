@@ -68,7 +68,31 @@ void AutoUpdateChecker::skipVersion(QString version)
 void AutoUpdateChecker::performCheck()
 {
 #ifdef LAV_TEST_BUILD
-    // Test build: never contacts GitHub. A check still ends with its one signal.
+    // Test build: never contacts GitHub. A check still ends with its one signal. LAV_TEST_UPDATE
+    // (set by the bench) scripts the answers to the checks asked from Réglages, one per check,
+    // separated by ';': "fail:<QNetworkReply::NetworkError>[:<HTTP status>]" or
+    // "available:<version>[:<installer URL>]"; once they are used up, or for the startup check,
+    // this version is the latest. They go through the same reporting as GitHub's answers.
+    if (!m_AutomaticCheck) {
+        static int s_TestCheck = 0;
+        const QStringList outcomes = qEnvironmentVariable("LAV_TEST_UPDATE").split(';', Qt::SkipEmptyParts);
+        const QString outcome = s_TestCheck < outcomes.size() ? outcomes[s_TestCheck] : QString();
+        s_TestCheck++;
+        if (outcome.startsWith(QLatin1String("fail:"))) {
+            const QStringList parts = outcome.mid(5).split(':');
+            emit updateCheckFailed(describeNetworkError(static_cast<QNetworkReply::NetworkError>(parts.value(0).toInt()),
+                                                        parts.value(1).toInt()));
+            return;
+        }
+        if (outcome.startsWith(QLatin1String("available:"))) {
+            const QString rest = outcome.mid(10);
+            const int colon = rest.indexOf(':');
+            const QString version = colon < 0 ? rest : rest.left(colon);
+            const QString installer = colon < 0 ? QString() : rest.mid(colon + 1);
+            reportRelease(version, QStringLiteral("https://github.invalid/LavArtemis/releases/tag/v") + version, installer);
+            return;
+        }
+    }
     emit noUpdateAvailable(QStringLiteral(VERSION_STR));
     return;
 #endif
@@ -119,6 +143,10 @@ void AutoUpdateChecker::performCheck()
 #else
     request.setAttribute(QNetworkRequest::HTTP2AllowedAttribute, true);
 #endif
+
+    // An unanswered request (captive portal, stalled proxy) must end too: « Vérification… » would
+    // turn for good, and m_CheckInProgress would refuse every later check
+    request.setTransferTimeout(15000);
 
     m_CheckInProgress = true;
     m_Nam->get(request);
@@ -300,6 +328,8 @@ void AutoUpdateChecker::downloadUpdate(QString url)
 
     QNetworkRequest request((QUrl(url)));
     request.setRawHeader("User-Agent", QByteArray("LavArtemis-Desktop/") + VERSION_STR);
+    // Without data for 30 s, the download stops with a message instead of a bar that never moves
+    request.setTransferTimeout(30000);
 
     QNetworkReply* reply = downloadNam->get(request);
 
@@ -357,7 +387,9 @@ void AutoUpdateChecker::downloadUpdate(QString url)
         }
         else {
             QFile::remove(tempPath);
-            emit downloadFailed(reply->errorString());
+            qWarning() << "Update download failed:" << reply->error() << reply->errorString();
+            emit downloadFailed(describeNetworkError(reply->error(),
+                                                     reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()));
         }
 
         reply->deleteLater();
@@ -471,7 +503,7 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
         QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonString.toUtf8(), &error);
         if (jsonDoc.isNull()) {
             qWarning() << "Update manifest malformed:" << error.errorString();
-            emit updateCheckFailed(error.errorString());
+            emit updateCheckFailed(tr("GitHub's answer could not be read."));
             return;
         }
 
@@ -502,39 +534,69 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
         }
 
         qDebug() << "Latest version of LavArtemis from GitHub:" << version;
-
-        QString currentVersion(VERSION_STR);
-        int res = compareVersionStrings(currentVersion, version);
-        if (res < 0) {
-            // Current version < latest version
-            if (m_AutomaticCheck && QSettings().value(SKIPPED_VERSION_KEY).toString() == version) {
-                qDebug() << "Update available but skipped by the user:" << version;
-                emit noUpdateAvailable(currentVersion);
-                return;
-            }
-            qDebug() << "Update available";
-            QString downloadUrl = findAssetDownloadUrl(releaseObj);
-            if (!downloadUrl.isEmpty()) {
-                emit onUpdateDownloadUrl(downloadUrl);
-            }
-            emit onUpdateAvailable(version, releaseObj["html_url"].toString());
-            return;
-        }
-        else if (res > 0) {
-            qDebug() << "GitHub release version lower than current version";
-            emit noUpdateAvailable(currentVersion);
-            return;
-        }
-        else {
-            qDebug() << "GitHub release version equal to current version";
-            emit noUpdateAvailable(currentVersion);
-            return;
-        }
+        reportRelease(version, releaseObj["html_url"].toString(), findAssetDownloadUrl(releaseObj));
     }
     else {
-        qWarning() << "Update checking failed with error:" << reply->error();
-        QString errorString = reply->errorString();
+        qWarning() << "Update checking failed with error:" << reply->error() << reply->errorString();
+        const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QNetworkReply::NetworkError error = reply->error();
         reply->deleteLater();
-        emit updateCheckFailed(errorString);
+        emit updateCheckFailed(describeNetworkError(error, httpStatus));
     }
+}
+
+void AutoUpdateChecker::reportRelease(const QString& version, const QString& pageUrl, const QString& downloadUrl)
+{
+    QString currentVersion(VERSION_STR);
+    int res = compareVersionStrings(currentVersion, version);
+    if (res < 0) {
+        // Current version < latest version
+        if (m_AutomaticCheck && QSettings().value(SKIPPED_VERSION_KEY).toString() == version) {
+            qDebug() << "Update available but skipped by the user:" << version;
+            emit noUpdateAvailable(currentVersion);
+            return;
+        }
+        qDebug() << "Update available";
+        // Empty too: a release without an installer for this PC replaces the URL of an earlier one
+        emit onUpdateDownloadUrl(downloadUrl);
+        emit onUpdateAvailable(version, pageUrl);
+    }
+    else if (res > 0) {
+        qDebug() << "GitHub release version lower than current version";
+        emit noUpdateAvailable(currentVersion);
+    }
+    else {
+        qDebug() << "GitHub release version equal to current version";
+        emit noUpdateAvailable(currentVersion);
+    }
+}
+
+QString AutoUpdateChecker::describeNetworkError(QNetworkReply::NetworkError error, int httpStatus)
+{
+    switch (error) {
+    case QNetworkReply::OperationCanceledError: // what the transfer timeout aborts with
+    case QNetworkReply::TimeoutError:
+        return tr("GitHub did not answer in time. Try again later.");
+    case QNetworkReply::SslHandshakeFailedError:
+        return tr("The secure connection to GitHub failed. Check this PC's date and time.");
+    case QNetworkReply::ConnectionRefusedError:
+    case QNetworkReply::RemoteHostClosedError:
+    case QNetworkReply::HostNotFoundError:
+    case QNetworkReply::TemporaryNetworkFailureError:
+    case QNetworkReply::NetworkSessionFailedError:
+    case QNetworkReply::UnknownNetworkError:
+    case QNetworkReply::ProxyConnectionRefusedError:
+    case QNetworkReply::ProxyConnectionClosedError:
+    case QNetworkReply::ProxyNotFoundError:
+    case QNetworkReply::ProxyTimeoutError:
+    case QNetworkReply::ProxyAuthenticationRequiredError:
+        return tr("GitHub cannot be reached. Check this PC's Internet connection.");
+    default:
+        break;
+    }
+    if (httpStatus > 0) {
+        // 403: GitHub's limit on anonymous requests per hour, the likeliest refusal
+        return tr("GitHub refused the request (HTTP error %1). Try again later.").arg(httpStatus);
+    }
+    return tr("Network error (%1).").arg(static_cast<int>(error));
 }
