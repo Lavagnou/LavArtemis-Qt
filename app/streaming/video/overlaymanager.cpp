@@ -88,6 +88,9 @@ void OverlayManager::setStatusMessage(StatusSource source, const std::string& te
         const auto& benchmark = m_StatusMessages[static_cast<int>(StatusSource::Benchmark)];
         if (!combined.empty() && !benchmark.empty()) combined += "\n\n";
         combined += benchmark;
+        const auto& notification = m_StatusMessages[static_cast<int>(StatusSource::Notification)];
+        if (!combined.empty() && !notification.empty()) combined += "\n\n";
+        combined += notification;
         auto& overlay = m_Overlays[OverlayStatusUpdate];
         if (combined == overlay.text && overlay.enabled == !combined.empty()) return;
         SDL_utf8strlcpy(overlay.text, combined.c_str(), sizeof(overlay.text));

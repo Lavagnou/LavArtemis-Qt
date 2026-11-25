@@ -2,29 +2,29 @@
 
 #include <QObject>
 #include <QClipboard>
-#include <QTimer>
 #include <QQmlEngine>
-#include <QCryptographicHash>
+#include <QStringList>
+
+#include <functional>
+
+#include "nvhttp.h"
 
 class NvComputer;
-class NvHTTP;
-
-// Declare opaque pointers for Qt's meta-object system
-#ifndef NVCOMPUTER_OPAQUE_DECLARED
-#define NVCOMPUTER_OPAQUE_DECLARED
-Q_DECLARE_OPAQUE_POINTER(NvComputer*)
-#endif
-
-#ifndef NVHTTP_OPAQUE_DECLARED
-#define NVHTTP_OPAQUE_DECLARED
-Q_DECLARE_OPAQUE_POINTER(NvHTTP*)
-#endif
 
 /**
- * @brief Manages clipboard synchronization between client and server
- * 
- * This class handles bidirectional clipboard sync with Apollo/Sunshine servers
- * using the /actions/clipboard HTTP endpoint. Based on Artemis Android implementation.
+ * @brief Clipboard sync between this PC and the host during a stream (Apollo / LavApollo,
+ * `/actions/clipboard`).
+ *
+ * Same moments as the Android client (Game.java): this PC's clipboard is sent when the stream
+ * starts, the host's is fetched when leaving with « Déconnecter », and the in-game menu sends or
+ * fetches it on demand. On top of that, a copy made on this PC while the stream runs (the user
+ * switched to another window) is sent at once. Nothing happens outside a stream: the session
+ * connects at its start and disconnects at its end (setConnection() / disconnect()).
+ *
+ * Requests run on a worker thread, never the GUI thread (which also runs the stream's SDL loop),
+ * with a copy of how to reach the host (NvHttpTarget). Each result is reported by showToast():
+ * always for a request made from the menu, only with « Notifier chaque synchronisation » for an
+ * automatic one.
  */
 class ClipboardManager : public QObject
 {
@@ -33,124 +33,86 @@ class ClipboardManager : public QObject
     Q_PROPERTY(bool isConnected READ isConnected NOTIFY connectionChanged)
     Q_PROPERTY(int maxContentSizeMB READ maxContentSizeMB WRITE setMaxContentSizeMB NOTIFY maxContentSizeMBChanged)
     Q_PROPERTY(bool showNotifications READ showNotifications WRITE setShowNotifications NOTIFY showNotificationsChanged)
-    Q_PROPERTY(bool bidirectionalSync READ isBidirectionalSyncEnabled WRITE setBidirectionalSync NOTIFY bidirectionalSyncChanged)
     QML_ELEMENT
 
 public:
     explicit ClipboardManager(QObject *parent = nullptr);
     ~ClipboardManager();
-    
-    // Singleton access for consistent instance across UI and Session
+
+    // One instance for the settings page and the sessions
     static ClipboardManager* instance();
     static ClipboardManager* create(QQmlEngine *qmlEngine, QJSEngine *jsEngine);
 
-    // Property getters
-    bool isEnabled() const { return m_enabled; }
+    // The settings live in ArtemisSettings (Réglages › PC), read each time: never a stale copy
+    bool isEnabled() const;
     bool isConnected() const { return m_connected; }
-    int maxContentSizeMB() const { return m_maxContentSizeMB; }
-    bool showNotifications() const { return m_showNotifications; }
+    int maxContentSizeMB() const;
+    bool showNotifications() const;
 
-    // Property setters
     void setEnabled(bool enabled);
     void setMaxContentSizeMB(int sizeMB);
     void setShowNotifications(bool show);
 
-    // Connection management
-    Q_INVOKABLE void setConnection(NvComputer *computer, NvHTTP *http);
-    Q_INVOKABLE void disconnect();
+    // The session's start and end (main thread). Between the two, the stream runs.
+    void setConnection(NvComputer *computer);
+    void disconnect();
 
-    // Manual sync operations (matches Android API)
-    Q_INVOKABLE bool sendClipboard(bool force = false);
-    Q_INVOKABLE bool getClipboard();
+    // Stream started: sends this PC's clipboard when the sync is on (as Android does)
+    void onStreamStarted();
 
-    // Smart sync control (matches Android settings)
-    Q_INVOKABLE void enableSmartSync(bool enabled);
-    Q_INVOKABLE bool isSmartSyncEnabled() const;
+    // The in-game menu: send this PC's clipboard (even what came from the host) / fetch the host's
+    Q_INVOKABLE void sendClipboard();
+    Q_INVOKABLE void getClipboard();
 
-    // Apollo server detection (clipboard sync only works with Apollo servers)
-    Q_INVOKABLE bool isClipboardSyncSupported() const;
+    // « Déconnecter »: fetches the host's clipboard when the sync is on (as Android does), then
+    // calls `then` (on the main thread): the host serves its clipboard only to a client that still
+    // streams, so the stream ends afterwards. `then` is called at once when there is nothing to fetch.
+    void fetchBeforeDisconnect(std::function<void()> then);
 
-    // Auto-sync triggers (matches Android behavior)
-    Q_INVOKABLE void onStreamStarted();
-    Q_INVOKABLE void onStreamResumed();
-    Q_INVOKABLE void onFocusLost();
-
-    // Settings (matches Android preferences)
-    Q_INVOKABLE void setMaxClipboardSize(int maxSize);
-    Q_INVOKABLE int getMaxClipboardSize() const;
-
-    Q_INVOKABLE void setBidirectionalSync(bool enabled);
-    Q_INVOKABLE bool isBidirectionalSyncEnabled() const;
-
-    Q_INVOKABLE void setShowToast(bool enabled);
-    Q_INVOKABLE bool shouldShowToast() const;
-
-    Q_INVOKABLE void setHideContent(bool enabled);
-    Q_INVOKABLE bool shouldHideContent() const;
+#ifdef LAV_TEST_BUILD
+    // Test build (app/testctl `clipboard`): this PC's clipboard is an in-process text, never the
+    // system clipboard. Setting it is a local copy (a change the sync reacts to). Main thread.
+    static QString testClipboardText();
+    static void setTestClipboardText(const QString& text);
+#endif
 
 signals:
-    void clipboardSyncStarted();
-    void clipboardSyncCompleted();
-    void clipboardSyncFailed(const QString &error);
-    void clipboardContentChanged();
+    // A result to tell the user (Session shows it over the stream)
     void showToast(const QString &message);
-    void apolloSupportChanged(bool supported);
-    
-    // Property change signals
+
     void enabledChanged();
     void connectionChanged();
     void maxContentSizeMBChanged();
     void showNotificationsChanged();
-    void bidirectionalSyncChanged();
 
 private slots:
     void onClipboardChanged();
 
 private:
-    // Settings management
-    void loadSettings();
-    
-    // Core clipboard operations (matches Android implementation)
-    QString getClipboardContent(bool force = false);
-    void setClipboardContent(const QString &content);
-    
-    // Loop prevention (matches Android CLIPBOARD_IDENTIFIER logic)
-    bool isOwnClipboardChange(const QString &content);
-    void markAsOwnContent(const QString &content);
-    QString generateContentHash(const QString &content);
-    
-    // HTTP operations (matches Android NvHTTP methods)
-    bool sendClipboardToServer(const QString &content);
-    QString getClipboardFromServer();
+    enum class Origin { Automatic, Menu };
 
-private:
-    static constexpr int DEFAULT_MAX_SIZE = 1048576; // 1MB (matches Android)
-    static const QString CLIPBOARD_IDENTIFIER; // Matches Android constant
+    // This PC's clipboard (the fake one in the test build)
+    QString localText() const;
+    void setLocalText(const QString& text);
+
+    // Text of this PC's clipboard to send, or a null string (empty, too large, or what we just
+    // received from the host when !force)
+    QString textToSend(bool force) const;
+
+    void upload(const QString& text, Origin origin);
+    void download(Origin origin, std::function<void()> then = {});
+    void report(Origin origin, const QString& message, bool failure);
 
     QClipboard *m_clipboard;
-    
-    NvComputer *m_computer;
-    NvHTTP *m_http;
-    
-    // Settings (matches Android preferences)
-    bool m_smartSyncEnabled;
-    bool m_bidirectionalSync;
-    bool m_showToast;
-    bool m_hideContent;
-    int m_maxClipboardSize;
-    
-    // New property backing variables
-    bool m_enabled;
+
+    // The stream in progress, if any
     bool m_connected;
-    int m_maxContentSizeMB;
-    bool m_showNotifications;
-    
-    // State tracking (matches Android implementation)
-    QString m_lastSentContent;
+    NvHttpTarget m_target;
+    quint64 m_generation; // bumped at each connect / disconnect: late results of an old stream are dropped
+
+    // Loop prevention: what we last received from the host (setting it changes our clipboard,
+    // which must not be sent straight back)
     QString m_lastReceivedContent;
-    QStringList m_ownContentHashes;
-    bool m_syncInProgress;
-    
-    // Static instance for singleton pattern
+
     static ClipboardManager* s_instance;
 };

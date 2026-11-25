@@ -10,9 +10,13 @@ import SystemProperties 1.0
 Item {
     property Session session
     property string appName
-    property string stageText : isResume ? qsTr("Resuming %1...").arg(appName) :
+    property string stageText : isRestart ? qsTr("Host display changed: reconnecting…") :
+                                isResume ? qsTr("Resuming %1...").arg(appName) :
                                            qsTr("Starting %1...").arg(appName)
     property bool isResume : false
+    // The reconnection after a host display change (Session::createRestartSession): says so the
+    // whole time (Android: host_display_changed), and replays no launch warning
+    property bool isRestart : false
     property bool quitAfter : false
     // A benchmark run (BenchmarkView): no warning toasts to wait for, and errors go to
     // the benchmark's report rather than a dialog in the middle of the sequence
@@ -20,14 +24,16 @@ Item {
 
     function stageStarting(stage)
     {
-        // Update the spinner text
-        stageText = qsTr("Starting %1...").arg(stage)
+        // Update the spinner text (the stage's name comes translated: Session, stageLabel)
+        if (!isRestart) {
+            stageText = qsTr("Starting: %1").arg(stage)
+        }
     }
 
     function stageFailed(stage, errorCode, failingPorts)
     {
-        // Display the error dialog after Session::exec() returns
-        streamSegueErrorDialog.text = qsTr("Starting %1 failed: Error %2").arg(stage).arg(errorCode)
+        // Display the error dialog after Session::exec() returns (Android: conn_error_stage)
+        streamSegueErrorDialog.text = qsTr("Start failed: %1 (error %2)").arg(stage).arg(errorCode)
 
         if (failingPorts) {
             streamSegueErrorDialog.text += "\n\n" + qsTr("Check your firewall and port forwarding rules for port(s): %1").arg(failingPorts)
@@ -73,9 +79,13 @@ Item {
                                                    "appName": appName,
                                                    "session": session.createRestartSession(),
                                                    "isResume": true,
-                                                   "quitAfter": quitAfter
+                                                   "isRestart": true,
+                                                   "quitAfter": quitAfter,
+                                                   "benchmarkMode": benchmarkMode
                                                })
             stackView.replace(stackView.currentItem, segue, StackView.Immediate)
+            // The stream window is gone until the new session is up: say what happens meanwhile
+            window.visible = true
             return
         }
 
@@ -198,7 +208,9 @@ Item {
 
             // Display the toasts together in a vertical centered arrangement
             var yOffset = 0
-            for (var i = 0; i < session.launchWarnings.length && !benchmarkMode; i++) {
+            // Not again for the reconnection: they were shown at the launch, and nothing would
+            // show them now but a hidden window, 3.5 s each
+            for (var i = 0; i < session.launchWarnings.length && !benchmarkMode && !isRestart; i++) {
                 var text = session.launchWarnings[i]
                 console.warn(text)
 

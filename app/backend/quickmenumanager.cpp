@@ -4,22 +4,6 @@
 #include "../streaming/session.h"
 #include "settings/streamingpreferences.h"
 
-// Forward declaration of KeyCombo enum values
-enum KeyCombo {
-    KeyComboQuit,
-    KeyComboUngrabInput,
-    KeyComboToggleFullScreen,
-    KeyComboToggleStatsOverlay,
-    KeyComboToggleMouseMode,
-    KeyComboToggleCursorHide,
-    KeyComboToggleMinimize,
-    KeyComboPasteText,
-    KeyComboTogglePointerRegionLock,
-    KeyComboQuitAndExit,
-    KeyComboToggleQuickMenu,
-    KeyComboMax
-};
-
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QGuiApplication>
@@ -46,12 +30,6 @@ QuickMenuManager::QuickMenuManager(QObject *parent)
     , m_isMouseCaptured(false)
     , m_isKeyboardCaptured(false)
     , m_isStatsVisible(false)
-    , m_windowX(0)
-    , m_windowY(0)
-    , m_windowWidth(800)
-    , m_windowHeight(600)
-    , m_hasWindowGeometry(false)
-    , m_ToastWindow(nullptr)
 {
 }
 
@@ -60,23 +38,6 @@ QuickMenuManager::~QuickMenuManager()
     if (m_quickView) {
         delete m_quickView;
     }
-    if (m_ToastWindow) {
-        delete m_ToastWindow;
-    }
-}
-
-bool QuickMenuManager::hasServerCommands() const
-{
-    if (!m_serverCommandManager) {
-        return false;
-    }
-    
-    // Use thread-safe property access when called from QML
-    bool hasPermission = false;
-    QMetaObject::invokeMethod(m_serverCommandManager, "hasPermission", 
-                              Qt::DirectConnection,  // Use DirectConnection if we're on the same thread
-                              Q_RETURN_ARG(bool, hasPermission));
-    return hasPermission;
 }
 
 bool QuickMenuManager::isFullscreen() const
@@ -109,6 +70,9 @@ void QuickMenuManager::setVisible(bool visible)
     
     if (visible) {
         refreshPlayniteGame();
+        if (m_serverCommandManager) {
+            m_serverCommandManager->refreshCommands();
+        }
         createQuickView();
     } else {
         if (m_quickView) {
@@ -131,12 +95,12 @@ void QuickMenuManager::refreshPlayniteGame()
     }
 
     // Host polling is stopped while streaming: ask the host now, off the UI thread.
-    NvComputer *computer = m_computer;
+    const NvHttpTarget target = NvHttpTarget::of(m_computer);
     QPointer<QuickMenuManager> self(this);
-    QThreadPool::globalInstance()->start([computer, self]() {
+    QThreadPool::globalInstance()->start([target, self]() {
         QString name;
         try {
-            NvHTTP http(computer);
+            NvHTTP http(target);
             name = NvHTTP::getXmlString(http.getServerInfo(NvHTTP::NVLL_NONE, true), "PlayniteGameName");
         } catch (...) {
             return;
@@ -156,12 +120,12 @@ void QuickMenuManager::quitPlayniteGame()
         return;
     }
 
-    NvComputer *computer = m_computer;
+    const NvHttpTarget target = NvHttpTarget::of(m_computer);
     QPointer<QuickMenuManager> self(this);
-    QThreadPool::globalInstance()->start([computer, self]() {
+    QThreadPool::globalInstance()->start([target, self]() {
         bool ok = true;
         try {
-            NvHTTP http(computer);
+            NvHTTP http(target);
             QString reply = http.openConnectionToString(http.m_BaseUrlHttps, "playnite-quit-game", nullptr, 5000);
             NvHTTP::verifyResponseStatus(reply);
         } catch (...) {
@@ -194,15 +158,6 @@ void QuickMenuManager::executeAction(const QString &action)
         disconnect();
     } else if (action == "quit") {
         quit();
-    } else if (action == "server_commands") {
-        // This is now handled in QML for navigation
-        qDebug() << "Server commands navigation (handled in QML)";
-    } else if (action == "server_restart") {
-        executeServerCommand("restart");
-    } else if (action == "server_shutdown") {
-        executeServerCommand("shutdown");
-    } else if (action == "server_suspend") {
-        executeServerCommand("suspend");
     } else if (action == "clipboard_upload") {
         uploadClipboard();
     } else if (action == "clipboard_fetch") {
@@ -227,115 +182,52 @@ void QuickMenuManager::executeAction(const QString &action)
             input->setAbsoluteTouchMode(!input->isAbsoluteTouchMode());
             StreamingPreferences* prefs = StreamingPreferences::get();
             if (prefs->rememberTouchMode) {
-                prefs->absoluteTouchMode = input->isAbsoluteTouchMode();
-                emit prefs->absoluteTouchModeChanged();
-                prefs->save();
+                // This setting only: save() would also write what the command line overrode for this
+                // launch (--resolution, --fps...), as if the user had chosen it in Réglages
+                prefs->saveAbsoluteTouchMode(input->isAbsoluteTouchMode());
             }
         }
     }
 }
 
-void QuickMenuManager::showToast(const QString &message) {
-    // Updated implementation, now displays outside QuickMenu
-    if (!m_ToastWindow) {
-        m_ToastWindow = new QQuickView();
-        m_ToastWindow->setSource(QUrl("qrc:/gui/Toast.qml"));
-        m_ToastWindow->setColor(QColor(Qt::transparent));
-        m_ToastWindow->setFlags(Qt::ToolTip | Qt::FramelessWindowHint);
-        m_ToastWindow->setResizeMode(QQuickView::SizeRootObjectToView);
+void QuickMenuManager::showToast(const QString &message)
+{
+    // Over the stream, like « Micro coupé »: the stream window may be in exclusive full screen,
+    // where another window on top would not show (or would knock it out of full screen)
+    if (Session::get()) {
+        Session::get()->showNotification(message);
     }
-
-    QVariant retVal;
-    QMetaObject::invokeMethod(m_ToastWindow->rootObject(), "showToast",
-                              Q_RETURN_ARG(QVariant, retVal),
-                              Q_ARG(QVariant, message));
-    m_ToastWindow->show();
-    QTimer::singleShot(3000, m_ToastWindow, &QQuickView::hide);
-
-    qDebug() << "QuickMenuManager: showToast(" << message << ")";
 }
 
 void QuickMenuManager::disconnect()
 {
     qDebug() << "QuickMenuManager: Disconnect requested";
     emit disconnectRequested();
-    
-    // Send SDL quit event to disconnect
-    SDL_Event quitEvent;
-    quitEvent.type = SDL_QUIT;
-    quitEvent.quit.timestamp = SDL_GetTicks();
-    SDL_PushEvent(&quitEvent);
+
+    // Only a stream that runs can be ended from the menu: a quit request left over would end the
+    // next stream at once, or the whole program (SdlGamepadKeyNavigation reads SDL_QUIT)
+    Session* session = Session::get();
+    if (session == nullptr || !session->isStreamLoopRunning()) {
+        return;
+    }
+    session->disconnectFromMenu();
 }
 
 void QuickMenuManager::quit()
 {
     qDebug() << "QuickMenuManager: Quit requested";
     emit quitRequested();
-    
+
     // « Quitter la session »: quit the app on the host, end the stream and go back to the
     // client's home, as Android does. Not setShouldExit(): that also exits the whole program
     // (the quit-and-exit key combo, SIGTERM). A stream launched from the command line or an
     // art:// link still exits once it ends (StreamSegue.quitAfter).
-    if (Session::get()) {
-        Session::get()->setQuitHostApp();
-    }
-    
-    SDL_Event quitEvent;
-    quitEvent.type = SDL_QUIT;
-    quitEvent.quit.timestamp = SDL_GetTicks();
-    SDL_PushEvent(&quitEvent);
-}
-
-void QuickMenuManager::executeServerCommand(const QString &command)
-{
-    qDebug() << "QuickMenuManager: Server command requested:" << command;
-    emit serverCommandsRequested();
-    
-    // Map our simplified command names to the actual ServerCommandManager command IDs
-    QString commandId;
-    if (command == "restart") {
-        commandId = "restart_server";
-    } else if (command == "shutdown") {
-        commandId = "shutdown_server";
-    } else if (command == "suspend") {
-        commandId = "suspend_computer";
-    } else {
-        qDebug() << "QuickMenuManager: Unknown server command:" << command;
+    Session* session = Session::get();
+    if (session == nullptr || !session->isStreamLoopRunning()) {
         return;
     }
-    
-    // Use QMetaObject::invokeMethod to safely execute the server command from any thread
-    // This ensures thread safety when accessing ServerCommandManager from QML
-    if (m_serverCommandManager) {
-        // First check if the server command manager has permission (thread-safe property access)
-        bool hasPermission = false;
-        QMetaObject::invokeMethod(m_serverCommandManager, "hasPermission", 
-                                  Qt::BlockingQueuedConnection,
-                                  Q_RETURN_ARG(bool, hasPermission));
-                                  
-        if (hasPermission) {
-            qDebug() << "QuickMenuManager: Executing server command:" << commandId;
-            // Execute the command using thread-safe invocation
-            QMetaObject::invokeMethod(m_serverCommandManager, "executeCommand", 
-                                      Qt::QueuedConnection,
-                                      Q_ARG(QString, commandId));
-        } else {
-            qDebug() << "QuickMenuManager: Server commands not available or no permission";
-            
-            // Show error message briefly
-            if (Session::get()) {
-                auto& overlayManager = Session::get()->getOverlayManager();
-                overlayManager.setOverlayState(Overlay::OverlayServerCommands, true);
-                overlayManager.updateOverlayText(Overlay::OverlayServerCommands, tr("Server commands not available").toUtf8().constData());
-                
-                QTimer::singleShot(2000, [&overlayManager]() {
-                    overlayManager.setOverlayState(Overlay::OverlayServerCommands, false);
-                });
-            }
-        }
-    } else {
-        qDebug() << "QuickMenuManager: No ServerCommandManager available";
-    }
+    session->setQuitHostApp();
+    session->requestStreamEnd();
 }
 
 void QuickMenuManager::uploadClipboard()
@@ -434,12 +326,7 @@ void QuickMenuManager::setServerCommandManager(ServerCommandManager *manager)
     }
     
     m_serverCommandManager = manager;
-    
-    if (m_serverCommandManager) {
-        connect(m_serverCommandManager, &ServerCommandManager::permissionChanged,
-                this, &QuickMenuManager::onServerCommandsChanged);
-    }
-    
+
     emit serverCommandsChanged();
 }
 
@@ -453,14 +340,25 @@ void QuickMenuManager::setWindow(QWindow *window)
     m_window = window;
 }
 
-void QuickMenuManager::setWindowGeometry(int x, int y, int width, int height)
+void QuickMenuManager::setStreamWindowRect(const QRect& rect)
 {
-    qDebug() << "QuickMenuManager::setWindowGeometry:" << x << y << width << height;
-    m_windowX = x;
-    m_windowY = y;
-    m_windowWidth = width;
-    m_windowHeight = height;
-    m_hasWindowGeometry = true;
+    m_streamWindowRect = rect;
+    if (m_quickView && m_isVisible) {
+        placeQuickView();
+    }
+}
+
+void QuickMenuManager::placeQuickView()
+{
+    // Centred over the stream window, in Qt's logical coordinates (Session converts the SDL
+    // window's rectangle: SDL counts physical pixels on Windows)
+    const QSize size(500, 400);
+    if (m_streamWindowRect.isValid()) {
+        m_quickView->setGeometry(QRect(m_streamWindowRect.center() - QPoint(size.width() / 2, size.height() / 2), size));
+    }
+    else {
+        m_quickView->setGeometry(QRect(QPoint(400, 300), size));
+    }
 }
 
 void QuickMenuManager::onServerCommandsChanged()
@@ -536,23 +434,11 @@ void QuickMenuManager::createQuickView()
         
         // Set transparent background
         m_quickView->setColor(QColor(Qt::transparent));
-        
-        // Position the view to center the menu on screen
-        int centerX, centerY;
-        if (m_hasWindowGeometry) {
-            centerX = m_windowX + (m_windowWidth - 500) / 2;
-            centerY = m_windowY + (m_windowHeight - 400) / 2;
-            qDebug() << "Centering menu at:" << centerX << centerY;
-            m_quickView->setGeometry(centerX, centerY, 500, 400);
-        } else {
-            qDebug() << "Using default centered position";
-            m_quickView->setGeometry(400, 300, 500, 400);
-        }
     }
-    
+
     if (m_quickView) {
-        // Don't call updateQuickView() - it overrides our centered positioning
-        qDebug() << "Showing QuickView with geometry:" << m_quickView->geometry();
+        // Placed at each opening: the stream window may have moved or changed size since
+        placeQuickView();
         m_quickView->show();
 #ifndef LAV_TEST_BUILD // test build: the menu never takes the focus
         m_quickView->raise();
@@ -561,20 +447,3 @@ void QuickMenuManager::createQuickView()
     }
 }
 
-void QuickMenuManager::updateQuickView()
-{
-    // Don't update geometry - we want to keep the centered position
-    // This function used to override our centered positioning
-    qDebug() << "updateQuickView() called but not changing geometry to preserve centering";
-}
-
-void QuickMenuManager::sendKeyCombo(int keyCombo)
-{
-    // This function would need to integrate with the input system
-    // to send the appropriate key combinations
-    // For now, we'll just emit the signals and let the Session handle it
-    
-    // This is a placeholder - in a real implementation, you'd need to 
-    // trigger the key combo through the input system
-    qDebug() << "QuickMenuManager: Sending key combo:" << keyCombo;
-}

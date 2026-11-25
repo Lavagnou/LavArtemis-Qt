@@ -16,6 +16,7 @@
 #include "backend/quickmenumanager.h"
 #include "backend/servercommandmanager.h"
 #include "backend/clipboardmanager.h"
+#include "streaming/panzoom.h"
 #include "settings/artemissettings.h"
 #include "backend/systemproperties.h"
 
@@ -59,6 +60,7 @@
 #include <QGuiApplication>
 #include <QCursor>
 #include <QScreen>
+#include <QPointer>
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QQuickOpenGLUtils>
@@ -124,13 +126,43 @@ CONNECTION_LISTENER_CALLBACKS Session::k_ConnCallbacks = {
 
 Session* Session::s_ActiveSession;
 QSemaphore Session::s_ActiveSessionSemaphore(1);
+#ifdef LAV_TEST_BUILD
+int Session::s_TestRestartCount = 0;
+#endif
+
+// The connection stages moonlight-common-c names in English (LiGetStageName), in the app's
+// language, as Android's utils/StreamStages: « Démarrage : négociation RTSP ». A name it does not
+// know (a new stage) is shown as is.
+static QString stageLabel(int stage)
+{
+    static const char* const k_Stages[] = {
+        QT_TRANSLATE_NOOP("Session", "platform initialization"),
+        QT_TRANSLATE_NOOP("Session", "name resolution"),
+        QT_TRANSLATE_NOOP("Session", "audio stream initialization"),
+        QT_TRANSLATE_NOOP("Session", "RTSP handshake"),
+        QT_TRANSLATE_NOOP("Session", "control stream initialization"),
+        QT_TRANSLATE_NOOP("Session", "video stream initialization"),
+        QT_TRANSLATE_NOOP("Session", "input stream initialization"),
+        QT_TRANSLATE_NOOP("Session", "control stream establishment"),
+        QT_TRANSLATE_NOOP("Session", "video stream establishment"),
+        QT_TRANSLATE_NOOP("Session", "audio stream establishment"),
+        QT_TRANSLATE_NOOP("Session", "input stream establishment"),
+    };
+    const char* name = LiGetStageName(stage);
+    for (const char* known : k_Stages) {
+        if (strcmp(known, name) == 0) {
+            return QCoreApplication::translate("Session", known);
+        }
+    }
+    return QString::fromLocal8Bit(name);
+}
 
 void Session::clStageStarting(int stage)
 {
     // We know this is called on the same thread as LiStartConnection()
     // which happens to be the main thread, so it's cool to interact
     // with the GUI in these callbacks.
-    emit s_ActiveSession->stageStarting(QString::fromLocal8Bit(LiGetStageName(stage)));
+    emit s_ActiveSession->stageStarting(stageLabel(stage));
 }
 
 void Session::clStageFailed(int stage, int errorCode)
@@ -145,7 +177,7 @@ void Session::clStageFailed(int stage, int errorCode)
 
     char failingPorts[128];
     LiStringifyPortFlags(portFlags, ", ", failingPorts, sizeof(failingPorts));
-    emit s_ActiveSession->stageFailed(QString::fromLocal8Bit(LiGetStageName(stage)), errorCode, QString(failingPorts));
+    emit s_ActiveSession->stageFailed(stageLabel(stage), errorCode, QString(failingPorts));
 }
 
 void Session::clConnectionTerminated(int errorCode)
@@ -187,7 +219,7 @@ void Session::clConnectionTerminated(int errorCode)
     case ML_ERROR_FRAME_CONVERSION:
         s_ActiveSession->m_UnexpectedTermination = true;
         emit s_ActiveSession->displayLaunchError(tr("The host PC reported a fatal video encoding error.") + "\n\n" +
-                                                 tr("Try disabling HDR mode, changing the streaming resolution, or changing your host PC's display resolution."));
+                                                 tr("Try changing the streaming resolution or your host PC's display resolution."));
         break;
 
     default:
@@ -204,11 +236,8 @@ void Session::clConnectionTerminated(int errorCode)
                  "Connection terminated: %d",
                  errorCode);
 
-    // Push a quit event to the main loop
-    SDL_Event event;
-    event.type = SDL_QUIT;
-    event.quit.timestamp = SDL_GetTicks();
-    SDL_PushEvent(&event);
+    // End the stream's loop
+    s_ActiveSession->requestStreamEnd();
 }
 
 void Session::clLogMessage(const char* format, ...)
@@ -249,9 +278,11 @@ void Session::clConnectionStatusUpdate(int connectionStatus)
     switch (connectionStatus)
     {
     case CONN_STATUS_POOR:
+        // Android's slow_connection_msg / poor_connection_msg
         s_ActiveSession->m_OverlayManager.setStatusMessage(Overlay::StatusSource::Network,
-                                                            s_ActiveSession->m_StreamConfig.bitrate > 5000 ?
-                                                                "Slow connection to PC\nReduce your bitrate" : "Poor connection to PC");
+                                                            (s_ActiveSession->m_StreamConfig.bitrate > 5000 ?
+                                                                 tr("Slow connection to PC\nReduce your bitrate") :
+                                                                 tr("Poor connection to PC")).toStdString());
         break;
     case CONN_STATUS_OKAY:
         s_ActiveSession->m_OverlayManager.setStatusMessage(Overlay::StatusSource::Network, "");
@@ -657,7 +688,9 @@ Session::getDecoderAvailability(SDL_Window* window,
 
 void Session::toggleQuickMenu()
 {
-    if (m_QuickMenuManager) {
+    if (m_QuickMenuManager && isStreamLoopRunning()) {
+        // Where the stream window is now: it may have moved or gone full screen since
+        m_QuickMenuManager->setStreamWindowRect(streamWindowLogicalRect());
         m_QuickMenuManager->toggle();
     }
 }
@@ -797,12 +830,20 @@ void Session::setBenchmarkMode(int warmupSeconds, int measureSeconds, int window
 
 bool Session::isRestartRequested() const
 {
-    return m_RestartRequested;
+    return m_RestartRequested && !m_QuitHostApp && !m_ShouldExit;
 }
 
 Session* Session::createRestartSession()
 {
-    return new Session(m_Computer, m_App, m_Preferences);
+#ifdef LAV_TEST_BUILD
+    s_TestRestartCount++;
+#endif
+    // The host still runs the app: join it (resume), never launch it again. currentGameId is
+    // not refreshed while streaming, and a launch would skip the display fit (with a virtual
+    // display), reconnect again at the next poll, and so on.
+    Session* session = new Session(m_Computer, m_App, m_Preferences);
+    session->m_ForceResume = true;
+    return session;
 }
 
 // Polls the host display's mode every 2.5 s on a worker (Qt timers don't run while we stream; this
@@ -842,10 +883,7 @@ void Session::hostDisplayWatchTick()
                     m_Computer->currentDisplayRefreshRate = poll.refresh;
                 }
                 m_RestartRequested = true;
-                SDL_Event event;
-                event.type = SDL_QUIT;
-                event.quit.timestamp = SDL_GetTicks();
-                SDL_PushEvent(&event);
+                requestStreamEnd();
                 return;
             }
         }
@@ -857,13 +895,13 @@ void Session::hostDisplayWatchTick()
     }
     m_HostDisplayLastPollMs = now;
 
-    NvComputer* computer = m_Computer;
+    const NvHttpTarget target = NvHttpTarget::of(m_Computer);
     std::shared_ptr<HostDisplayPoll> shared = m_HostDisplayPoll;
-    QThreadPool::globalInstance()->start([shared, computer]() {
+    QThreadPool::globalInstance()->start([shared, target]() {
         bool known = false;
         int w = 0, h = 0, refresh = 0;
         try {
-            NvHTTP http(computer);
+            NvHTTP http(target);
             QString serverInfo = http.getServerInfo(NvHTTP::NvLogLevel::NVLL_NONE, true);
             w = NvHTTP::getXmlString(serverInfo, "CurrentDisplayWidth").toInt();
             h = NvHTTP::getXmlString(serverInfo, "CurrentDisplayHeight").toInt();
@@ -914,10 +952,7 @@ void Session::benchmarkTick()
         m_BenchmarkStopped = true;
         m_BenchmarkCompleted = m_BenchmarkSnapshots.size() > windows;
         m_OverlayManager.setStatusMessage(Overlay::StatusSource::Benchmark, "");
-        SDL_Event event;
-        event.type = SDL_QUIT;
-        event.quit.timestamp = SDL_GetTicks();
-        SDL_PushEvent(&event);
+        requestStreamEnd();
         return;
     }
 
@@ -1293,8 +1328,10 @@ bool Session::initialize(QQuickWindow* qtWindow)
             hostRefresh = m_Computer->currentDisplayRefreshRate;
             currentGameId = m_Computer->currentGameId;
         }
-        // A Playnite game started inside the running Playnite front end joins its display too.
-        const bool resuming = currentGameId != 0 && (currentGameId == m_App.id || m_App.isPlayniteGame);
+        // A Playnite game started inside the running Playnite front end joins its display too, and
+        // so does the reconnection after a host display change (createRestartSession).
+        const bool resuming = m_ForceResume ||
+                (currentGameId != 0 && (currentGameId == m_App.id || m_App.isPlayniteGame));
         if (!m_MultiDisplayActive && hostW > 0 && hostH > 0 &&
                 HostDisplayFit::applies(resuming, m_Preferences->useVirtualDisplay)) {
             HostDisplayFit::Mode m = HostDisplayFit::fit(hostW, hostH, hostRefresh,
@@ -1635,32 +1672,10 @@ bool Session::initialize(QQuickWindow* qtWindow)
     // now surfaces warnings through the launchWarnings Q_PROPERTY + launchWarningsChanged
     // signal, which QML renders; the old displayLaunchWarning signal no longer exists.
 
-    // Initialize ServerCommandManager and ClipboardManager after everything is configured
-    if (m_ServerCommandManager && m_QuickMenuManager && m_ClipboardManager) {
-        // Set up the ServerCommandManager with the computer and HTTP client
-        NvHTTP* httpClient = new NvHTTP(m_Computer);
-        m_ServerCommandManager->setConnection(m_Computer, httpClient);
-        
-        // Set up the ClipboardManager with the same HTTP client
-        m_ClipboardManager->setConnection(m_Computer, httpClient);
-        
-        // Connect the ServerCommandManager to the QuickMenuManager
-        m_QuickMenuManager->setServerCommandManager(m_ServerCommandManager);
-        m_QuickMenuManager->setComputer(m_Computer);
-        
-        // Connect the ClipboardManager to the QuickMenuManager
-        m_QuickMenuManager->setClipboardManager(m_ClipboardManager);
-        
-        // Connect signals for permission updates
-        connect(m_ServerCommandManager, &ServerCommandManager::permissionChanged,
-                m_QuickMenuManager, &QuickMenuManager::serverCommandsChanged);
-        
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                    "ServerCommandManager and ClipboardManager initialized and connected to QuickMenuManager");
-    } else {
-        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                    "Failed to initialize ServerCommandManager, ClipboardManager or QuickMenuManager is null");
-    }
+    // The in-game menu's helpers; they start working with the stream (exec())
+    m_QuickMenuManager->setServerCommandManager(m_ServerCommandManager);
+    m_QuickMenuManager->setComputer(m_Computer);
+    m_QuickMenuManager->setClipboardManager(m_ClipboardManager);
 
     return true;
 }
@@ -2073,10 +2088,13 @@ private:
 
     void run() override
     {
-        // Only quit the running app if our session terminated gracefully
+        // Only quit the running app if our session terminated gracefully. « Quitter l'appli sur le
+        // PC distant à la fin » never applies to the end that precedes the reconnection after a
+        // host display change: the reconnection joins that app (StreamSegue, createRestartSession).
         bool shouldQuit =
                 !m_Session->m_UnexpectedTermination &&
-                (m_Session->m_Preferences->quitAppAfter || m_Session->m_QuitHostApp);
+                (m_Session->m_QuitHostApp ||
+                 (m_Session->m_Preferences->quitAppAfter && !m_Session->isRestartRequested()));
 
         // Notify the UI
         if (shouldQuit) {
@@ -2103,11 +2121,22 @@ private:
         if (shouldQuit) {
             NvHTTP http(m_Session->m_Computer);
 
-            // Logging is already done inside NvHTTP
+            // Logging is already done inside NvHTTP. A refusal is said, as when the home quits an
+            // app (PendingQuitTask): the app keeps running on the host.
+            QString quitError;
             try {
                 http.quitApp();
-            } catch (const GfeHttpResponseException&) {
-            } catch (const QtNetworkReplyException&) {
+            } catch (const GfeHttpResponseException& e) {
+                quitError = e.getStatusCode() == 599
+                        ? QCoreApplication::translate("PendingQuitTask",
+                                                      "The running game wasn't started by this PC. "
+                                                      "You must quit the game on the host PC manually or use the device that originally started the game.")
+                        : e.toQString();
+            } catch (const QtNetworkReplyException& e) {
+                quitError = e.toQString();
+            }
+            if (!quitError.isEmpty()) {
+                emit m_Session->displayLaunchError(quitError);
             }
 
             // Session is finished now
@@ -2438,7 +2467,7 @@ void Session::notifyMouseEmulationMode(bool enabled)
     // We re-use the status update overlay for mouse mode notification
     if (m_MouseEmulationRefCount > 0) {
         m_OverlayManager.setStatusMessage(Overlay::StatusSource::Mouse,
-                                         "Gamepad mouse mode active\nLong press Start to deactivate");
+                                         tr("Gamepad mouse mode active\nLong press Start to deactivate").toStdString());
     }
     else {
         m_OverlayManager.setStatusMessage(Overlay::StatusSource::Mouse, "");
@@ -2469,7 +2498,8 @@ bool Session::startConnectionAsync()
     // The UI should have ensured the old game was already quit
     // if we decide to stream a different game.
     // (or the app is a Playnite game the host starts inside its running Playnite front end).
-    Q_ASSERT(m_Computer->currentGameId == 0 ||
+    Q_ASSERT(m_ForceResume ||
+             m_Computer->currentGameId == 0 ||
              m_Computer->currentGameId == m_App.id ||
              m_App.isPlayniteGame);
 
@@ -2500,7 +2530,7 @@ bool Session::startConnectionAsync()
 
     try {
         NvHTTP http(m_Computer);
-        http.startApp(m_Computer->currentGameId != 0 ? "resume" : "launch",
+        http.startApp(m_ForceResume || m_Computer->currentGameId != 0 ? "resume" : "launch",
                       m_Computer->isNvidiaServerSoftware,
                       m_App.id, m_App.uuid, &m_StreamConfig,
                       enableGameOptimizations,
@@ -2642,7 +2672,8 @@ bool Session::startConnectionAsync()
 
 void Session::toggleMicrophoneMute()
 {
-    if (m_MicStreamer == nullptr) {
+    // Main thread, while the stream runs: after the loop, the cleanup worker deletes the streamer
+    if (!isMicrophoneActive()) {
         return;
     }
 
@@ -2747,17 +2778,129 @@ void Session::interrupt()
     // Stop any connection in progress
     LiInterruptConnection();
 
-    // Inject a quit event to our SDL event loop
+    // End our SDL event loop
+    requestStreamEnd();
+}
+
+bool Session::requestStreamEnd()
+{
+    std::lock_guard<std::mutex> guard(m_QuitLock);
+    if (m_LoopState.load() == LoopEnded) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Stream already over: quit request ignored");
+        return false;
+    }
+    // Before the loop starts, the event waits for it (a connection ended while starting)
     SDL_Event event;
     event.type = SDL_QUIT;
     event.quit.timestamp = SDL_GetTicks();
     SDL_PushEvent(&event);
+    return true;
+}
+
+void Session::endStreamLoop()
+{
+    {
+        std::lock_guard<std::mutex> guard(m_QuitLock);
+        m_LoopState = LoopEnded;
+        // A second « Quitter la session », a host ending the stream as the user quits... all
+        // answered by this one end: none may outlive it
+        SDL_FlushEvent(SDL_QUIT);
+    }
+
+    // The menu goes with its stream: left open, its entries would act on nothing
+    if (m_QuickMenuManager != nullptr) {
+        m_QuickMenuManager->hide();
+    }
+
+    // Nothing is synced once the stream is over
+    if (m_ClipboardManager != nullptr) {
+        QObject::disconnect(m_ClipboardManager, &ClipboardManager::showToast, this, &Session::showNotification);
+        m_ClipboardManager->disconnect();
+    }
+    m_NotificationEndMs = 0;
+    m_OverlayManager.setStatusMessage(Overlay::StatusSource::Notification, "");
+}
+
+void Session::disconnectFromMenu()
+{
+    if (!isStreamLoopRunning() || m_DisconnectRequested) {
+        return;
+    }
+    m_DisconnectRequested = true;
+    // Should the fetch never answer, menuTick() ends the stream anyway
+    m_DisconnectDeadlineMs = SDL_GetTicks64() + 4000;
+    QPointer<Session> self(this);
+    m_ClipboardManager->fetchBeforeDisconnect([self]() {
+        if (self) {
+            self->requestStreamEnd();
+        }
+    });
+}
+
+void Session::showNotification(const QString& text)
+{
+    if (text.isEmpty() || !isStreamLoopRunning()) {
+        return;
+    }
+#ifdef LAV_TEST_BUILD
+    testToasts().append(text);
+#endif
+    m_OverlayManager.setStatusMessage(Overlay::StatusSource::Notification, text.toStdString());
+    m_NotificationEndMs = SDL_GetTicks64() + 3000;
+}
+
+void Session::menuTick()
+{
+    const uint64_t now = SDL_GetTicks64();
+    if (m_NotificationEndMs != 0 && now >= m_NotificationEndMs) {
+        m_NotificationEndMs = 0;
+        m_OverlayManager.setStatusMessage(Overlay::StatusSource::Notification, "");
+    }
+    if (m_DisconnectRequested && m_DisconnectDeadlineMs != 0 && now >= m_DisconnectDeadlineMs) {
+        m_DisconnectDeadlineMs = 0;
+        requestStreamEnd();
+    }
+}
+
+QRect Session::streamWindowLogicalRect() const
+{
+    if (m_Window == nullptr) {
+        return QRect();
+    }
+
+    int x, y, w, h;
+    SDL_GetWindowPosition(m_Window, &x, &y);
+    SDL_GetWindowSize(m_Window, &w, &h);
+    int pixelW = w;
+#if SDL_VERSION_ATLEAST(2, 26, 0)
+    int pixelH;
+    SDL_GetWindowSizeInPixels(m_Window, &pixelW, &pixelH);
+#endif
+    // Where SDL counts in points (macOS, Wayland), they are Qt's logical units already
+    if (pixelW > w + 1) {
+        return QRect(x, y, w, h);
+    }
+
+    // Physical pixels (Windows). Qt's logical coordinates keep each screen's top-left corner and
+    // divide the rest by that screen's scale (125 % on the testbench's PC).
+    const QPoint centre(x + w / 2, y + h / 2);
+    for (QScreen* screen : QGuiApplication::screens()) {
+        const QRect logical = screen->geometry();
+        const qreal dpr = screen->devicePixelRatio();
+        const QRect native(logical.topLeft(), QSize(qRound(logical.width() * dpr), qRound(logical.height() * dpr)));
+        if (native.contains(centre)) {
+            return QRect(logical.topLeft() + QPoint(qRound((x - logical.x()) / dpr), qRound((y - logical.y()) / dpr)),
+                         QSize(qRound(w / dpr), qRound(h / dpr)));
+        }
+    }
+    return QRect(x, y, w, h);
 }
 
 void Session::exec()
 {
     // If the connection failed, clean up and abort the connection.
     if (!m_AsyncConnectionSuccess) {
+        endStreamLoop();
         delete m_InputHandler;
         m_InputHandler = nullptr;
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
@@ -2879,6 +3022,7 @@ void Session::exec()
                          "SDL_CreateWindow() failed: %s",
                          SDL_GetError());
 
+            endStreamLoop();
             delete m_InputHandler;
             m_InputHandler = nullptr;
             SDL_QuitSubSystem(SDL_INIT_VIDEO);
@@ -2895,19 +3039,8 @@ void Session::exec()
     lavTestShowNoActivate(m_Window);
 #endif
 
-    // Set window geometry for QuickMenuManager
-    if (m_QuickMenuManager) {
-        // Get actual window position after SDL window creation
-        int actualX, actualY;
-        SDL_GetWindowPosition(m_Window, &actualX, &actualY);
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                    "Setting QuickMenuManager geometry: %d,%d %dx%d (actual pos: %d,%d)", 
-                    x, y, width, height, actualX, actualY);
-        m_QuickMenuManager->setWindowGeometry(actualX, actualY, width, height);
-    } else {
-        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                    "QuickMenuManager is null when trying to set geometry");
-    }
+    // The in-game menu opens centred over the stream window (updated when it moves)
+    m_QuickMenuManager->setStreamWindowRect(streamWindowLogicalRect());
 
     // The stream window carries the "session in progress" logo (the lit screen), the other
     // windows the regular one: the same pair as LavApollo's tray icon (docs/branding).
@@ -3005,6 +3138,21 @@ void Session::exec()
     // Toggle the stats overlay if requested by the user
     m_OverlayManager.setOverlayState(Overlay::OverlayDebug, m_Preferences->showPerformanceOverlay);
 
+    // Client-side zoom is a static of the stream view: each stream starts at 1x (Ctrl+Alt+Shift+0)
+    PanZoom::reset();
+
+    // The in-game menu's helpers work while the stream runs (endStreamLoop() stops them)
+    {
+        std::lock_guard<std::mutex> guard(m_QuitLock);
+        // A quit requested while connecting was queued for this loop: it ends it at once
+        m_LoopState = LoopRunning;
+    }
+    m_ServerCommandManager->setConnection(m_Computer);
+    m_ClipboardManager->setConnection(m_Computer);
+    connect(m_ClipboardManager, &ClipboardManager::showToast, this, &Session::showNotification, Qt::UniqueConnection);
+    // This PC's clipboard to the host, as Android does when the stream starts
+    m_ClipboardManager->onStreamStarted();
+
     // Switch to async logging mode when we enter the SDL loop
     StreamUtils::enterAsyncLoggingMode();
 
@@ -3032,6 +3180,7 @@ void Session::exec()
         // Runs at least once a second (the wait below times out): measures and ends a benchmark run
         benchmarkTick();
         hostDisplayWatchTick();
+        menuTick();
 
 #if SDL_VERSION_ATLEAST(2, 0, 18) && !defined(STEAM_LINK)
         // SDL 2.0.18 has a proper wait event implementation that uses platform
@@ -3143,11 +3292,6 @@ void Session::exec()
 
                 // Stop covering the taskbar while the user is looking elsewhere
                 setSpanningWindowOnTop(false);
-                
-                // Trigger clipboard sync from server when focus is lost
-                if (m_ClipboardManager) {
-                    m_ClipboardManager->onFocusLost();
-                }
                 break;
             case SDL_WINDOWEVENT_FOCUS_GAINED:
                 if (m_Preferences->muteOnFocusLoss) {
@@ -3158,6 +3302,11 @@ void Session::exec()
                 break;
             case SDL_WINDOWEVENT_LEAVE:
                 m_InputHandler->notifyMouseLeave();
+                break;
+            case SDL_WINDOWEVENT_MOVED:
+            case SDL_WINDOWEVENT_SIZE_CHANGED:
+                // An open in-game menu follows the stream window
+                m_QuickMenuManager->setStreamWindowRect(streamWindowLogicalRect());
                 break;
             }
 
@@ -3444,6 +3593,7 @@ DispatchDeferredCleanup:
 #ifdef LAV_TEST_BUILD
     m_TestStreamLoopActive = false;
 #endif
+    endStreamLoop();
     // Switch back to synchronous logging mode
     StreamUtils::exitAsyncLoggingMode();
 

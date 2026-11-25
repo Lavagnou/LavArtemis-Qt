@@ -19,7 +19,8 @@ enum OverlayType {
     OverlayMax
 };
 
-enum class StatusSource { Network, ClientPacing, Mouse, Microphone, Benchmark, Count };
+// Notification: a short-lived message (clipboard, server commands...), Session::showNotification()
+enum class StatusSource { Network, ClientPacing, Mouse, Microphone, Benchmark, Notification, Count };
 
 class IOverlayRenderer
 {

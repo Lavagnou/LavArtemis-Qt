@@ -13,7 +13,6 @@
         <file>gui/NavigableDialog.qml</file>
         <file>gui/CliPair.qml</file>
         <file>gui/QuickMenu.qml</file>
-        <file>gui/Toast.qml</file>
         <file>gui/BenchmarkView.qml</file>
         <file>gui/v2/qmldir</file>
         <file>gui/v2/Theme.qml</file>

@@ -23,7 +23,6 @@ class QuickMenuManager : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool isVisible READ isVisible WRITE setVisible NOTIFY visibilityChanged)
-    Q_PROPERTY(bool hasServerCommands READ hasServerCommands NOTIFY serverCommandsChanged)
     Q_PROPERTY(bool isFullscreen READ isFullscreen NOTIFY fullscreenChanged)
     Q_PROPERTY(bool isMouseCaptured READ isMouseCaptured NOTIFY mouseCaptureChanged)
     Q_PROPERTY(bool isKeyboardCaptured READ isKeyboardCaptured NOTIFY keyboardCaptureChanged)
@@ -40,7 +39,6 @@ public:
 
     // Property getters
     bool isVisible() const { return m_isVisible; }
-    bool hasServerCommands() const;
     bool isFullscreen() const;
     bool isMouseCaptured() const;
     bool isKeyboardCaptured() const;
@@ -56,7 +54,7 @@ public:
     Q_INVOKABLE void executeAction(const QString &action);
     Q_INVOKABLE void disconnect();
     Q_INVOKABLE void quit();
-    Q_INVOKABLE void executeServerCommand(const QString &command);
+    // A notification over the stream (Session::showNotification)
     Q_INVOKABLE void showToast(const QString &message);
     Q_INVOKABLE void uploadClipboard();
     Q_INVOKABLE void fetchClipboard();
@@ -83,7 +81,8 @@ public:
 
     // Window management
     void setWindow(QWindow *window);
-    void setWindowGeometry(int x, int y, int width, int height);
+    // The stream window, in Qt's logical coordinates; the menu opens centred over it
+    void setStreamWindowRect(const QRect& rect);
 
     ServerCommandManager* serverCommandManager() const { return m_serverCommandManager; }
 
@@ -116,8 +115,7 @@ private slots:
 
 private:
     void createQuickView();
-    void updateQuickView();
-    void sendKeyCombo(int keyCombo);
+    void placeQuickView();
     void refreshPlayniteGame();
 
     NvComputer *m_computer = nullptr;
@@ -137,9 +135,5 @@ private:
     bool m_isKeyboardCaptured;
     bool m_isStatsVisible;
     
-    // Window geometry fallback when no QWindow is available
-int m_windowX, m_windowY, m_windowWidth, m_windowHeight;
-    bool m_hasWindowGeometry;
-
-    QQuickView *m_ToastWindow; // Toast window for notifications
+    QRect m_streamWindowRect;
 };

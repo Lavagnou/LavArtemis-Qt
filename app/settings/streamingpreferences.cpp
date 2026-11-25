@@ -400,6 +400,18 @@ QString StreamingPreferences::getSuffixFromLanguage(StreamingPreferences::Langua
     }
 }
 
+void StreamingPreferences::saveAbsoluteTouchMode(bool absolute)
+{
+    absoluteTouchMode = absolute;
+    emit absoluteTouchModeChanged();
+    if (m_Detached) {
+        return;
+    }
+    ProfileManager* prefs = ProfileManager::instance();
+    prefs->setValue(SER_ABSTOUCHMODE, absoluteTouchMode);
+    prefs->save();
+}
+
 void StreamingPreferences::save()
 {
     // A detached copy is somebody's experiment, never the user's settings

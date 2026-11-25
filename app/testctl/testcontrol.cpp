@@ -3,12 +3,14 @@
 
 #include "SDL_compat.h"
 #include <SDL_syswm.h>
+#include "backend/clipboardmanager.h"
 #include "backend/computermanager.h"
 #include "backend/nvcomputer.h"
 #include "settings/artemissettings.h"
 #include "settings/profilemanager.h"
 #include "settings/streamingpreferences.h"
 #include "streaming/input/testinput.h"
+#include "streaming/panzoom.h"
 #include "streaming/session.h"
 
 #include <QCoreApplication>
@@ -358,6 +360,7 @@ void TestControl::registerCommands()
     m_Dispatcher.add("setting", bind(&TestControl::cmdSetting));
     m_Dispatcher.add("reset", bind(&TestControl::cmdReset));
     m_Dispatcher.add("quit", bind(&TestControl::cmdQuit));
+    m_Dispatcher.add("clipboard", bind(&TestControl::cmdClipboard));
     m_Dispatcher.add("commands", [this](const QJsonObject&, QJsonObject& result, QString&) {
         result["commands"] = QJsonArray::fromStringList(m_Dispatcher.commands());
         return true;
@@ -863,7 +866,54 @@ bool TestControl::cmdState(const QJsonObject&, QJsonObject& result, QString& err
     session["width"] = streaming ? active->testStreamConfig().width : 0;
     session["height"] = streaming ? active->testStreamConfig().height : 0;
     session["fps"] = streaming ? active->testStreamConfig().fps : 0;
+    // Reconnections after a host display change, since the process started
+    session["restarts"] = Session::testRestartCount();
+    // What the stream window shows over the video: the performance overlay and the status messages
+    // (slow connection, gamepad mouse mode, muted microphone, notifications...)
+    if (active != nullptr) {
+        Overlay::OverlayManager& overlay = active->getOverlayManager();
+        const bool statsShown = overlay.isOverlayEnabled(Overlay::OverlayDebug);
+        session["overlayStats"] = QJsonObject{
+            {"shown", statsShown},
+            {"text", statsShown ? QString::fromStdString(overlay.getOverlayText(Overlay::OverlayDebug)) : QString()},
+        };
+        session["statusMessage"] = overlay.isOverlayEnabled(Overlay::OverlayStatusUpdate)
+                ? QString::fromStdString(overlay.getOverlayText(Overlay::OverlayStatusUpdate)) : QString();
+        session["micActive"] = active->isMicrophoneActive();
+        session["micMuted"] = active->isMicrophoneMuted();
+    }
+    else {
+        session["overlayStats"] = QJsonObject{{"shown", false}, {"text", QString()}};
+        session["statusMessage"] = QString();
+        session["micActive"] = false;
+        session["micMuted"] = false;
+    }
+    session["zoom"] = PanZoom::scale();
     result["session"] = session;
+    // In-game notifications shown since the process started, oldest first; "toast" = the last one
+    const QStringList& toasts = Session::testToasts();
+    result["toasts"] = QJsonArray::fromStringList(toasts);
+    result["toast"] = toasts.isEmpty() ? QString() : toasts.last();
+    return true;
+}
+
+bool TestControl::cmdClipboard(const QJsonObject& args, QJsonObject& result, QString& error)
+{
+    // This PC's clipboard as the client sees it: in the test build, an in-process text, never the
+    // system clipboard (ClipboardManager::testClipboardText)
+    const QString action = args.value("action").toString("get");
+    if (action == "set") {
+        if (!args.value("text").isString()) {
+            error = QStringLiteral("set needs \"text\"");
+            return false;
+        }
+        ClipboardManager::setTestClipboardText(args.value("text").toString());
+    }
+    else if (action != "get") {
+        error = QStringLiteral("action: \"get\" (default) or \"set\"");
+        return false;
+    }
+    result["text"] = ClipboardManager::testClipboardText();
     return true;
 }
 

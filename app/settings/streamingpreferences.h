@@ -27,6 +27,10 @@ public:
 
     Q_INVOKABLE void save();
 
+    // « Retenir le mode tactile choisi en jeu »: writes this one setting (into the active profile,
+    // if any), never the others: they may hold values the command line overrode for this launch.
+    void saveAbsoluteTouchMode(bool absolute);
+
     void reload();
 
     enum AudioConfig

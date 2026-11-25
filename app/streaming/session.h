@@ -125,7 +125,8 @@ public:
     Q_INVOKABLE void start();
     Q_INVOKABLE void interrupt();
     // Host display mode changed mid-session: StreamSegue starts createRestartSession() instead of
-    // returning to the app list (HostDisplayWatch)
+    // returning to the app list (HostDisplayWatch). Never when the stream was also quit or the
+    // program exits: a reconnection then would bring back what the user ended.
     Q_INVOKABLE bool isRestartRequested() const;
     Q_INVOKABLE Session* createRestartSession();
     Q_PROPERTY(QStringList launchWarnings MEMBER m_LaunchWarnings NOTIFY launchWarningsChanged);
@@ -145,12 +146,30 @@ public:
         return m_OverlayManager;
     }
 
+    // Main thread: exec()'s SDL loop runs, the stream is on screen. The in-game menu acts only
+    // then: once the loop is over, the session is being torn down on a worker.
+    bool isStreamLoopRunning() const { return m_LoopState.load() == LoopRunning; }
+
+    // Ends the stream (any thread): every end of a stream goes through here. Refused once the
+    // loop is over: an SDL_QUIT left in the queue would end the next stream at once, or the
+    // whole program (SdlGamepadKeyNavigation quits on it). Returns false when refused.
+    bool requestStreamEnd();
+
+    // « Déconnecter » in the in-game menu (main thread): fetches the host's clipboard first
+    // when the sync is on (as Android does; the host serves it only to a client that streams),
+    // then ends the stream.
+    void disconnectFromMenu();
+
+    // A short notification over the stream (main thread): clipboard results, server commands,
+    // Playnite. Shown about 3 s with the other status messages.
+    void showNotification(const QString& text);
+
     // Microphone passthrough: whether this PC's microphone is being sent, and muting it.
-    // Main thread only.
-    bool isMicrophoneActive() const { return m_MicStreamer != nullptr; }
+    // Main thread only, while the stream runs (the streamer is deleted by the cleanup worker).
+    bool isMicrophoneActive() const { return isStreamLoopRunning() && m_MicStreamer != nullptr; }
     // The in-game menu drives the input handler (touch mode, capture, full screen). Main thread.
     SdlInputHandler* getInputHandler() const { return m_InputHandler; }
-    bool isMicrophoneMuted() const { return m_MicStreamer != nullptr && m_MicStreamer->isMuted(); }
+    bool isMicrophoneMuted() const { return isMicrophoneActive() && m_MicStreamer->isMuted(); }
     void toggleMicrophoneMute();
 
     bool clientPacingWarningsEnabled() const { return m_Preferences->connectionWarnings; }
@@ -207,6 +226,18 @@ public:
     // Test build: the stream as negotiated with the host, after HostDisplayFit and every other
     // adjustment of initialize(): the size of the pictures the host sends. Main thread.
     const STREAM_CONFIGURATION& testStreamConfig() const { return m_StreamConfig; }
+
+    // Test build: sessions started by a host display change since the process started
+    // (createRestartSession). Main thread.
+    static int testRestartCount() { return s_TestRestartCount; }
+
+    // Test build: every in-game notification shown since the process started, oldest first
+    // (clipboard results, server commands, Playnite...). Main thread.
+    static QStringList& testToasts()
+    {
+        static QStringList toasts;
+        return toasts;
+    }
 #endif
 
 signals:
@@ -261,6 +292,17 @@ private:
     void setSpanningWindowOnTop(bool onTop);
 
     void toggleQuickMenu();
+
+    // The stream window's rectangle in Qt's logical coordinates (the in-game menu is a Qt window)
+    QRect streamWindowLogicalRect() const;
+
+    // Main thread, end of exec()'s loop (or of a stream that never got one): no stream end can be
+    // requested any more, the quit requests already queued are dropped, the menu goes away.
+    void endStreamLoop();
+
+    // Called from the SDL loop: clears an expired notification, ends a « Déconnecter » whose
+    // clipboard fetch never answered
+    void menuTick();
 
     void notifyMouseEmulationMode(bool enabled);
 
@@ -439,6 +481,16 @@ private:
     };
     std::shared_ptr<HostDisplayPoll> m_HostDisplayPoll = std::make_shared<HostDisplayPoll>();
     bool m_RestartRequested = false;
+    // A session started by createRestartSession(): it joins the session the host runs (resume),
+    // whatever NvComputer::currentGameId says (not refreshed while streaming)
+    bool m_ForceResume = false;
+
+    enum { LoopNotStarted, LoopRunning, LoopEnded };
+    std::atomic<int> m_LoopState{LoopNotStarted};
+    std::mutex m_QuitLock; // a quit request and the end of the loop never interleave
+    bool m_DisconnectRequested = false;
+    uint64_t m_DisconnectDeadlineMs = 0;
+    uint64_t m_NotificationEndMs = 0;
     Benchmark::RawStats m_BenchmarkCarry;
     int m_BenchmarkWarmupMs = 0;
     int m_BenchmarkMeasureMs = 0;
@@ -453,4 +505,7 @@ private:
     static CONNECTION_LISTENER_CALLBACKS k_ConnCallbacks;
     static Session* s_ActiveSession;
     static QSemaphore s_ActiveSessionSemaphore;
+#ifdef LAV_TEST_BUILD
+    static int s_TestRestartCount;
+#endif
 };

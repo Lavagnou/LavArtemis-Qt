@@ -14,6 +14,5 @@
         <file alias="gui/NavigableDialog.qml">gui/NavigableDialog.qml</file>
         <file alias="gui/CliPair.qml">gui/CliPair.qml</file>
         <file alias="gui/QuickMenu.qml">gui/QuickMenu.qml</file>
-        <file alias="gui/Toast.qml">gui/Toast.qml</file>
     </qresource>
 </RCC>

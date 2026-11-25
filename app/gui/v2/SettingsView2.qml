@@ -1454,7 +1454,7 @@ FocusScope {
                         SettingToggle {
                             label: qsTr("Synchroniser le presse-papiers")
                             expert: true
-                            description: qsTr("Copier ici, coller là-bas, et inversement, pendant le stream (Apollo / LavApollo). Le menu en jeu envoie ou récupère aussi le presse-papiers à la demande.")
+                            description: qsTr("Envoie ton presse-papiers au PC distant au début du stream et à chaque copie faite ici, et récupère le sien quand tu te déconnectes. Le menu en jeu le fait aussi à la demande.")
                             descriptionLines: 3
                             checked: ClipboardManager.isEnabled
                             onToggled: (v) => { ClipboardManager.isEnabled = v; settingsPage.persist() }

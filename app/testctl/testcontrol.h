@@ -74,6 +74,7 @@ private:
     bool cmdSetting(const QJsonObject& args, QJsonObject& result, QString& error);
     bool cmdReset(const QJsonObject& args, QJsonObject& result, QString& error);
     bool cmdQuit(const QJsonObject& args, QJsonObject& result, QString& error);
+    bool cmdClipboard(const QJsonObject& args, QJsonObject& result, QString& error);
 
     // Stream input (SDL_PushEvent into the session's SDL loop)
     bool pushKey(SDL_Window* window, const TestProtocol::KeySpec& key, int modifiers, int state, QString& error);

@@ -1,7 +1,6 @@
 import QtQuick 2.9
 import QtQuick.Controls 2.2
 import QtQuick.Layouts 1.2
-import ServerCommandManager 1.0
 import KeyMacroManager 1.0
 import SystemProperties 1.0
 import ArtemisSettings 1.0
@@ -98,7 +97,8 @@ Rectangle {
             
             delegate: Button {
                 width: menuListView.width
-                height: 60
+                // A row grows for a description on two lines (« Aucune commande de serveur » explains why)
+                height: Math.max(60, contentItem.implicitHeight + 20)
                 flat: true
 
                 background: Rectangle {
@@ -146,6 +146,10 @@ Rectangle {
                             font.pointSize: 10
                             font.family: Theme.textFont
                             color: quickMenu.mutedColor
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            maximumLineCount: 2
+                            elide: Text.ElideRight
                         }
                     }
                 }
@@ -227,23 +231,17 @@ Rectangle {
 
     Connections {
         target: quickMenuManager.serverCommandManager
+        // The host's commands, as it listed them (Android: GameMenu.showServerCmd)
         function onCommandsRefreshed() {
-            console.log("Server commands refreshed, updating model...");
             serverCommandsModel.clear();
-            var commandIds = quickMenuManager.serverCommandManager.getAvailableCommands();
-            for (var i = 0; i < commandIds.length; i++) {
-                var commandId = commandIds[i];
-                var icon = "⚙️"; // Default
-                if (commandId.toLowerCase() === "shutdown") {
-                    icon = "⏻";
-                } else if (commandId.toLowerCase() === "restart") {
-                    icon = "🔄";
-                }
+            var names = quickMenuManager.serverCommandManager.getAvailableCommands();
+            for (var i = 0; i < names.length; i++) {
                 serverCommandsModel.append({
-                    icon: icon,
-                    text: quickMenuManager.serverCommandManager.getCommandName(commandId),
-                    action: commandId, // Use command ID as the action
-                    description: quickMenuManager.serverCommandManager.getCommandDescription(commandId)
+                    icon: "⚙",
+                    text: names[i],
+                    // Prefixed: a command may bear the name of one of the menu's own actions
+                    action: "server_cmd:" + names[i],
+                    description: qsTr("Command of the host PC")
                 });
             }
             if (serverCommandsModel.count === 0) {
@@ -255,11 +253,13 @@ Rectangle {
                     description: qsTr("Make sure the host runs Apollo / LavApollo and this client has the \"Server Command\" permission.")
                 });
             }
-            console.log("Server commands model updated with", serverCommandsModel.count, "commands");
         }
-        function onCommandExecuted(commandId, success, result) {
-            showMessage(success ? qsTr("Command \"%1\" sent").arg(quickMenuManager.serverCommandManager.getCommandName(commandId))
-                                : qsTr("Command \"%1\" failed: %2").arg(quickMenuManager.serverCommandManager.getCommandName(commandId)).arg(result));
+        // Said over the stream: the menu closes right after
+        function onCommandExecuted(commandName) {
+            quickMenuManager.showToast(qsTr("Command \"%1\" sent").arg(commandName))
+        }
+        function onCommandFailed(commandName, error) {
+            quickMenuManager.showToast(qsTr("Command \"%1\" failed: %2").arg(commandName).arg(error))
         }
     }
     
@@ -372,12 +372,8 @@ Rectangle {
         } else if (action === "no_server_command") {
             return;
         } else if (action === "server_commands") {
-            if (quickMenuManager.serverCommandManager && quickMenuManager.serverCommandManager.hasPermission) {
-                currentMenu = "server_commands";
-            } else {
-                showMessage(qsTr("Server commands not available"));
-                closeMenuDelayed();
-            }
+            // Always open, as on Android: an empty list says why
+            currentMenu = "server_commands";
             return;
         } else if (action === "quit_playnite_game") {
             quickMenuManager.quitPlayniteGame();
@@ -391,16 +387,10 @@ Rectangle {
             KeyMacroManager.sendMacro(action.substring(6));
             closeMenuDelayed();
             return;
-        } else { // It might be a server command
-            for (var i = 0; i < serverCommandsModel.count; i++) {
-                if (serverCommandsModel.get(i).action === action) {
-                    if (quickMenuManager.serverCommandManager) {
-                        quickMenuManager.serverCommandManager.executeCommand(action);
-                        closeMenuDelayed();
-                    }
-                    return;
-                }
-            }
+        } else if (action.indexOf("server_cmd:") === 0) {
+            quickMenuManager.serverCommandManager.executeCommand(action.substring(11));
+            closeMenuDelayed();
+            return;
         }
         
         // Show action feedback
@@ -423,15 +413,6 @@ Rectangle {
                 break
             case "quit":
                 message = qsTr("Quitting session...")
-                break
-            case "server_restart":
-                message = ServerCommandManager.hasServerCommands ? qsTr("Restarting server...") : qsTr("Server commands not available")
-                break
-            case "server_shutdown":
-                message = ServerCommandManager.hasServerCommands ? qsTr("Shutting down server...") : qsTr("Server commands not available")
-                break
-            case "server_suspend":
-                message = ServerCommandManager.hasServerCommands ? qsTr("Suspending server...") : qsTr("Server commands not available")
                 break
             case "clipboard_upload":
                 message = qsTr("Uploading clipboard to server...")
