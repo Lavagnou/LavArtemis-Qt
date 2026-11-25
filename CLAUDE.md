@@ -554,9 +554,19 @@ jamais son pointeur, jamais de son, jamais son vrai micro**.
   hérité du GUI ; titre « … - Test ». SDL2 ici = **sdl2-compat 2.32.70 sur SDL3**, qui ignore
   `SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN` : on pose les hints SDL3 par leur nom, `SDL_WINDOW_ACTIVATE_WHEN_SHOWN=0` et
   `SDL_WINDOW_ACTIVATE_WHEN_RAISED=0`, avant `SDL_CreateWindow`. La fenêtre est créée `SDL_WINDOW_HIDDEN`, reçoit
-  `WS_EX_NOACTIVATE`, puis `ShowWindow(SW_SHOWNOACTIVATE)` (`lavTestShowNoActivate()`) ; `WS_EX_NOACTIVATE` est reposé
-  (`lavTestMakeNonActivating()`) sur `SDL_WINDOWEVENT_SHOWN` / `RESTORED` et après chaque (re)création du décodeur (le
-  renderer peut recréer le HWND, `SDL_RecreateWindow`). Aucun `SDL_RaiseWindow` dans le code.
+  `WS_EX_NOACTIVATE`, puis **`SDL_ShowWindow()`** (`lavTestShowNoActivate()`) : le `WIN_ShowWindow` de SDL3 voit le style
+  (et le hint), affiche par `SetWindowPos(SWP_SHOWWINDOW | SWP_NOACTIVATE)` et lève son drapeau `showing_window` pendant
+  l'événement SHOWN ; `WS_EX_NOACTIVATE` est reposé (`lavTestMakeNonActivating()`) sur `SDL_WINDOWEVENT_SHOWN` /
+  `RESTORED` et après chaque (re)création du décodeur (le renderer peut recréer le HWND, `SDL_RecreateWindow`). Aucun
+  `SDL_RaiseWindow` dans le code.
+  - ⚠️ **Jamais de `ShowWindow()` Win32 direct sur la fenêtre SDL**, même `SW_SHOWNOACTIVATE` : SDL reçoit alors
+    `WM_SHOWWINDOW` hors de son propre chemin d'affichage (`showing_window` faux), l'événement SHOWN applique les
+    drapeaux en attente, `SDL_RestoreWindow` → `ShowWindow(SW_RESTORE)`, et **`SW_RESTORE` active la fenêtre malgré
+    `WS_EX_NOACTIVATE`**. C'était le cas jusqu'au 2026-11-25 : la fenêtre du stream s'activait à chaque lancement
+    (vu par un hook `WH_CBT` sur `HCBT_ACTIVATE`, pile : `NtUserShowWindow` ← SDL3 ← `WM_SHOWWINDOW` ← notre
+    `ShowWindow`). L'ancien échantillonneur à 50 ms du testbench ne le voyait pas ; le hook `EVENT_SYSTEM_FOREGROUND`
+    du `conftest.py` le voit. Pour enquêter de nouveau : un hook `WH_CBT` sur le thread principal (`HCBT_ACTIVATE`) +
+    `CaptureStackBackTrace` / `SymFromAddr` donne l'appelant exact.
 - **GUI** : `main.qml` reçoit le contexte `lavTestBuild` : `flags` = `Qt.Window | Qt.WindowDoesNotAcceptFocus` (Qt :
   `SW_SHOWNOACTIVATE` + `WS_EX_NOACTIVATE`) et un simple `show()` (jamais maximisé / plein écran) ; titre « LavArtemis
   Test ». Le menu rapide perd `raise()` / `requestActivate()` et prend `WindowDoesNotAcceptFocus`. Aucun autre

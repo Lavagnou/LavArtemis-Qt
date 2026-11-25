@@ -85,18 +85,15 @@ void lavTestMakeNonActivating(SDL_Window* window)
     }
 }
 
+// Shown by SDL, never by a raw ShowWindow(): SDL3's WIN_ShowWindow sees WS_EX_NOACTIVATE (and the
+// ACTIVATE_WHEN_SHOWN hint), shows with SWP_NOACTIVATE and raises its showing_window flag while
+// the SHOWN event is handled. A raw ShowWindow(SW_SHOWNOACTIVATE) skipped that flag: the SHOWN
+// event applied the pending window flags, SDL_RestoreWindow -> ShowWindow(SW_RESTORE), and
+// SW_RESTORE activates the window whatever its extended style.
 void lavTestShowNoActivate(SDL_Window* window)
 {
     lavTestMakeNonActivating(window);
-    SDL_SysWMinfo info;
-    SDL_VERSION(&info.version);
-    if (SDL_GetWindowWMInfo(window, &info) && info.subsystem == SDL_SYSWM_WINDOWS) {
-        ShowWindow(info.info.win.window, SW_SHOWNOACTIVATE);
-    }
-    if (!(SDL_GetWindowFlags(window) & SDL_WINDOW_SHOWN)) {
-        // SDL has not seen the show yet: the decoder is created on its SHOWN event
-        SDL_ShowWindow(window);
-    }
+    SDL_ShowWindow(window);
 }
 #else
 void lavTestMakeNonActivating(SDL_Window*) {}
@@ -2893,8 +2890,8 @@ void Session::exec()
     m_InputHandler->setWindow(m_Window);
 
 #ifdef LAV_TEST_BUILD
-    // Test build: WS_EX_NOACTIVATE first (the window can never become the foreground window,
-    // not even by a click), then show it with SW_SHOWNOACTIVATE.
+    // Test build: WS_EX_NOACTIVATE first (a click does not activate the window), then
+    // SDL_ShowWindow(), which honours it (see lavTestShowNoActivate).
     lavTestShowNoActivate(m_Window);
 #endif
 
