@@ -55,6 +55,13 @@
     </message>
 </context>
 <context>
+    <name>ArtLink</name>
+    <message>
+        <source>This art:// link or .art file can&apos;t be opened.</source>
+        <translation>Impossible d&apos;ouvrir ce lien art:// ou ce fichier .art.</translation>
+    </message>
+</context>
+<context>
     <name>AutoUpdateChecker</name>
     <message>
         <source>Updates are not handled in-app on this platform.</source>
@@ -102,47 +109,54 @@
     </message>
 </context>
 <context>
+    <name>BenchmarkNotes</name>
+    <message>
+        <source>No frames arrived to measure.</source>
+        <translation>Aucune image n&apos;est arrivée pour la mesure.</translation>
+    </message>
+    <message>
+        <source>The run was cut short.</source>
+        <translation>Le passage a été interrompu.</translation>
+    </message>
+    <message>
+        <source>No frames were shown.</source>
+        <translation>Aucune image n&apos;a été affichée.</translation>
+    </message>
+    <message>
+        <source>The stream did not start.</source>
+        <translation>Le stream n&apos;a pas démarré.</translation>
+    </message>
+    <message>
+        <source>The stream could not start.</source>
+        <translation>Le stream n&apos;a pas pu démarrer.</translation>
+    </message>
+    <message>
+        <source>VRR is not available on this display</source>
+        <translation>Le pacing VRR n&apos;est pas disponible</translation>
+    </message>
+    <message>
+        <source>%1 is not available: the device fell back to %2</source>
+        <translation>%1 n&apos;est pas disponible : l&apos;appareil est revenu à %2</translation>
+    </message>
+    <message>
+        <source>Ran as %1, %2 instead.</source>
+        <translation>Passé en %1, %2 à la place.</translation>
+    </message>
+    <message>
+        <source>Starting %1 failed: error %2.</source>
+        <translation>Échec au démarrage (%1) : erreur %2.</translation>
+    </message>
+    <message>
+        <source>The connection ended (error %1).</source>
+        <translation>La connexion s&apos;est coupée (erreur %1).</translation>
+    </message>
+    <message>
+        <source>The bitrate was capped at %1 Mbps.</source>
+        <translation>Le débit a été plafonné à %1 Mbit/s.</translation>
+    </message>
+</context>
+<context>
     <name>BenchmarkRunner</name>
-    <message>
-        <source>V-Sync off</source>
-        <translation>V-Sync désactivée</translation>
-    </message>
-    <message>
-        <source>V-Sync</source>
-        <translation type="unfinished">Synchronisation verticale (V-Sync)</translation>
-    </message>
-    <message>
-        <source>V-Sync + frame pacing</source>
-        <translation>V-Sync + frame pacing</translation>
-    </message>
-    <message>
-        <source>VRR, low latency</source>
-        <translation>VRR, faible latence</translation>
-    </message>
-    <message>
-        <source>VRR, balanced</source>
-        <translation>VRR, équilibré</translation>
-    </message>
-    <message>
-        <source>VRR, smooth</source>
-        <translation>VRR, fluide</translation>
-    </message>
-    <message>
-        <source>Default pacing</source>
-        <translation>Frame pacing par défaut</translation>
-    </message>
-    <message>
-        <source>Ultra low latency</source>
-        <translation>Latence ultra faible</translation>
-    </message>
-    <message>
-        <source>Paced ultra low latency</source>
-        <translation>Latence ultra faible avec pacing</translation>
-    </message>
-    <message>
-        <source>Predictive pacing</source>
-        <translation>Pacing prédictif</translation>
-    </message>
     <message>
         <source>Your settings</source>
         <translation>Tes réglages</translation>
@@ -188,40 +202,8 @@
         <translation>passage %1 sur %2, %3</translation>
     </message>
     <message>
-        <source>Starting %1 failed: error %2</source>
-        <translation>Échec du lancement de %1 : erreur %2</translation>
-    </message>
-    <message>
         <source>Run %1 of %2: %3</source>
         <translation>Passage %1 sur %2 : %3</translation>
-    </message>
-    <message>
-        <source>The stream could not start.</source>
-        <translation>Le stream n&apos;a pas pu démarrer.</translation>
-    </message>
-    <message>
-        <source>The stream did not start.</source>
-        <translation>Le stream n&apos;a pas démarré.</translation>
-    </message>
-    <message>
-        <source>No frames arrived to measure.</source>
-        <translation>Aucune image n&apos;est arrivée pour la mesure.</translation>
-    </message>
-    <message>
-        <source>The run was cut short.</source>
-        <translation>Le passage a été écourté.</translation>
-    </message>
-    <message>
-        <source>No frames were shown.</source>
-        <translation>Aucune image n&apos;a été affichée.</translation>
-    </message>
-    <message>
-        <source>Ran as %1 instead.</source>
-        <translation>Lancé en %1 à la place.</translation>
-    </message>
-    <message>
-        <source>The bitrate was capped at %1 Mbps.</source>
-        <translation>Le débit a été plafonné à %1 Mbit/s.</translation>
     </message>
     <message>
         <source>The report could not be saved: %1</source>
@@ -236,12 +218,84 @@
         <translation>Benchmark arrêté. Les mesures déjà faites sont conservées.</translation>
     </message>
     <message>
+        <source>Benchmark stopped before the first run: nothing was measured.</source>
+        <translation>Benchmark arrêté avant le premier passage : rien n&apos;a été mesuré.</translation>
+    </message>
+    <message>
+        <source>Benchmark stopped: nothing could be measured.</source>
+        <translation>Benchmark arrêté : rien n&apos;a pu être mesuré.</translation>
+    </message>
+    <message>
         <source>This file is not a LavArtemis benchmark report.</source>
         <translation>Ce fichier n&apos;est pas un rapport de benchmark LavArtemis.</translation>
     </message>
     <message>
         <source>Your settings now use %1.</source>
         <translation>Tes réglages utilisent maintenant %1.</translation>
+    </message>
+    <message>
+        <source>V-Sync off</source>
+        <translation>V-Sync désactivée</translation>
+    </message>
+    <message>
+        <source>V-Sync</source>
+        <translation>V-Sync</translation>
+    </message>
+    <message>
+        <source>V-Sync + frame pacing</source>
+        <translation>V-Sync + frame pacing</translation>
+    </message>
+    <message>
+        <source>VRR, low latency</source>
+        <translation>VRR, faible latence</translation>
+    </message>
+    <message>
+        <source>VRR, balanced</source>
+        <translation>VRR, équilibré</translation>
+    </message>
+    <message>
+        <source>VRR, smooth</source>
+        <translation>VRR, fluide</translation>
+    </message>
+    <message>
+        <source>Default pacing</source>
+        <translation>Frame pacing par défaut</translation>
+    </message>
+    <message>
+        <source>Ultra low latency</source>
+        <translation>Latence ultra faible</translation>
+    </message>
+    <message>
+        <source>Paced ultra low latency</source>
+        <translation>Latence ultra faible avec pacing</translation>
+    </message>
+    <message>
+        <source>Predictive pacing</source>
+        <translation>Pacing prédictif</translation>
+    </message>
+    <message>
+        <source>Quick</source>
+        <translation>Rapide</translation>
+    </message>
+    <message>
+        <source>Full</source>
+        <translation>Complet</translation>
+    </message>
+    <message>
+        <source>Adaptive</source>
+        <translation>Adaptatif</translation>
+    </message>
+    <message>
+        <source>Balanced</source>
+        <translation>Équilibré</translation>
+    </message>
+    <message>
+        <source>Lowest latency</source>
+        <translation>Latence minimale</translation>
+    </message>
+    <message>
+        <source>Smoothest</source>
+        <translation>Le plus fluide</translation>
     </message>
 </context>
 <context>
@@ -252,15 +306,7 @@
     </message>
     <message>
         <source>Benchmark · %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>%1 is not available: the client fell back to %2</source>
-        <translation>%1 n&apos;est pas disponible : le client est revenu à %2</translation>
-    </message>
-    <message>
-        <source>VRR is not available on this display</source>
-        <translation>Le VRR n&apos;est pas disponible sur cet écran</translation>
+        <translation>Benchmark · %1</translation>
     </message>
     <message>
         <source>Streams an animated scene from %1 several times in a row, each time with another codec, bitrate or frame pacing, and scores the latency and smoothness of each against your current settings. Your settings are not changed unless you apply a result.</source>
@@ -268,7 +314,7 @@
     </message>
     <message>
         <source>Test</source>
-        <translation type="unfinished"></translation>
+        <translation>Test</translation>
     </message>
     <message>
         <source>Quick</source>
@@ -1294,6 +1340,13 @@
     </message>
 </context>
 <context>
+    <name>MappingManager</name>
+    <message>
+        <source>Unknown gamepad</source>
+        <translation>Manette inconnue</translation>
+    </message>
+</context>
+<context>
     <name>NetworkBuffers</name>
     <message>
         <source>This PC&apos;s network adapter has a small receive buffer, so PyroWave frames may lose detail. Fix it in Settings, Video (expert mode), under the video codec.</source>
@@ -2134,6 +2187,10 @@
     <message>
         <source>diagonal</source>
         <translation>diagonale</translation>
+    </message>
+    <message>
+        <source>Unknown device</source>
+        <translation>Appareil inconnu</translation>
     </message>
     <message>
         <source>Button %1</source>
