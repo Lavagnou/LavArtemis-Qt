@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nvcomputer.h"
+#include "nvhttp.h"
 #include "settings/streamingpreferences.h"
 #include "settings/compatfetcher.h"
 
@@ -13,6 +14,8 @@
 #include <QThread>
 #include <QReadWriteLock>
 #include <QSettings>
+#include <QSet>
+#include <QSslCertificate>
 #include <QRunnable>
 #include <QTimer>
 #include <QMutex>
@@ -232,19 +235,46 @@ public:
     // only); empty when it is allowed, and always empty in any other build.
     Q_INVOKABLE QString testGuardRefusal(QString address);
 
-    void addNewHost(NvAddress address, bool mdns, QString name = QString(), NvAddress mdnsIpv6Address = NvAddress());
+    // userInput: what the user typed (addNewHostManually), given back by computerAddCompleted
+    void addNewHost(NvAddress address, bool mdns, QString name = QString(), NvAddress mdnsIpv6Address = NvAddress(),
+                    QString userInput = QString());
 
     QString generatePinString();
 
-    void pairHost(NvComputer* computer, QString pin);
+    // One pairing at a time (Android's HostsActivity.pairing): false, and nothing started, while
+    // another one runs. The host's poller is stopped for the pairing and restarted after it.
+    bool pairHost(NvComputer* computer, QString pin);
 
-    void pairHostWithOTP(NvComputer* computer, QString pin, QString passphrase);
+    bool pairHostWithOTP(NvComputer* computer, QString pin, QString passphrase);
+
+    // The pairing under way: its host and the PIN shown (empty when none), so a page that opens
+    // again shows the same dialog instead of starting a second pairing
+    Q_INVOKABLE QString pairingUuid();
+    Q_INVOKABLE QString pairingPin();
+
+    // « Ajouter un PC » (Android's AddComputerManually): whether a typed address can be read at
+    // all (address, address:port, [v6], [v6]:port, bare v6), and after a failed add, whether it
+    // is a private IPv4 address outside every network of this PC (v2_add_wrong_subnet)
+    Q_INVOKABLE static bool isValidManualAddress(QString address);
+    Q_INVOKABLE static bool isWrongSubnetAddress(QString address);
+    static bool parseManualAddress(QString address, NvAddress& result);
+
+    // Pairing errors: Android's sentences (v2_pair_*), naming the host, translated
+    enum class PairingError { Failed, WrongPin, InGame, Busy, UnknownHost, NotFound, Network, TimedOut, LinkExpired };
+    static QString pairingErrorText(const QString& name, PairingError error, const QString& detail = QString());
+    static QString pairingErrorText(const QString& name, const GfeHttpResponseException& e);
+    static QString pairingErrorText(const QString& name, const QtNetworkReplyException& e);
+
+    // devicename= of the pairing requests (percent-encoded): this PC's name, as in serverinfo
+    static QString clientDeviceName();
 
     void quitRunningApp(NvComputer* computer);
 
     QVector<NvComputer*> getComputers();
 
-    // computer is deleted inside this call
+    // The host leaves the list now (computerRemoved, then computerStateChanged, on this thread);
+    // the object itself is deleted later, on this thread too, once its poller has stopped and no
+    // pairing uses it. GUI thread only.
     void deleteHost(NvComputer* computer);
 
     void renameHost(NvComputer* computer, QString name);
@@ -254,12 +284,19 @@ public:
 signals:
     void computerStateChanged(NvComputer* computer);
 
+    // Emitted on the GUI thread by deleteHost(), before computerStateChanged(): whoever keeps
+    // this pointer (AppModel) must drop it now and never read it again
+    void computerRemoved(NvComputer* computer);
+
+    // On the GUI thread, after the host's new state (paired) is in the list. error: empty on
+    // success, otherwise a sentence for the user that names the host.
     void pairingCompleted(NvComputer* computer, QString error);
 
     // uuid: the host that answered at this address (new or already known), null on failure.
     // Always emitted after the computerStateChanged() that put a new host in the list, so a
     // ComputerModel already has its row when this arrives (HostsView pairs it from there).
-    void computerAddCompleted(QVariant success, QVariant detectedPortBlocking, QVariant uuid);
+    // address: what the user typed, so overlapping adds each find their own (HostsView)
+    void computerAddCompleted(QVariant success, QVariant detectedPortBlocking, QVariant uuid, QVariant address);
 
     void quitAppCompleted(QVariant error);
 
@@ -279,6 +316,20 @@ private:
 
     void startPollingComputer(NvComputer* computer);
 
+    // Pairing tasks end here, on the GUI thread: state, certificate, poller, signal
+    void finishPairing(NvComputer* computer, QString error, QSslCertificate pairedCert);
+
+    // One pairing at a time: false while another runs; takes the host's poller out
+    bool beginPairing(NvComputer* computer, QString pin, ComputerPollingEntry*& pollingEntry);
+
+    // Guarded: a removed host's late signals are dropped
+    bool isKnownHost(NvComputer* computer);
+
+    // Hosts and certificates another LavArtemis process stored (no single instance): merged by
+    // the flush thread instead of being written over, adopted on the GUI thread
+    QVector<NvComputer*> mergeStoredHosts();
+    void adoptStoredHosts(QVector<NvComputer*> hosts);
+
     StreamingPreferences* m_Prefs;
     int m_PollingRef;
     QReadWriteLock m_Lock;
@@ -293,4 +344,12 @@ private:
     QMutex m_DelayedFlushMutex; // Lock ordering: Must never be acquired while holding NvComputer lock
     QWaitCondition m_DelayedFlushCondition;
     bool m_NeedsDelayedFlush;
+    // Pairing under way (GUI thread; m_PairingUuid is also read under m_Lock by startPollingComputer)
+    QString m_PairingUuid;
+    QString m_PairingPin;
+    NvComputer* m_PairingComputer = nullptr;
+    // Forgotten during their pairing: deleted when it ends
+    QVector<NvComputer*> m_DeleteAfterPairing;
+    // Forgotten here (uuid): a flush never brings them back from what another process stored
+    QSet<QString> m_ForgottenUuids;
 };

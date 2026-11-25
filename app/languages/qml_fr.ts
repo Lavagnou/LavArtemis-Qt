@@ -401,16 +401,27 @@
 <context>
     <name>CliPair</name>
     <message>
-        <source>Establishing connection to PC...</source>
-        <translation>Connexion au PC...</translation>
+        <source>Connexion à %1…</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Pairing... Please enter &apos;%1&apos; on %2.</source>
-        <translation>Appairage… Saisis &apos;%1&apos; sur %2.</translation>
+        <source>Appairage de %1 avec le code du lien… Cette fenêtre se fermera toute seule.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Pairing completed successfully</source>
-        <translation>Appairage terminé avec succès</translation>
+        <source>Sur %1, ouvre LavApollo › Appairage et entre ce code : %2. Il n&apos;est demandé qu&apos;une fois ; cette fenêtre se fermera toute seule.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 est appairé</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>CliPair::Launcher</name>
+    <message>
+        <source>Unable to reach %1. Check that the PC is on, that LavApollo is running and that the address is right.</source>
+        <translation>Impossible de joindre %1. Vérifie que le PC est allumé, que LavApollo tourne et que l&apos;adresse est la bonne.</translation>
     </message>
 </context>
 <context>
@@ -460,6 +471,69 @@
     <message>
         <source>Failed to get clipboard from server</source>
         <translation>Impossible de récupérer le presse-papiers du PC</translation>
+    </message>
+</context>
+<context>
+    <name>ComputerManager</name>
+    <message>
+        <source>The code entered on %1 is not the right one. Try again: a new code will be shown.</source>
+        <translation>Le code entré sur %1 n&apos;est pas le bon. Recommence : un nouveau code s&apos;affichera.</translation>
+    </message>
+    <message>
+        <source>Pairing with %1 failed: a session is running on this PC. Quit it, then try again.</source>
+        <translation>L&apos;appairage avec %1 a échoué : une session est en cours sur ce PC. Quitte-la, puis recommence.</translation>
+    </message>
+    <message>
+        <source>A pairing is already under way on %1. Finish or cancel it in LavApollo, then try again.</source>
+        <translation>Un appairage est déjà en cours sur %1. Termine-le ou annule-le dans LavApollo, puis recommence.</translation>
+    </message>
+    <message>
+        <source>The address of %1 cannot be found.</source>
+        <translation>L&apos;adresse de %1 est introuvable.</translation>
+    </message>
+    <message>
+        <source>%1 did not answer the pairing request (error 404). Check that LavApollo is what runs on it.</source>
+        <translation>%1 n&apos;a pas répondu à la demande d&apos;appairage (erreur 404). Vérifie que c&apos;est bien LavApollo qui tourne.</translation>
+    </message>
+    <message>
+        <source>The connection with %1 was lost during pairing (%2).</source>
+        <translation>La connexion avec %1 a été perdue pendant l&apos;appairage (%2).</translation>
+    </message>
+    <message>
+        <source>%1 did not get the code in time. Try again: a new code will be shown.</source>
+        <translation>%1 n&apos;a pas reçu le code à temps. Recommence : un nouveau code s&apos;affichera.</translation>
+    </message>
+    <message>
+        <source>The link&apos;s code is no longer valid on %1: it works only once and expires after 3 minutes. Make a new link in LavApollo.</source>
+        <translation>Le code du lien n&apos;est plus valable sur %1 : il ne sert qu&apos;une fois et expire au bout de 3 minutes. Crée un nouveau lien dans LavApollo.</translation>
+    </message>
+    <message>
+        <source>Pairing with %1 failed. Check that LavApollo runs on this PC, then try again.</source>
+        <translation>L&apos;appairage avec %1 a échoué. Vérifie que LavApollo tourne sur ce PC, puis recommence.</translation>
+    </message>
+    <message>
+        <source>error %1</source>
+        <translation>erreur %1</translation>
+    </message>
+    <message>
+        <source>no answer in time</source>
+        <translation>pas de réponse à temps</translation>
+    </message>
+    <message>
+        <source>connection refused</source>
+        <translation>connexion refusée</translation>
+    </message>
+    <message>
+        <source>connection closed by the PC</source>
+        <translation>connexion fermée par le PC</translation>
+    </message>
+    <message>
+        <source>secure connection failed</source>
+        <translation>échec de la connexion sécurisée</translation>
+    </message>
+    <message>
+        <source>network error %1</source>
+        <translation>erreur réseau %1</translation>
     </message>
 </context>
 <context>
@@ -826,6 +900,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Le réveil de %1 n&apos;a pas pu être envoyé.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>%1 ne peut pas être réveillé d&apos;ici : il n&apos;a encore jamais donné son adresse réseau matérielle (MAC). Allume-le une fois à la main pendant que LavArtemis tourne.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -895,6 +973,10 @@
     </message>
     <message>
         <source>Raccourci LavArtemis (*.art)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ce PC n&apos;est plus dans la liste.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -982,6 +1064,26 @@
     </message>
     <message>
         <source>Ce PC est déjà dans la liste</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Le réveil de %1 n&apos;a pas pu être envoyé.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 est hors ligne : allume-le, puis appaire-le.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>« %1 » n&apos;est pas une adresse valide. Saisis une adresse IP ou un nom, avec le port s&apos;il le faut (192.168.1.24:47989).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 n&apos;est pas sur le réseau de cet appareil. Vérifie l&apos;adresse, et que l&apos;appareil est connecté au même réseau que le PC.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 a été oublié pendant l&apos;ajout : ajoute-le à nouveau</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1309,29 +1411,6 @@
     </message>
 </context>
 <context>
-    <name>PendingPairingTask</name>
-    <message>
-        <source>The PIN from the PC didn&apos;t match. Please try again.</source>
-        <translation>Le code entré sur le PC n&apos;est pas le bon. Recommence : un nouveau code s&apos;affichera.</translation>
-    </message>
-    <message>
-        <source>You cannot pair while a previous session is still running on the host PC. Quit any running games or reboot the host PC, then try pairing again.</source>
-        <translation>L&apos;appairage a échoué : une session est en cours sur ce PC. Quitte-la, puis recommence.</translation>
-    </message>
-    <message>
-        <source>Pairing failed. Please try again.</source>
-        <translation>L&apos;appairage a échoué. Vérifie que LavApollo tourne sur ce PC, puis recommence.</translation>
-    </message>
-    <message>
-        <source>Another pairing attempt is already in progress.</source>
-        <translation>Un appairage est déjà en cours sur ce PC. Termine-le ou annule-le dans LavApollo, puis recommence.</translation>
-    </message>
-    <message>
-        <source>The host returned an error: %1</source>
-        <translation>Le PC hôte a renvoyé une erreur : %1</translation>
-    </message>
-</context>
-<context>
     <name>PendingQuitTask</name>
     <message>
         <source>The running game wasn&apos;t started by this PC. You must quit the game on the host PC manually or use the device that originally started the game.</source>
@@ -1545,10 +1624,6 @@
 </context>
 <context>
     <name>QObject</name>
-    <message>
-        <source>%1 is already paired</source>
-        <translation>%1 est déjà couplé</translation>
-    </message>
     <message>
         <source>Failed to connect to %1</source>
         <translation>La connexion à %1 a échoué</translation>

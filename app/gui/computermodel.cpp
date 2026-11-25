@@ -4,6 +4,8 @@
 #include "settings/artemissettings.h"
 
 #include <QThreadPool>
+#include <QPointer>
+#include <QCoreApplication>
 
 ComputerModel::ComputerModel(QObject* object)
     : QAbstractListModel(object) {}
@@ -15,6 +17,8 @@ void ComputerModel::initialize(ComputerManager* computerManager)
             this, &ComputerModel::handleComputerStateChanged);
     connect(m_ComputerManager, &ComputerManager::pairingCompleted,
             this, &ComputerModel::handlePairingCompleted);
+    connect(m_ComputerManager, &ComputerManager::computerRemoved,
+            this, &ComputerModel::handleComputerRemoved);
 
     m_Computers = m_ComputerManager->getComputers();
 }
@@ -119,37 +123,57 @@ void ComputerModel::deleteComputer(int computerIndex)
 {
     Q_ASSERT(computerIndex < m_Computers.count());
 
-    beginRemoveRows(QModelIndex(), computerIndex, computerIndex);
-
-    // m_Computer[computerIndex] will be deleted by this call
+    // The row leaves through computerRemoved, in every ComputerModel at once (the home has its own)
     m_ComputerManager->deleteHost(m_Computers[computerIndex]);
+}
 
-    // Remove the now invalid item
-    m_Computers.removeAt(computerIndex);
+void ComputerModel::handleComputerRemoved(NvComputer* computer)
+{
+    int index = m_Computers.indexOf(computer);
+    if (index < 0) {
+        return;
+    }
 
+    beginRemoveRows(QModelIndex(), index, index);
+    m_Computers.removeAt(index);
     endRemoveRows();
 }
 
 class DeferredWakeHostTask : public QRunnable
 {
 public:
-    DeferredWakeHostTask(NvComputer* computer)
-        : m_Computer(computer) {}
+    DeferredWakeHostTask(ComputerModel* model, NvComputer* computer)
+        : m_Model(model), m_Computer(computer)
+    {
+        QReadLocker lock(&computer->lock);
+        m_Uuid = computer->uuid;
+        m_Name = computer->name;
+    }
 
     void run()
     {
-        m_Computer->wake();
+        bool sent = m_Computer->wake();
+        QPointer<ComputerModel> model = m_Model;
+        QString uuid = m_Uuid, name = m_Name;
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [model, uuid, name, sent] {
+            if (model) {
+                emit model->wakeCompleted(uuid, name, sent);
+            }
+        }, Qt::QueuedConnection);
     }
 
 private:
+    QPointer<ComputerModel> m_Model;
     NvComputer* m_Computer;
+    QString m_Uuid;
+    QString m_Name;
 };
 
 void ComputerModel::wakeComputer(int computerIndex)
 {
     Q_ASSERT(computerIndex < m_Computers.count());
 
-    DeferredWakeHostTask* wakeTask = new DeferredWakeHostTask(m_Computers[computerIndex]);
+    DeferredWakeHostTask* wakeTask = new DeferredWakeHostTask(this, m_Computers[computerIndex]);
     QThreadPool::globalInstance()->start(wakeTask);
 }
 
@@ -165,18 +189,22 @@ QString ComputerModel::generatePinString()
     return m_ComputerManager->generatePinString();
 }
 
-void ComputerModel::pairComputer(int computerIndex, QString pin)
+bool ComputerModel::pairComputer(int computerIndex, QString pin)
 {
     Q_ASSERT(computerIndex < m_Computers.count());
 
-    m_ComputerManager->pairHost(m_Computers[computerIndex], pin);
+    return m_ComputerManager->pairHost(m_Computers[computerIndex], pin);
 }
 
-void ComputerModel::handlePairingCompleted(NvComputer*, QString error)
+void ComputerModel::handlePairingCompleted(NvComputer* computer, QString error)
 {
-    qDebug() << "ComputerModel::handlePairingCompleted called with error:" << error;
-    emit pairingCompleted(error.isEmpty() ? QVariant() : error);
-    qDebug() << "ComputerModel: Emitted pairingCompleted signal";
+    // Still alive here (a host forgotten during its pairing is deleted after this signal)
+    QString uuid;
+    {
+        QReadLocker lock(&computer->lock);
+        uuid = computer->uuid;
+    }
+    emit pairingCompleted(uuid, error.isEmpty() ? QVariant() : error);
 }
 
 void ComputerModel::handleComputerStateChanged(NvComputer* computer)

@@ -94,12 +94,14 @@ QUrl BoxArtManager::loadBoxArt(NvComputer* computer, NvApp& app)
     return QUrl("qrc:/res/no_app_image.png");
 }
 
-void BoxArtManager::deleteBoxArt(NvComputer* computer)
+// By uuid: the host may already be deleted (ComputerManager::deleteHost, a host forgotten during
+// its pairing is deleted on the GUI thread while this runs on a worker)
+void BoxArtManager::deleteBoxArt(const QString& computerUuid)
 {
     QDir dir(Path::getBoxArtCacheDir());
 
     // Delete everything in this computer's box art directory
-    if (dir.cd(computer->uuid)) {
+    if (!computerUuid.isEmpty() && dir.cd(computerUuid)) {
         dir.removeRecursively();
     }
 }

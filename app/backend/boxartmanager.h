@@ -21,7 +21,7 @@ public:
 
     static
     void
-    deleteBoxArt(NvComputer* computer);
+    deleteBoxArt(const QString& computerUuid);
 
 signals:
     void

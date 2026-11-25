@@ -44,18 +44,25 @@ public:
 
     Q_INVOKABLE QString generatePinString();
 
-    Q_INVOKABLE void pairComputer(int computerIndex, QString pin);
+    // false when another pairing is under way (ComputerManager::pairHost): nothing started
+    Q_INVOKABLE bool pairComputer(int computerIndex, QString pin);
 
+    // Sends the wake-on-LAN packets off the GUI thread; wakeCompleted() says whether they left
     Q_INVOKABLE void wakeComputer(int computerIndex);
 
     Q_INVOKABLE void renameComputer(int computerIndex, QString name);
 
 
 signals:
-    void pairingCompleted(QVariant error);
+    // uuid of the host that was paired (or not); error undefined on success
+    void pairingCompleted(QString uuid, QVariant error);
+
+    void wakeCompleted(QString uuid, QString name, bool sent);
 
 private slots:
     void handleComputerStateChanged(NvComputer* computer);
+
+    void handleComputerRemoved(NvComputer* computer);
 
     void handlePairingCompleted(NvComputer* computer, QString error);
 

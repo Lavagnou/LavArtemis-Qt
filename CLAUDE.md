@@ -787,7 +787,61 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
     `HostsView.addComplete` le cherche par ce uuid : pas appairé → appairage tout de suite ; appairé avant
     l'ajout → « Ce PC est déjà dans la liste » ; sinon « %1 est ajouté » (= `HostsActivity.onAdded()`
     d'Android). Avant, la fin d'ajout arrivait avant le PC, qui n'était donc pas encore dans le modèle :
-    « Ce PC est déjà dans la liste » et aucun dialogue d'appairage, presque à chaque fois.
+    « Ce PC est déjà dans la liste » et aucun dialogue d'appairage, presque à chaque fois. Le 4ᵉ argument
+    (`address`) est **le texte saisi** : chaque ajout en cours (`pendingAdds`) retrouve le sien, même s'ils se
+    croisent. Adresse illisible (`ComputerManager::isValidManualAddress`) → « « %1 » n'est pas une adresse
+    valide… » tout de suite ; échec sur une adresse privée hors des réseaux de ce PC
+    (`isWrongSubnetAddress`) → « %1 n'est pas sur le réseau de cet appareil… » (Android `v2_add_invalid` /
+    `v2_add_wrong_subnet`).
+  - ⚠️ **Menus et dialogues de Mes PC et de l'accueil gardent un uuid (PC) ou un `appid` (appli), jamais
+    une ligne** : les lignes bougent pendant qu'ils sont ouverts (un PC s'allume, change de nom, est ajouté ou
+    oublié ; un jeu joué remonte la bibliothèque) et « Oublier » visait alors un autre PC. La ligne se cherche
+    au moment de l'action (`indexOfUuid`, `hostRow`). `AppModel` ne prend plus que des `appid`
+    (`createSessionForApp`, `startsInsidePlaynite`, `setAppHidden`, `exportArtFile`…, appli masquée comprise :
+    « Reprendre » marche sur un jeu masqué en cours) et s'ouvre sur un **uuid** (`initialize(cm, uuid, …)`).
+  - ⚠️ **Oublier un PC** (`ComputerManager::deleteHost`, thread GUI) : le PC quitte `m_KnownHosts` tout de
+    suite et `computerRemoved` part (chaque `ComputerModel` retire sa ligne, `AppModel` lâche son pointeur et
+    émet `computerLost`) ; l'objet est supprimé plus tard, **sur le thread GUI**, après l'arrêt de son poller
+    (`DeferredHostDeletionTask` ne fait plus que l'attendre, et efface les jaquettes **par uuid** : il ne lit plus
+    l'objet, qu'un appairage qui se termine peut supprimer en même temps), ou à la fin de son appairage s'il
+    était en cours.
+    `handleComputerStateChanged` ignore un PC qui n'est plus dans la liste (signal d'un poll mis en file avant
+    l'oubli). Avant : retiré plus tard sur un thread de travail, sans signal, l'accueil le montrait encore et
+    lisait l'objet supprimé.
+  - **Accueil** : le modèle d'applis suit le PC affiché **par uuid** (`syncApps()`) : créé quand il est en
+    ligne, lâché quand il passe hors ligne, perd son appairage ou est oublié (`onComputerLost` ne le recrée
+    plus depuis l'instantané qui disait encore « en ligne » : les cartes restaient à côté de « hors ligne »).
+    Un PC qu'on vient d'appairer s'affiche dès qu'il est dans la liste (`pendingHostUuid`). La durée de la
+    session ne s'écrit que si le modèle d'applis est celui du PC affiché (sinon l'appli d'un PC partait sous
+    l'uuid d'un autre pendant un changement de PC).
+  - **Appairage perdu côté hôte** (« Tout désappairer » dans LavApollo, nouveau certificat de l'hôte) :
+    `NvHTTP::getServerInfo` repasse en HTTP sur un 401 HTTPS (comme moonlight-qt et Android ; retiré par le
+    portage wjbeckett) → en ligne, **pas appairé** : le PC quitte l'accueil et les cartes, apparaît dans
+    « Ajouter un PC », et l'ajouter de nouveau par adresse ouvre son appairage. Avant : « Hors ligne » pour
+    toujours, et « Impossible de joindre » au nouvel ajout.
+  - ⚠️ **Appairage (`ComputerManager::pairHost` / `pairHostWithOTP`) : un seul à la fois** (faux, rien ne
+    part, si un autre tourne ; `pairingUuid()` / `pairingPin()` le nomment) ; **le poller du PC est arrêté
+    pendant l'appairage** (comme Android) et relancé à la fin ; certificat et `PS_PAIRED` posés **sur le thread
+    GUI sous le verrou du PC** (`finishPairing`), puis `computerStateChanged` (le PC est appairé dans les
+    modèles), puis `pairingCompleted`. « C'est fait » ne fait que fermer le dialogue (Android) : redemander
+    l'appairage rouvre le même dialogue et le même code. La première requête attend le code **3 minutes au
+    plus** (`PAIRING_PIN_WAIT_MS` ; Android attend sans limite, mais ici un appairage abandonné bloquerait tous
+    les autres). Messages d'erreur : ceux d'Android (`v2_pair_*`, `ComputerManager::pairingErrorText`), qui
+    nomment le PC, jamais le XML de l'hôte ni une exception en anglais. Seule la page qui a lancé
+    l'appairage réagit à sa fin, et seulement si elle est affichée. Succès : « %1 est appairé », puis le PC
+    s'ouvre sur l'accueil si son LavApollo est pris en charge. `devicename` = le nom de ce PC (celui de
+    `serverinfo`), plus « roth », que LavApollo affichait « Legacy Moonlight Client ».
+  - **Appairage par lien `art://` ou `lavartemis pair`** (`CliPair.qml`, `cli/pair.cpp`) : textes de Mes PC et
+    d'Android (« Connexion à %1… », `v2_pair_text`, `v2_pair_link_text` pour un lien avec code, « %1 est
+    appairé ») ; un PC **déjà appairé est un succès** ; au succès, la page laisse place à l'accueil sur ce PC
+    (Android ouvre le PC), au lieu de quitter.
+  - ⚠️ **Pas d'instance unique, donc deux processus peuvent écrire la liste des PC** (un lien `art://` lancé
+    pendant que l'appli tourne). Le flush (`DelayedFlushThread`) relit d'abord la liste enregistrée
+    (`mergeStoredHosts`) : un PC inconnu ici et jamais vu par ce processus est gardé et adopté
+    (`adoptStoredHosts`), un certificat enregistré par un autre processus depuis notre dernière écriture est
+    repris ; un PC oublié ici (`m_ForgottenUuids`) ne revient pas. Avant, l'appli ouverte réécrivait la liste et
+    effaçait l'appairage fait par le lien. Le banc de test ne lance jamais deux clients : vérifié par lecture
+    seulement.
 - Les jeux **masqués** (« Masquer ») se réaffichent depuis l'accueil (bouton sous la bibliothèque) et se
   démasquent depuis leur menu. **« Masquer » ne s'offre que pour les jeux Playnite**, comme sur Android
   (`openMenu(…, isGame)` → `AppMenu.canHide`) ; une carte Bureau / Playnite masquée par une version

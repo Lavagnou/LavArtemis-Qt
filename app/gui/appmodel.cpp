@@ -12,24 +12,84 @@ AppModel::AppModel(QObject *parent)
             this, &AppModel::handleBoxArtLoaded);
 }
 
-void AppModel::initialize(ComputerManager* computerManager, int computerIndex, bool showHiddenGames)
+bool AppModel::initialize(ComputerManager* computerManager, QString hostUuid, bool showHiddenGames)
 {
     m_ComputerManager = computerManager;
+    m_ShowHiddenGames = showHiddenGames;
+    m_CurrentGameId = 0;
+
+    NvComputer* computer = nullptr;
+    for (NvComputer* candidate : m_ComputerManager->getComputers()) {
+        if (candidate->uuid == hostUuid) {
+            computer = candidate;
+            break;
+        }
+    }
+    if (computer == nullptr) {
+        return false;
+    }
+
     connect(m_ComputerManager, &ComputerManager::computerStateChanged,
             this, &AppModel::handleComputerStateChanged);
+    connect(m_ComputerManager, &ComputerManager::computerRemoved,
+            this, &AppModel::handleComputerRemoved);
 
-    Q_ASSERT(computerIndex < m_ComputerManager->getComputers().count());
-    m_Computer = m_ComputerManager->getComputers().at(computerIndex);
-    m_CurrentGameId = m_Computer->currentGameId;
-    m_ShowHiddenGames = showHiddenGames;
+    m_Computer = computer;
+    m_HostUuid = hostUuid;
+    QVector<NvApp> apps;
+    {
+        QReadLocker lock(&m_Computer->lock);
+        m_CurrentGameId = m_Computer->currentGameId;
+        apps = m_Computer->appList;
+    }
 
-    updateAppList(m_Computer->appList);
+    updateAppList(apps);
+    return true;
 }
 
-bool AppModel::startsInsidePlaynite(int appIndex)
+QString AppModel::hostUuid()
 {
-    Q_ASSERT(appIndex < m_VisibleApps.count());
-    const NvApp& app = m_VisibleApps.at(appIndex);
+    return m_Computer != nullptr ? m_HostUuid : QString();
+}
+
+bool AppModel::findApp(int appId, NvApp& app)
+{
+    for (const NvApp& candidate : std::as_const(m_AllApps)) {
+        if (candidate.id == appId) {
+            app = candidate;
+            return true;
+        }
+    }
+    return false;
+}
+
+int AppModel::rowOfAppId(int appId)
+{
+    for (int i = 0; i < m_VisibleApps.count(); i++) {
+        if (m_VisibleApps[i].id == appId) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// The host was forgotten (Mes PC): it leaves the list now and is deleted a little later. Drop it
+// before anything reads it again; the home sees computerLost and shows another host.
+void AppModel::handleComputerRemoved(NvComputer* computer)
+{
+    if (computer != m_Computer || m_Computer == nullptr) {
+        return;
+    }
+    m_Computer = nullptr;
+    emit computerLost();
+}
+
+bool AppModel::startsInsidePlaynite(int appId)
+{
+    NvApp app;
+    if (m_Computer == nullptr || !findApp(appId, app)) {
+        return false;
+    }
 
     QReadLocker lock(&m_Computer->lock);
     return app.isPlayniteGame &&
@@ -40,6 +100,9 @@ bool AppModel::startsInsidePlaynite(int appIndex)
 
 QString AppModel::getRunningPlayniteGameName()
 {
+    if (m_Computer == nullptr) {
+        return QString();
+    }
     QReadLocker lock(&m_Computer->lock);
     return m_Computer->playniteGameName;
 }
@@ -97,10 +160,12 @@ QString AppModel::getRunningAppName()
     return nullptr;
 }
 
-Session* AppModel::createSessionForApp(int appIndex)
+Session* AppModel::createSessionForApp(int appId)
 {
-    Q_ASSERT(appIndex < m_VisibleApps.count());
-    NvApp app = m_VisibleApps.at(appIndex);
+    NvApp app;
+    if (m_Computer == nullptr || !findApp(appId, app)) {
+        return nullptr;
+    }
 
     return new Session(m_Computer, app);
 }
@@ -128,8 +193,11 @@ QVariant AppModel::data(const QModelIndex &index, int role) const
     case NameRole:
         return app.name;
     case RunningRole:
-        return m_Computer->currentGameId == app.id;
+        return m_CurrentGameId == app.id;
     case BoxArtRole:
+        if (m_Computer == nullptr) {
+            return QVariant();
+        }
         // FIXME: const-correctness
         return const_cast<BoxArtManager&>(m_BoxArtManager).loadBoxArt(m_Computer, app);
     case HiddenRole:
@@ -168,7 +236,9 @@ QHash<int, QByteArray> AppModel::roleNames() const
 
 void AppModel::quitRunningApp()
 {
-    m_ComputerManager->quitRunningApp(m_Computer);
+    if (m_Computer != nullptr) {
+        m_ComputerManager->quitRunningApp(m_Computer);
+    }
 }
 
 bool AppModel::isAppCurrentlyVisible(const NvApp& app)
@@ -263,10 +333,11 @@ void AppModel::updateAppList(QVector<NvApp> newList)
     Q_ASSERT(newVisibleList == m_VisibleApps);
 }
 
-void AppModel::setAppHidden(int appIndex, bool hidden)
+void AppModel::setAppHidden(int appId, bool hidden)
 {
-    Q_ASSERT(appIndex < m_VisibleApps.count());
-    int appId = m_VisibleApps.at(appIndex).id;
+    if (m_Computer == nullptr) {
+        return;
+    }
 
     {
         QWriteLocker lock(&m_Computer->lock);
@@ -284,6 +355,9 @@ void AppModel::setAppHidden(int appIndex, bool hidden)
 
 int AppModel::hiddenAppCount()
 {
+    if (m_Computer == nullptr) {
+        return 0;
+    }
     QReadLocker lock(&m_Computer->lock);
     int count = 0;
     for (const NvApp& app : m_Computer->appList) {
@@ -294,18 +368,20 @@ int AppModel::hiddenAppCount()
     return count;
 }
 
-bool AppModel::isAppHidden(int appIndex)
+bool AppModel::isAppHidden(int appId)
 {
-    return appIndex >= 0 && appIndex < m_VisibleApps.count() && m_VisibleApps.at(appIndex).hidden;
+    NvApp app;
+    return findApp(appId, app) && app.hidden;
 }
 
-QString AppModel::suggestedArtFileName(int appIndex)
+QString AppModel::suggestedArtFileName(int appId)
 {
-    if (appIndex < 0 || appIndex >= m_VisibleApps.count()) {
+    NvApp app;
+    if (!findApp(appId, app)) {
         return QStringLiteral("shortcut.art");
     }
 
-    QString name = m_VisibleApps.at(appIndex).name;
+    QString name = app.name;
 
     // Strip what Windows forbids outright, plus control characters. This is
     // only a suggestion -- the save dialog still lets the user rename it.
@@ -320,13 +396,12 @@ QString AppModel::suggestedArtFileName(int appIndex)
     return name + QStringLiteral(".art");
 }
 
-QString AppModel::exportArtFile(int appIndex, const QUrl& destination)
+QString AppModel::exportArtFile(int appId, const QUrl& destination)
 {
-    if (appIndex < 0 || appIndex >= m_VisibleApps.count()) {
+    NvApp app;
+    if (m_Computer == nullptr || !findApp(appId, app)) {
         return tr("That app is no longer in the list.");
     }
-
-    NvApp app = m_VisibleApps.at(appIndex);
     QString path = destination.isLocalFile() ? destination.toLocalFile() : destination.toString();
 
     QFile file(path);
@@ -364,14 +439,24 @@ QString AppModel::exportArtFile(int appIndex, const QUrl& destination)
 void AppModel::handleComputerStateChanged(NvComputer* computer)
 {
     // Ignore updates for computers that aren't ours
-    if (computer != m_Computer) {
+    if (computer != m_Computer || m_Computer == nullptr) {
         return;
     }
 
     // If the computer has gone offline or we've been unpaired,
     // signal the UI so we can go back to the PC view.
-    if (m_Computer->state == NvComputer::CS_OFFLINE ||
-            m_Computer->pairState == NvComputer::PS_NOT_PAIRED) {
+    // Read under its lock: a poller thread writes it
+    bool lost;
+    QVector<NvApp> appList;
+    int currentGameId;
+    {
+        QReadLocker lock(&m_Computer->lock);
+        lost = m_Computer->state == NvComputer::CS_OFFLINE ||
+                m_Computer->pairState == NvComputer::PS_NOT_PAIRED;
+        appList = m_Computer->appList;
+        currentGameId = m_Computer->currentGameId;
+    }
+    if (lost) {
         emit computerLost();
         return;
     }
@@ -379,17 +464,17 @@ void AppModel::handleComputerStateChanged(NvComputer* computer)
     // First, process additions/removals from the app list. This
     // is required because the new game may now be running, so
     // we can't check that first.
-    if (computer->appList != m_AllApps) {
-        updateAppList(computer->appList);
+    if (appList != m_AllApps) {
+        updateAppList(appList);
     }
 
     // Finally, process changes to the active app
-    if (computer->currentGameId != m_CurrentGameId) {
+    if (currentGameId != m_CurrentGameId) {
         // Update our internal state first: the home reads getRunningAppId() and friends when
         // dataChanged arrives, and updating after the signals left the session on screen
         // (« EN COURS ») after it ended, until the next poll
         int oldGameId = m_CurrentGameId;
-        m_CurrentGameId = m_Computer->currentGameId;
+        m_CurrentGameId = currentGameId;
 
         // Invalidate the running state of newly running game
         for (int i = 0; i < m_VisibleApps.count(); i++) {
@@ -419,7 +504,9 @@ void AppModel::handleComputerStateChanged(NvComputer* computer)
 
 void AppModel::handleBoxArtLoaded(NvComputer* computer, NvApp app, QUrl /* image */)
 {
-    Q_ASSERT(computer == m_Computer);
+    if (computer != m_Computer || m_Computer == nullptr) {
+        return;
+    }
 
     int index = m_VisibleApps.indexOf(app);
 

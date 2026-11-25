@@ -69,41 +69,51 @@ public:
                            q, &Launcher::onTimeout);
                 m_ComputerSeeker->start(COMPUTER_SEEK_TIMEOUT);
 
-                emit q->searchingComputer();
+                emit q->searchingComputer(m_ComputerName);
             }
             break;
         // Occurs when searched computer is found
         case Event::ComputerFound:
             if (m_State == StateSeekComputer) {
+                m_Computer = event.computer;
                 if (event.computer->pairState == NvComputer::PS_PAIRED) {
-                    m_State = StateFailure;
-                    QString msg = QObject::tr("%1 is already paired").arg(event.computer->name);
-                    emit q->failed(msg);
+                    // Already paired: that is what the link asked for, so it succeeded and the
+                    // PC opens (Android's HostsActivity: getPairState() == PAIRED -> success)
+                    m_State = StateComplete;
+                    emit q->success(event.computer->uuid, event.computer->name);
                 }
                 else {
                     Q_ASSERT(!m_PredefinedPin.isEmpty());
 
-                    m_State = StatePairing;
-
                     // A passphrase means Apollo's OTP pairing, where the PIN is
                     // combined with it rather than typed on the host.
+                    bool started;
                     if (m_Passphrase.isEmpty()) {
-                        m_ComputerManager->pairHost(event.computer, m_PredefinedPin);
+                        started = m_ComputerManager->pairHost(event.computer, m_PredefinedPin);
                     }
                     else {
-                        m_ComputerManager->pairHostWithOTP(event.computer, m_PredefinedPin, m_Passphrase);
+                        started = m_ComputerManager->pairHostWithOTP(event.computer, m_PredefinedPin, m_Passphrase);
                     }
 
-                    emit q->pairing(event.computer->name, m_PredefinedPin);
+                    if (!started) {
+                        m_State = StateFailure;
+                        emit q->failed(ComputerManager::pairingErrorText(event.computer->name,
+                                                                         ComputerManager::PairingError::Busy));
+                    }
+                    else {
+                        m_State = StatePairing;
+                        emit q->pairing(event.computer->name, m_PredefinedPin, !m_Passphrase.isEmpty());
+                    }
                 }
             }
             break;
         // Occurs when pairing operation completes
         case Event::PairingCompleted:
-            if (m_State == StatePairing) {
+            // Only the pairing this launcher started
+            if (m_State == StatePairing && event.computer == m_Computer) {
                 if (event.errorMessage.isEmpty()) {
                     m_State = StateComplete;
-                    emit q->success();
+                    emit q->success(event.computer->uuid, event.computer->name);
                 }
                 else {
                     m_State = StateFailure;
@@ -116,7 +126,8 @@ public:
             if (m_State == StateSeekComputer) {
                 m_State = StateFailure;
                 QString reason = m_ComputerSeeker->errorMessage();
-                emit q->failed(reason.isEmpty() ? QObject::tr("Failed to connect to %1").arg(m_ComputerName) : reason);
+                // Same sentence as « Ajouter un PC » (v2_add_unreachable)
+                emit q->failed(reason.isEmpty() ? Launcher::tr("Unable to reach %1. Check that the PC is on, that LavApollo is running and that the address is right.").arg(m_ComputerName) : reason);
             }
             break;
         }
@@ -142,6 +153,7 @@ Launcher::Launcher(QString computer, QString predefinedPin, QString passphrase, 
     d->m_PredefinedPin = predefinedPin;
     d->m_Passphrase = passphrase;
     d->m_State = StateInit;
+    d->m_Computer = nullptr;
     d->m_TimeoutTimer = new QTimer(this);
     d->m_TimeoutTimer->setSingleShot(true);
     connect(d->m_TimeoutTimer, &QTimer::timeout,

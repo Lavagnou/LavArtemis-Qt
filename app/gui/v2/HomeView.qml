@@ -24,7 +24,8 @@ FocusScope {
 
     // ---- hosts ---------------------------------------------------------------------------
     property ComputerModel computerModel: createComputerModel()
-    // [{index, name, online, paired, busy, uuid, wakeable, statusUnknown, serverSupported, serverVersion}]
+    // [{name, online, paired, busy, uuid, wakeable, statusUnknown, serverSupported, serverVersion, thisPc}]
+    // A snapshot, rebuilt 50 ms after the model changes: a host is always found again by its uuid
     property var hosts: []
     property int hostPos: 0          // position in `hosts` of the shown host
     readonly property var host: hosts.length > 0 ? hosts[Math.min(hostPos, hosts.length - 1)] : null
@@ -64,6 +65,11 @@ FocusScope {
         target: home.computerModel
         function onDataChanged() { refreshHostsLater.restart() }
         function onModelReset() { refreshHostsLater.restart() }
+        // Android's wake toasts: v2_wake_sent / v2_wake_failed
+        function onWakeCompleted(uuid, name, sent) {
+            toast.show(sent ? qsTr("Réveil envoyé à %1").arg(name)
+                            : qsTr("Le réveil de %1 n'a pas pu être envoyé.").arg(name))
+        }
     }
     Timer {
         id: refreshHostsLater
@@ -71,46 +77,73 @@ FocusScope {
         onTriggered: home.refreshHosts()
     }
 
+    // A host to show as soon as it is in the list (« Mes PC » just paired it: the list catches up
+    // at the next refresh), like Android's HomeActivity with PREF_LAST_HOST
+    property string pendingHostUuid: ""
+
     function refreshHosts() {
         var previous = host ? host.uuid : uiState.lastHostUuid
         var list = []
         for (var i = 0; i < hostReader.count; i++) {
             var o = hostReader.objectAt(i)
             if (o && o.paired) {
-                list.push({index: o.index, name: o.name, online: o.online, paired: o.paired, busy: o.busy, uuid: o.uuid,
+                list.push({name: o.name, online: o.online, paired: o.paired, busy: o.busy, uuid: o.uuid,
                            wakeable: o.wakeable, statusUnknown: o.statusUnknown,
                            serverSupported: o.serverSupported, serverVersion: o.serverVersion, thisPc: o.thisPc})
             }
         }
         // Online hosts first, keeping the model order otherwise
         list.sort(function(a, b) { return (b.online ? 1 : 0) - (a.online ? 1 : 0) })
-        hosts = list
-        var pos = 0
+        var pos = -1
         for (var j = 0; j < list.length; j++) {
-            if (list[j].uuid === previous) { pos = j; break }
+            if (list[j].uuid === pendingHostUuid) { pos = j; pendingHostUuid = ""; break }
         }
-        if (pos !== hostPos || !appModel) {
-            hostPos = pos
-            reloadApps()
-        } else if (host && appModel === null) {
-            reloadApps()
+        if (pos < 0) {
+            pos = 0
+            for (var k = 0; k < list.length; k++) {
+                if (list[k].uuid === previous) { pos = k; break }
+            }
         }
+        // A forgotten or unpaired host is no longer in the list: another one, or « Aucun PC appairé »
+        hostPos = pos
+        hosts = list
+        syncApps()
+    }
+
+    // The app model follows the shown host: there while it is online, dropped when it goes offline,
+    // loses its pairing or is forgotten, rebuilt for another host. Keyed by uuid, never by
+    // position: hosts move in the list (one comes online, one is forgotten or paired).
+    function syncApps() {
+        var want = host && host.online ? host.uuid : ""
+        var have = appModel ? appModel.hostUuid() : ""
+        if (want !== have || (appModel !== null) !== (want !== "")) reloadApps()
+    }
+
+    // Row of a host in computerModel, -1 if it left
+    function hostRow(uuid) {
+        for (var i = 0; i < hostReader.count; i++) {
+            var o = hostReader.objectAt(i)
+            if (o && o.uuid === uuid) return o.index
+        }
+        return -1
     }
 
     // Shows the host with this uuid (from "Mes PC")
     function showHost(uuid) {
         uiState.lastHostUuid = uuid
         for (var j = 0; j < hosts.length; j++) {
-            if (hosts[j].uuid === uuid) { hostPos = j; reloadApps(); return }
+            if (hosts[j].uuid === uuid) { pendingHostUuid = ""; hostPos = j; syncApps(); return }
         }
+        pendingHostUuid = uuid
         refreshHostsLater.restart()
     }
 
     function switchHost(delta) {
         if (hosts.length < 2) return
+        pendingHostUuid = ""
         hostPos = (hostPos + delta + hosts.length) % hosts.length
         uiState.lastHostUuid = host.uuid
-        reloadApps()
+        syncApps()
     }
 
     // ---- apps of the shown host -----------------------------------------------------------
@@ -146,8 +179,13 @@ FocusScope {
 
     function observeSessionClock() {
         nowMs = Date.now()
-        // Only with the app list in hand: an offline host says nothing about its session
-        if (!host || !host.online || !appModel) return
+        // Only with the app list of this very host in hand: an offline host says nothing about its
+        // session, and while the shown host changes the app model may still be the previous
+        // host's (its running app was written under the new host's uuid)
+        if (!host || !host.online || !appModel || appModel.hostUuid() !== host.uuid) {
+            sessionSince = 0
+            return
+        }
         var stored = String(sessionClockStore.value(host.uuid, "") || "")
         if (runningId === 0) {
             if (stored !== "") sessionClockStore.setValue(host.uuid, "")
@@ -199,13 +237,30 @@ FocusScope {
             return
         }
         var model = Qt.createQmlObject('import AppModel 1.0; AppModel {}', home, '')
-        model.initialize(ComputerManager, host.index, showHidden)
+        if (!model.initialize(ComputerManager, host.uuid, showHidden)) {
+            // Forgotten meanwhile: the list catches up at the next refresh
+            model.destroy()
+            rev++
+            refreshHostsLater.restart()
+            return
+        }
         model.computerLost.connect(onComputerLost)
         appModel = model
         rev++
     }
 
-    function onComputerLost() { reloadApps() }
+    // The host went offline, lost its pairing or was forgotten: its cards go now, and the next
+    // refresh (the host list has changed too) shows what is left. Recreating the model here, from
+    // the snapshot that still said « online », kept the cards beside « hors ligne ».
+    function onComputerLost() {
+        if (appModel) {
+            appModel.computerLost.disconnect(onComputerLost)
+            appModel.destroy()
+        }
+        appModel = null
+        rev++
+        refreshHostsLater.restart()
+    }
 
     Connections {
         target: home.appModel
@@ -238,8 +293,9 @@ FocusScope {
     AppKindModel { id: gamesModel; sourceModel: home.appModel; kind: "game" }
 
     // ---- actions ------------------------------------------------------------------------------
+    // row: unused (the app is found by its id when the action runs: rows move under a dialog)
     function launch(row, name, appid) {
-        if (!appModel || row < 0) return
+        if (!appModel || !appid) return
         if (host && !host.serverSupported) {
             // As Android (V2HostActivity.launch) and Mes PC: a message instead of a launch that fails half-way
             showError(qsTr("La version du logiciel hôte de %1 n'est pas prise en charge (%2). Mets à jour LavApollo sur ce PC.")
@@ -251,28 +307,34 @@ FocusScope {
             showError(qsTr("Impossible de streamer %1 depuis lui-même : LavApollo tourne sur ce PC. Lance le stream depuis un autre appareil.").arg(host.name))
             return
         }
-        var inside = appModel.startsInsidePlaynite(row)
+        var inside = appModel.startsInsidePlaynite(appid)
         if (runningId !== 0 && runningId !== appid && !inside) {
             quitDialog.appName = runningTitle
             quitDialog.nextAppName = name
-            quitDialog.nextRow = row
+            quitDialog.nextAppId = appid
             quitDialog.open()
             return
         }
+        // By id, hidden apps included: Reprendre on a hidden running game works too
+        var session = appModel.createSessionForApp(appid)
+        if (!session) return
         var component = Qt.createComponent("../StreamSegue.qml")
         stackView.push(component.createObject(stackView, {
             "appName": name,
-            "session": appModel.createSessionForApp(row),
+            "session": session,
             "isResume": runningId === appid || inside
         }))
     }
 
-    function quitRunning(thenRow, thenName) {
+    function quitRunning(thenAppId, thenName) {
+        if (!appModel) return
+        var model = appModel
         var component = Qt.createComponent("../QuitSegue.qml")
-        var params = {"appName": runningTitle, "quitRunningAppFn": function() { appModel.quitRunningApp() }}
-        if (thenRow !== undefined && thenRow >= 0) {
+        var params = {"appName": runningTitle, "quitRunningAppFn": function() { model.quitRunningApp() }}
+        var nextSession = thenAppId ? appModel.createSessionForApp(thenAppId) : null
+        if (nextSession) {
             params.nextAppName = thenName
-            params.nextSession = appModel.createSessionForApp(thenRow)
+            params.nextSession = nextSession
         } else {
             params.nextAppName = null
             params.nextSession = null
@@ -283,7 +345,7 @@ FocusScope {
     // Quitting loses what the game did not save: asked first, as on Android
     function confirmQuit() {
         confirmQuitDialog.relaunch = false
-        confirmQuitDialog.nextRow = -1
+        confirmQuitDialog.nextAppId = 0
         confirmQuitDialog.nextAppName = ""
         confirmQuitDialog.open()
     }
@@ -297,8 +359,9 @@ FocusScope {
     function wakeHost() {
         if (!host) return
         if (host.wakeable) {
-            computerModel.wakeComputer(host.index)
-            toast.show(qsTr("Réveil envoyé à %1").arg(host.name))
+            // The toast says whether the packets left (computerModel.wakeCompleted), as Android
+            var row = hostRow(host.uuid)
+            if (row >= 0) computerModel.wakeComputer(row)
         } else {
             showError(qsTr("%1 ne peut pas être réveillé d'ici : il n'a encore jamais donné son adresse réseau matérielle (MAC). Allume-le une fois à la main pendant que LavArtemis tourne.").arg(host.name))
         }
@@ -306,38 +369,39 @@ FocusScope {
 
     // isGame: « Masquer » is offered for the Playnite games only, as on Android (the button speaks
     // of « jeux masqués »); a card hidden by an older version can still be shown again
+    // row: unused, the menu keeps the app's id (rows move while it is open)
     function openMenu(item, row, name, cover, running, x, y, appid, isGame) {
-        appMenu.row = row
         appMenu.appid = appid
         appMenu.appName = name
         appMenu.cover = cover
         appMenu.running = running
-        appMenu.hidden = appModel ? appModel.isAppHidden(row) : false
+        appMenu.hidden = appModel ? appModel.isAppHidden(appid) : false
         appMenu.canHide = isGame === true || appMenu.hidden
         var p = item.mapToItem(home, x, y)
         appMenu.openAt(p.x, p.y)
     }
 
     function onMenuAction(action) {
-        var row = appMenu.row
+        var appid = appMenu.appid
+        if (!appModel) return
         if (action === "launch") {
-            launch(row, appMenu.appName, appMenu.appid)
+            launch(-1, appMenu.appName, appid)
         } else if (action === "quit") {
             confirmQuit()
         } else if (action === "relaunch") {
             // Quits and starts again, so the host recreates its virtual display for this device
             confirmQuitDialog.relaunch = true
-            confirmQuitDialog.nextRow = row
+            confirmQuitDialog.nextAppId = appid
             confirmQuitDialog.nextAppName = appMenu.appName
             confirmQuitDialog.open()
         } else if (action === "art") {
-            exportArtDialog.row = row
-            exportArtDialog.currentFile = "file:///" + appModel.suggestedArtFileName(row)
+            exportArtDialog.appid = appid
+            exportArtDialog.currentFile = "file:///" + appModel.suggestedArtFileName(appid)
             exportArtDialog.open()
         } else if (action === "hide") {
-            appModel.setAppHidden(row, true)
+            appModel.setAppHidden(appid, true)
         } else if (action === "unhide") {
-            appModel.setAppHidden(row, false)
+            appModel.setAppHidden(appid, false)
         }
     }
 
@@ -663,7 +727,7 @@ FocusScope {
                             iconName: "play"
                             hint: Theme.input === "pad" ? "A" : qsTr("Entrée")
                             focus: home.sessionRunning
-                            onClicked: home.launch(home.runningRow, home.runningTitle, home.runningId)
+                            onClicked: home.launch(-1, home.runningTitle, home.runningId)
                         }
                         LavButton {
                             primary: false
@@ -770,7 +834,6 @@ FocusScope {
 
     AppMenu {
         id: appMenu
-        property int row: -1
         property int appid: 0
         parent: home
         onTriggered: (action) => home.onMenuAction(action)
@@ -780,21 +843,21 @@ FocusScope {
         id: quitDialog
         property string appName: ""
         property string nextAppName: ""
-        property int nextRow: -1
+        property int nextAppId: 0
         text: qsTr("%1 est en cours. Le quitter pour lancer %2 ? Ce qui n'est pas sauvegardé sera perdu.").arg(appName).arg(nextAppName)
         standardButtons: Dialog.Yes | Dialog.No
-        onAccepted: home.quitRunning(nextRow, nextAppName)
+        onAccepted: home.quitRunning(nextAppId, nextAppName)
     }
 
     NavigableMessageDialog {
         id: confirmQuitDialog
         property bool relaunch: false
         property string nextAppName: ""
-        property int nextRow: -1
+        property int nextAppId: 0
         text: relaunch ? qsTr("Quitter %1 puis le relancer ? Ce qui n'est pas sauvegardé sera perdu.").arg(home.runningTitle)
                        : qsTr("Quitter %1 ? Ce qui n'est pas sauvegardé sera perdu.").arg(home.runningTitle)
         standardButtons: Dialog.Yes | Dialog.No
-        onAccepted: relaunch ? home.quitRunning(nextRow, nextAppName) : home.quitRunning()
+        onAccepted: relaunch ? home.quitRunning(nextAppId, nextAppName) : home.quitRunning()
     }
 
     NavigableMessageDialog {
@@ -805,13 +868,14 @@ FocusScope {
 
     FileDialog {
         id: exportArtDialog
-        property int row: -1
+        property int appid: 0
         title: qsTr("Créer un raccourci .art")
         fileMode: FileDialog.SaveFile
         defaultSuffix: "art"
         nameFilters: [qsTr("Raccourci LavArtemis (*.art)")]
         onAccepted: {
-            var error = home.appModel.exportArtFile(row, selectedFile)
+            var error = home.appModel ? home.appModel.exportArtFile(appid, selectedFile)
+                                      : qsTr("Ce PC n'est plus dans la liste.")
             if (error) {
                 artErrorDialog.text = error
                 artErrorDialog.open()

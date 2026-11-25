@@ -23,17 +23,19 @@ FocusScope {
     readonly property int pairedCount: { rev; return countHosts(true) }
     readonly property int cols: Math.max(2, Math.min(5, pairedCount + 1))
 
-    // Pairing under way (index, uuid and name of the host), and the hosts paired before a manual add
-    property int pairingIndex: -1
+    // The pairing this page started (uuid and name of the host): only this page reacts to its end
+    // (an earlier Mes PC page can still be alive), and its dialog shows that host even when the
+    // list moves. Manual adds under way: typed address -> uuids paired before it (Android's
+    // pairedBefore), so overlapping adds each complete with their own address.
     property string pairingUuid: ""
     property string pairingName: ""
-    property var pairedBeforeAdd: []
-    property string addingAddress: ""
+    property var pendingAdds: ({})
 
     function createModel() {
         var model = Qt.createQmlObject('import ComputerModel 1.0; ComputerModel {}', hostsPage, '')
         model.initialize(ComputerManager)
         model.pairingCompleted.connect(pairingComplete)
+        model.wakeCompleted.connect(wakeComplete)
         model.rowsInserted.connect(function() { hostsPage.rev++ })
         model.rowsRemoved.connect(function() { hostsPage.rev++ })
         model.modelReset.connect(function() { hostsPage.rev++ })
@@ -85,19 +87,39 @@ FocusScope {
 
     function wakeHost(i) {
         if (role(i, "wakeable")) {
+            // The toast comes when the packets left, or could not (Android's v2_wake_sent / v2_wake_failed)
             computerModel.wakeComputer(i)
-            toast.show(qsTr("Réveil envoyé à %1").arg(role(i, "name")))
         } else {
             showError(qsTr("%1 ne peut pas être réveillé d'ici : il n'a encore jamais donné son adresse réseau matérielle (MAC). Allume-le une fois à la main pendant que LavArtemis tourne.").arg(role(i, "name")))
         }
     }
 
+    function wakeComplete(uuid, name, sent) {
+        toast.show(sent ? qsTr("Réveil envoyé à %1").arg(name)
+                        : qsTr("Le réveil de %1 n'a pas pu être envoyé.").arg(name))
+    }
+
+    // One pairing at a time (Android's HostsActivity.pair): while one runs, its dialog comes back
+    // (closing it with « C'est fait » does not stop it; it ends when the PC answers, or after
+    // 3 minutes without the code)
     function pairHost(i) {
+        var busy = ComputerManager.pairingUuid()
+        if (busy !== "") {
+            var b = indexOfUuid(busy)
+            pairingUuid = busy
+            pairingName = b >= 0 ? role(b, "name") : pairingName
+            pairDialog.pin = ComputerManager.pairingPin()
+            pairDialog.open()
+            return
+        }
+        if (!role(i, "online")) {
+            showError(qsTr("%1 est hors ligne : allume-le, puis appaire-le.").arg(role(i, "name")))
+            return
+        }
         var pin = computerModel.generatePinString()
-        pairingIndex = i
+        if (!computerModel.pairComputer(i, pin)) return
         pairingUuid = role(i, "uuid")
         pairingName = role(i, "name")
-        computerModel.pairComputer(i, pin)
         pairDialog.pin = pin
         pairDialog.open()
     }
@@ -109,21 +131,29 @@ FocusScope {
         else if (!role(i, "statusUnknown")) wakeHost(i)
     }
 
-    function pairingComplete(error) {
+    function pairingComplete(uuid, error) {
+        // Another page's pairing, or a pairing of this page that the user left
+        if (uuid !== pairingUuid) return
+        pairingUuid = ""
         pairDialog.close()
+        if (StackView.status !== StackView.Active) return
         if (error !== undefined) {
             showError(error)
             return
         }
-        toast.show(qsTr("%1 est appairé").arg(pairingName))
-        var uuid = pairingUuid
-        pairingIndex = -1
-        if (home && uuid !== "") {
+        var i = indexOfUuid(uuid)
+        var name = i >= 0 ? role(i, "name") : pairingName
+        toast.show(qsTr("%1 est appairé").arg(name))
+        // Then open it, as Android (pairFinished -> openHost): refused if its LavApollo is too old
+        if (i >= 0 && !checkSupported(i)) return
+        if (home) {
             home.showHost(uuid)
             stackView.pop()
         }
     }
 
+    // The menu and the dialogs keep the host's uuid, never its row: rows move while they are open
+    // (a host comes online, one is added or forgotten), and the row could name another PC
     function openHostMenu(item, i, x, y) {
         var online = role(i, "online"), paired = role(i, "paired")
         var list = []
@@ -137,7 +167,7 @@ FocusScope {
         }
         list.push({id: "rename", label: qsTr("Renommer"), icon: "pencil"})
         list.push({id: "forget", label: qsTr("Oublier ce PC"), icon: "trash"})
-        hostMenu.hostIndex = i
+        hostMenu.hostUuid = role(i, "uuid")
         hostMenu.appName = role(i, "name")
         hostMenu.customEntries = list
         var p = item.mapToItem(hostsPage, x, y)
@@ -145,8 +175,8 @@ FocusScope {
     }
 
     function onHostMenu(action) {
-        var i = hostMenu.hostIndex
-        if (i < 0 || i >= computerModel.rowCount()) return
+        var i = indexOfUuid(hostMenu.hostUuid)
+        if (i < 0) return
         if (action === "open") openHost(i)
         else if (action === "pair") pairHost(i)
         else if (action === "wake") wakeHost(i)
@@ -160,11 +190,11 @@ FocusScope {
             var component = Qt.createComponent("../BenchmarkView.qml")
             stackView.push(component.createObject(stackView, {"hostUuid": role(i, "uuid"), "hostName": role(i, "name")}))
         } else if (action === "rename") {
-            renameDialog.hostIndex = i
+            renameDialog.hostUuid = role(i, "uuid")
             renameField.text = role(i, "name")
             renameDialog.open()
         } else if (action === "forget") {
-            forgetDialog.hostIndex = i
+            forgetDialog.hostUuid = role(i, "uuid")
             forgetDialog.hostName = role(i, "name")
             forgetDialog.open()
         }
@@ -175,7 +205,7 @@ FocusScope {
         for (var i = 0; i < computerModel.rowCount(); i++) {
             if (!role(i, "paired") && role(i, "online")) {
                 var addr = role(i, "address")
-                list.push({id: "pair:" + i, label: role(i, "name") + (addr ? " · " + addr : ""), icon: "monitor", main: list.length === 0})
+                list.push({id: "pair:" + role(i, "uuid"), label: role(i, "name") + (addr ? " · " + addr : ""), icon: "monitor", main: list.length === 0})
             }
         }
         list.push({id: "manual", label: qsTr("Saisir une adresse…"), icon: "search", main: list.length === 0})
@@ -187,7 +217,8 @@ FocusScope {
 
     function onAddMenu(action) {
         if (action.indexOf("pair:") === 0) {
-            pairHost(parseInt(action.slice(5)))
+            var i = indexOfUuid(action.slice(5))
+            if (i >= 0) pairHost(i)
         } else if (action === "manual") {
             addressField.text = ""
             addDialog.open()
@@ -197,6 +228,11 @@ FocusScope {
     function addByAddress(address) {
         address = address.trim()
         if (address.length === 0) return
+        // Unreadable: said at once, as Android (v2_add_invalid), instead of « Impossible de joindre »
+        if (!ComputerManager.isValidManualAddress(address)) {
+            showError(qsTr("« %1 » n'est pas une adresse valide. Saisis une adresse IP ou un nom, avec le port s'il le faut (192.168.1.24:47989).").arg(address))
+            return
+        }
         // Test build only: a refused address (not a loopback test host) never starts a search
         var refusal = ComputerManager.testGuardRefusal(address)
         if (refusal !== "") {
@@ -207,8 +243,9 @@ FocusScope {
         for (var i = 0; i < computerModel.rowCount(); i++) {
             if (role(i, "paired")) paired.push(role(i, "uuid"))
         }
-        pairedBeforeAdd = paired
-        addingAddress = address
+        var adds = pendingAdds
+        adds[address] = paired
+        pendingAdds = adds
         toast.show(qsTr("Recherche de %1…").arg(address))
         ComputerManager.addNewHostManually(address)
     }
@@ -217,11 +254,18 @@ FocusScope {
     // this after the state change that put a new host in the model, so its row is there.
     // Same outcome as Android's HostsActivity.onAdded(): not paired -> pair it now; paired
     // before -> already in the list; otherwise added.
-    function addComplete(success, detectedPortBlocking, uuid) {
-        if (addingAddress === "") return
-        var address = addingAddress
-        addingAddress = ""
+    function addComplete(success, detectedPortBlocking, uuid, address) {
+        if (!(address in pendingAdds)) return
+        var pairedBeforeAdd = pendingAdds[address]
+        var adds = pendingAdds
+        delete adds[address]
+        pendingAdds = adds
         if (!success) {
+            if (ComputerManager.isWrongSubnetAddress(address)) {
+                // Android's v2_add_wrong_subnet: a private address outside this PC's networks
+                showError(qsTr("%1 n'est pas sur le réseau de cet appareil. Vérifie l'adresse, et que l'appareil est connecté au même réseau que le PC.").arg(address))
+                return
+            }
             var text = qsTr("Impossible de joindre %1. Vérifie que le PC est allumé, que LavApollo tourne et que l'adresse est la bonne.").arg(address)
             if (detectedPortBlocking) {
                 text += "\n\n" + qsTr("La connexion Internet de ce réseau semble bloquer LavArtemis : le stream par Internet risque de ne pas marcher d'ici.")
@@ -643,7 +687,7 @@ FocusScope {
 
     AppMenu {
         id: hostMenu
-        property int hostIndex: -1
+        property string hostUuid: ""
         parent: hostsPage
         onTriggered: (action) => hostsPage.onHostMenu(action)
     }
@@ -684,7 +728,7 @@ FocusScope {
 
     LavDialog {
         id: renameDialog
-        property int hostIndex: -1
+        property string hostUuid: ""
         title: qsTr("Renommer")
         text: qsTr("Le nom de ce PC dans LavArtemis. Le PC lui-même garde le sien.")
         acceptText: qsTr("Renommer")
@@ -698,17 +742,23 @@ FocusScope {
                 onAccepted: renameDialog.accept()
             }
         ]
-        onAccepted: hostsPage.computerModel.renameComputer(hostIndex, renameField.text.trim())
+        onAccepted: {
+            var i = hostsPage.indexOfUuid(hostUuid)
+            if (i >= 0) hostsPage.computerModel.renameComputer(i, renameField.text.trim())
+        }
     }
 
     LavDialog {
         id: forgetDialog
-        property int hostIndex: -1
+        property string hostUuid: ""
         property string hostName: ""
         title: qsTr("Oublier %1 ?").arg(hostName)
         text: qsTr("Il disparaît de LavArtemis. Pour le retrouver, il faudra l'ajouter et l'appairer à nouveau.")
         acceptText: qsTr("Oublier")
-        onAccepted: hostsPage.computerModel.deleteComputer(hostIndex)
+        onAccepted: {
+            var i = hostsPage.indexOfUuid(hostUuid)
+            if (i >= 0) hostsPage.computerModel.deleteComputer(i)
+        }
     }
 
     LavDialog {

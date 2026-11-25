@@ -30,15 +30,25 @@ public:
 public:
     explicit AppModel(QObject *parent = nullptr);
 
-    // Must be called before any QAbstractListModel functions
-    Q_INVOKABLE void initialize(ComputerManager* computerManager, int computerIndex, bool showHiddenGames);
+    // Must be called before any QAbstractListModel functions. The host by uuid, not by a row of
+    // some ComputerModel (rows move when a host is added or forgotten); false if it is not known.
+    Q_INVOKABLE bool initialize(ComputerManager* computerManager, QString hostUuid, bool showHiddenGames);
 
-    Q_INVOKABLE Session* createSessionForApp(int appIndex);
+    // The host this model shows; empty once it has been forgotten (computerLost was emitted)
+    Q_INVOKABLE QString hostUuid();
+
+    // Everything below takes the app id, not a row: a menu or a dialog opened on an app keeps
+    // its id while the rows move under it (an app list poll, a game moving up the library).
+    // Works for a hidden app too (Reprendre on a hidden running game).
+    Q_INVOKABLE Session* createSessionForApp(int appId);
+
+    // Row of this app among the visible apps, -1 if it has none
+    Q_INVOKABLE int rowOfAppId(int appId);
 
 
     // LavApollo Link: whether this app starts inside the host's running Playnite front end,
     // keeping the session (no "quit the running app" first).
-    Q_INVOKABLE bool startsInsidePlaynite(int appIndex);
+    Q_INVOKABLE bool startsInsidePlaynite(int appId);
 
     // The game running inside the host's Playnite (LavApollo Link), empty if none
     Q_INVOKABLE QString getRunningPlayniteGameName();
@@ -58,21 +68,21 @@ public:
 
     Q_INVOKABLE void quitRunningApp();
 
-    Q_INVOKABLE void setAppHidden(int appIndex, bool hidden);
+    Q_INVOKABLE void setAppHidden(int appId, bool hidden);
 
     // The redesigned home: how many apps the user hid on this host, and whether a row is one
     Q_INVOKABLE int hiddenAppCount();
-    Q_INVOKABLE bool isAppHidden(int appIndex);
+    Q_INVOKABLE bool isAppHidden(int appId);
 
 
     // Filename to offer when saving a .art shortcut for this app, with
     // anything a filesystem would reject stripped out.
-    Q_INVOKABLE QString suggestedArtFileName(int appIndex);
+    Q_INVOKABLE QString suggestedArtFileName(int appId);
 
     // Writes a .art launcher file: the format the Android client exports and
     // this one already opens. Returns an empty string on success, or a message
     // fit to show the user.
-    Q_INVOKABLE QString exportArtFile(int appIndex, const QUrl& destination);
+    Q_INVOKABLE QString exportArtFile(int appId, const QUrl& destination);
 
     QVariant data(const QModelIndex &index, int role) const override;
 
@@ -84,6 +94,8 @@ private slots:
     void handleComputerStateChanged(NvComputer* computer);
 
     void handleBoxArtLoaded(NvComputer* computer, NvApp app, QUrl image);
+
+    void handleComputerRemoved(NvComputer* computer);
 
 signals:
     void computerLost();
@@ -99,7 +111,12 @@ private:
 
     bool isAppCurrentlyVisible(const NvApp& app);
 
-    NvComputer* m_Computer;
+    // The app with this id in the host's whole list (hidden ones too); false if none
+    bool findApp(int appId, NvApp& app);
+
+    // Null once the host is forgotten (ComputerManager::computerRemoved): never read it then
+    NvComputer* m_Computer = nullptr;
+    QString m_HostUuid;
     BoxArtManager m_BoxArtManager;
     ComputerManager* m_ComputerManager;
     QVector<NvApp> m_VisibleApps, m_AllApps;

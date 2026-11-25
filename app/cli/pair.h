@@ -28,10 +28,10 @@ public:
     Q_INVOKABLE bool isExecuted() const;
 
 signals:
-    void searchingComputer();
-    void pairing(QString pcName, QString pin);
+    void searchingComputer(QString target);
+    void pairing(QString pcName, QString pin, bool fromLink);
     void failed(QString text);
-    void success();
+    void success(QString uuid, QString pcName);
 
 private slots:
     void onComputerFound(NvComputer *computer);

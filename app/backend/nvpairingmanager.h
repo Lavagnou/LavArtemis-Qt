@@ -17,7 +17,9 @@ public:
         ALREADY_IN_PROGRESS
     };
 
-    explicit NvPairingManager(NvComputer* computer);
+    // pinWaitTimeoutMs: how long the first request may wait for the PIN typed on the host
+    // (0 = no limit, moonlight-qt's behaviour)
+    explicit NvPairingManager(NvComputer* computer, int pinWaitTimeoutMs = 0);
 
     ~NvPairingManager();
 
@@ -25,6 +27,8 @@ public:
     pair(QString appVersion, QString pin, QSslCertificate& serverCert);
 
 private:
+    void cancelHostPairing();
+
     QByteArray
     generateRandomBytes(int length);
 
@@ -50,6 +54,7 @@ private:
     signMessage(const QByteArray& message);
 
     NvHTTP m_Http;
+    int m_PinWaitTimeoutMs;
     X509* m_Cert;
     EVP_PKEY* m_PrivateKey;
 };

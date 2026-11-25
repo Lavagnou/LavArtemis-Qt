@@ -1,4 +1,5 @@
 #include "nvpairingmanager.h"
+#include "computermanager.h"
 #include "utils.h"
 
 #include <stdexcept>
@@ -11,8 +12,9 @@
 
 #define REQUEST_TIMEOUT_MS 5000
 
-NvPairingManager::NvPairingManager(NvComputer* computer) :
-    m_Http(computer)
+NvPairingManager::NvPairingManager(NvComputer* computer, int pinWaitTimeoutMs) :
+    m_Http(computer),
+    m_PinWaitTimeoutMs(pinWaitTimeoutMs)
 {
     QByteArray cert = IdentityManager::get()->getCertificate();
     BIO *bio = BIO_new_mem_buf(cert.data(), -1);
@@ -203,10 +205,26 @@ NvPairingManager::saltPin(const QByteArray& salt, QString pin)
     return QByteArray().append(salt).append(pin.toUtf8());
 }
 
+// Best effort, after a failed step: GameStream ends the host's pairing session with /unpair, which
+// LavApollo (Sunshine) does not have (404). That 404 used to escape pair() and replace its result:
+// a wrong PIN showed « erreur 404 » instead of « le code n'est pas le bon ».
+void
+NvPairingManager::cancelHostPairing()
+{
+    try {
+        m_Http.openConnectionToString(m_Http.m_BaseUrlHttp, "unpair", nullptr, REQUEST_TIMEOUT_MS);
+    } catch (const std::exception&) {
+        // Nothing to undo then: Sunshine forgets a failed pairing session by itself
+    }
+}
+
 NvPairingManager::PairState
 NvPairingManager::pair(QString appVersion, QString pin, QSslCertificate& serverCert)
 {
-    int serverMajorVersion = NvHTTP::parseQuad(appVersion).at(0);
+    // An empty or unreadable appversion (a host that doesn't send it) crashed here (.at(0) of an
+    // empty list): count it as a current host, the same rule as isSupportedAppVersion()
+    QVector<int> quad = NvHTTP::parseQuad(appVersion);
+    int serverMajorVersion = quad.isEmpty() ? 7 : quad.at(0);
     qInfo() << "Pairing with server generation:" << serverMajorVersion;
 
     QCryptographicHash::Algorithm hashAlgo;
@@ -235,9 +253,10 @@ NvPairingManager::pair(QString appVersion, QString pin, QSslCertificate& serverC
 
     QString getCert = m_Http.openConnectionToString(m_Http.m_BaseUrlHttp,
                                                     "pair",
-                                                    "devicename=roth&updateState=1&phrase=getservercert&salt=" +
+                                                    "devicename=" + ComputerManager::clientDeviceName() +
+                                                    "&updateState=1&phrase=getservercert&salt=" +
                                                     salt.toHex() + "&clientcert=" + IdentityManager::get()->getCertificate().toHex(),
-                                                    0);
+                                                    m_PinWaitTimeoutMs);
     NvHTTP::verifyResponseStatus(getCert);
     if (NvHTTP::getXmlString(getCert, "paired") != "1")
     {
@@ -248,7 +267,7 @@ NvPairingManager::pair(QString appVersion, QString pin, QSslCertificate& serverC
     QByteArray serverCertStr = NvHTTP::getXmlStringFromHex(getCert, "plaincert");
     if (serverCertStr.isEmpty()) {
         qCritical() << "Server likely already pairing";
-        m_Http.openConnectionToString(m_Http.m_BaseUrlHttp, "unpair", nullptr, REQUEST_TIMEOUT_MS);
+        cancelHostPairing();
         return PairState::ALREADY_IN_PROGRESS;
     }
 
@@ -257,7 +276,7 @@ NvPairingManager::pair(QString appVersion, QString pin, QSslCertificate& serverC
         Q_ASSERT(!unverifiedServerCert.isNull());
 
         qCritical() << "Failed to parse plaincert";
-        m_Http.openConnectionToString(m_Http.m_BaseUrlHttp, "unpair", nullptr, REQUEST_TIMEOUT_MS);
+        cancelHostPairing();
         return PairState::FAILED;
     }
 
@@ -269,21 +288,21 @@ NvPairingManager::pair(QString appVersion, QString pin, QSslCertificate& serverC
     QByteArray encryptedChallenge = encrypt(randomChallenge, aesKey);
     QString challengeXml = m_Http.openConnectionToString(m_Http.m_BaseUrlHttp,
                                                          "pair",
-                                                         "devicename=roth&updateState=1&clientchallenge=" +
+                                                         "devicename=" + ComputerManager::clientDeviceName() + "&updateState=1&clientchallenge=" +
                                                          encryptedChallenge.toHex(),
                                                          REQUEST_TIMEOUT_MS);
     NvHTTP::verifyResponseStatus(challengeXml);
     if (NvHTTP::getXmlString(challengeXml, "paired") != "1")
     {
         qCritical() << "Failed pairing at stage #2";
-        m_Http.openConnectionToString(m_Http.m_BaseUrlHttp, "unpair", nullptr, REQUEST_TIMEOUT_MS);
+        cancelHostPairing();
         return PairState::FAILED;
     }
 
     QByteArray challengeResponseData = decrypt(m_Http.getXmlStringFromHex(challengeXml, "challengeresponse"), aesKey);
     if (challengeResponseData.size() < hashLength) {
         qCritical() << "Invalid challengeresponse at stage #2";
-        m_Http.openConnectionToString(m_Http.m_BaseUrlHttp, "unpair", nullptr, REQUEST_TIMEOUT_MS);
+        cancelHostPairing();
         return PairState::FAILED;
     }
 
@@ -300,21 +319,21 @@ NvPairingManager::pair(QString appVersion, QString pin, QSslCertificate& serverC
     QByteArray encryptedChallengeResponseHash = encrypt(paddedHash, aesKey);
     QString respXml = m_Http.openConnectionToString(m_Http.m_BaseUrlHttp,
                                                     "pair",
-                                                    "devicename=roth&updateState=1&serverchallengeresp=" +
+                                                    "devicename=" + ComputerManager::clientDeviceName() + "&updateState=1&serverchallengeresp=" +
                                                     encryptedChallengeResponseHash.toHex(),
                                                     REQUEST_TIMEOUT_MS);
     NvHTTP::verifyResponseStatus(respXml);
     if (NvHTTP::getXmlString(respXml, "paired") != "1")
     {
         qCritical() << "Failed pairing at stage #3";
-        m_Http.openConnectionToString(m_Http.m_BaseUrlHttp, "unpair", nullptr, REQUEST_TIMEOUT_MS);
+        cancelHostPairing();
         return PairState::FAILED;
     }
 
     QByteArray pairingSecret = NvHTTP::getXmlStringFromHex(respXml, "pairingsecret");
     if (pairingSecret.size() <= 16) {
         qCritical() << "Invalid pairingsecret at stage #3";
-        m_Http.openConnectionToString(m_Http.m_BaseUrlHttp, "unpair", nullptr, REQUEST_TIMEOUT_MS);
+        cancelHostPairing();
         return PairState::FAILED;
     }
 
@@ -326,7 +345,7 @@ NvPairingManager::pair(QString appVersion, QString pin, QSslCertificate& serverC
                          serverCertStr))
     {
         qCritical() << "MITM detected";
-        m_Http.openConnectionToString(m_Http.m_BaseUrlHttp, "unpair", nullptr, REQUEST_TIMEOUT_MS);
+        cancelHostPairing();
         return PairState::FAILED;
     }
 
@@ -337,7 +356,7 @@ NvPairingManager::pair(QString appVersion, QString pin, QSslCertificate& serverC
     if (QCryptographicHash::hash(expectedResponseData, hashAlgo) != serverResponse)
     {
         qCritical() << "Incorrect PIN";
-        m_Http.openConnectionToString(m_Http.m_BaseUrlHttp, "unpair", nullptr, REQUEST_TIMEOUT_MS);
+        cancelHostPairing();
         return PairState::PIN_WRONG;
     }
 
@@ -347,26 +366,26 @@ NvPairingManager::pair(QString appVersion, QString pin, QSslCertificate& serverC
 
     QString secretRespXml = m_Http.openConnectionToString(m_Http.m_BaseUrlHttp,
                                                           "pair",
-                                                          "devicename=roth&updateState=1&clientpairingsecret=" +
+                                                          "devicename=" + ComputerManager::clientDeviceName() + "&updateState=1&clientpairingsecret=" +
                                                           clientPairingSecret.toHex(),
                                                           REQUEST_TIMEOUT_MS);
     NvHTTP::verifyResponseStatus(secretRespXml);
     if (NvHTTP::getXmlString(secretRespXml, "paired") != "1")
     {
         qCritical() << "Failed pairing at stage #4";
-        m_Http.openConnectionToString(m_Http.m_BaseUrlHttp, "unpair", nullptr, REQUEST_TIMEOUT_MS);
+        cancelHostPairing();
         return PairState::FAILED;
     }
 
     QString pairChallengeXml = m_Http.openConnectionToString(m_Http.m_BaseUrlHttps,
                                                              "pair",
-                                                             "devicename=roth&updateState=1&phrase=pairchallenge",
+                                                             "devicename=" + ComputerManager::clientDeviceName() + "&updateState=1&phrase=pairchallenge",
                                                              REQUEST_TIMEOUT_MS);
     NvHTTP::verifyResponseStatus(pairChallengeXml);
     if (NvHTTP::getXmlString(pairChallengeXml, "paired") != "1")
     {
         qCritical() << "Failed pairing at stage #5";
-        m_Http.openConnectionToString(m_Http.m_BaseUrlHttp, "unpair", nullptr, REQUEST_TIMEOUT_MS);
+        cancelHostPairing();
         return PairState::FAILED;
     }
 

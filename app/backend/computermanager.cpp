@@ -14,7 +14,11 @@
 #include <QCryptographicHash>
 #include <QRandomGenerator>
 #include <QRegularExpression>
+#include <QSysInfo>
+#include <QNetworkInterface>
+#include <QUrl>
 
+#include <memory>
 #include <random>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -45,7 +49,15 @@ public:
 private:
     bool tryPollComputer(QNetworkAccessManager* nam, NvAddress address, bool& changed)
     {
-        NvHTTP http(address, 0, m_Computer->serverCert, !m_Computer->isNvidiaServerSoftware, nam);
+        QSslCertificate serverCert;
+        bool trueUid;
+        {
+            // A pairing (finishPairing) or a certificate adopted from another process writes it
+            QReadLocker lock(&m_Computer->lock);
+            serverCert = m_Computer->serverCert;
+            trueUid = !m_Computer->isNvidiaServerSoftware;
+        }
+        NvHTTP http(address, 0, serverCert, trueUid, nam);
 
         QString serverInfo;
         try {
@@ -264,6 +276,10 @@ ComputerManager::~ComputerManager()
 
 void DelayedFlushThread::run() {
     for (;;) {
+        // Hosts stored by another process and unknown here: written back with ours, then
+        // handed to the GUI thread, which adopts them (ComputerManager::adoptStoredHosts)
+        QVector<NvComputer*> foreignHosts;
+
         // Wait for a delayed flush request or an interruption
         {
             QMutexLocker locker(&m_ComputerManager->m_DelayedFlushMutex);
@@ -281,6 +297,12 @@ void DelayedFlushThread::run() {
 
             // Reset the delayed flush flag to ensure any racing saveHosts() call will set it again
             m_ComputerManager->m_NeedsDelayedFlush = false;
+
+            // Another LavArtemis process (an art:// pairing link, `lavartemis pair`: there is no
+            // single instance) may have stored hosts or certificates since we last read or wrote
+            // the list: take them in instead of writing over them. Compared with what we last
+            // stored, under the delayed flush mutex, before that snapshot is replaced below.
+            foreignHosts = m_ComputerManager->mergeStoredHosts();
 
             // Update the last serialized hosts map under the delayed flush mutex
             m_ComputerManager->m_LastSerializedHosts.clear();
@@ -305,6 +327,10 @@ void DelayedFlushThread::run() {
                     settings.setArrayIndex(i++);
                     computer->serialize(settings, false);
                 }
+                for (const NvComputer* computer : std::as_const(foreignHosts)) {
+                    settings.setArrayIndex(i++);
+                    computer->serialize(settings, false);
+                }
             }
             settings.endArray();
 
@@ -318,12 +344,101 @@ void DelayedFlushThread::run() {
                     settings.setArrayIndex(i++);
                     computer->serialize(settings, true);
                 }
+                for (const NvComputer* computer : std::as_const(foreignHosts)) {
+                    settings.setArrayIndex(i++);
+                    computer->serialize(settings, true);
+                }
             }
             settings.endArray();
 
             // Finally, delete the backup copy
             settings.remove(SER_HOSTS_BACKUP);
         }
+
+        if (!foreignHosts.isEmpty()) {
+            ComputerManager* cm = m_ComputerManager;
+            QMetaObject::invokeMethod(cm, [cm, foreignHosts] { cm->adoptStoredHosts(foreignHosts); },
+                                      Qt::QueuedConnection);
+        }
+    }
+}
+
+// Called by the flush thread with m_DelayedFlushMutex held (it protects m_LastSerializedHosts
+// and m_ForgottenUuids). Lock order: flush mutex, then m_Lock, then a computer's lock.
+QVector<NvComputer*> ComputerManager::mergeStoredHosts()
+{
+    QVector<NvComputer*> foreign;
+    QSettings settings;
+
+    int count = settings.beginReadArray(SER_HOSTS);
+    for (int i = 0; i < count; i++) {
+        settings.setArrayIndex(i);
+        NvComputer* stored = new NvComputer(settings);
+        if (stored->uuid.isEmpty()) {
+            delete stored;
+            continue;
+        }
+
+        NvComputer* known;
+        {
+            QReadLocker lock(&m_Lock);
+            known = m_KnownHosts.value(stored->uuid);
+        }
+
+        if (known != nullptr) {
+            // What we stored last time: a different certificate on disk was written by another
+            // process (it paired this host again). Unknown here yet: only fill an empty one.
+            auto last = m_LastSerializedHosts.constFind(stored->uuid);
+            bool storedElsewhere = !stored->serverCert.isNull() &&
+                    (last != m_LastSerializedHosts.constEnd() ? last->serverCert != stored->serverCert : true);
+            if (storedElsewhere) {
+                QWriteLocker computerLock(&known->lock);
+                if (known->serverCert != stored->serverCert &&
+                        (last != m_LastSerializedHosts.constEnd() || known->serverCert.isNull())) {
+                    qInfo() << "Taking the certificate of" << known->name << "stored by another LavArtemis process";
+                    known->serverCert = stored->serverCert;
+                    // Unknown until the next poll reads it over HTTPS with this certificate
+                    known->pairState = NvComputer::PS_UNKNOWN;
+                }
+            }
+            delete stored;
+        }
+        else if (!m_ForgottenUuids.contains(stored->uuid) && !m_LastSerializedHosts.contains(stored->uuid)) {
+            // Added by another process since we last read or wrote the list
+            qInfo() << "Taking" << stored->name << "added by another LavArtemis process";
+            foreign.append(stored);
+        }
+        else {
+            // Forgotten here, or a host we stored and then removed: our list wins
+            delete stored;
+        }
+    }
+    settings.endArray();
+
+    return foreign;
+}
+
+// GUI thread: hosts that another process stored (mergeStoredHosts), now in our list too
+void ComputerManager::adoptStoredHosts(QVector<NvComputer*> hosts)
+{
+    QVector<NvComputer*> added;
+    {
+        QMutexLocker flushLock(&m_DelayedFlushMutex);
+        QWriteLocker lock(&m_Lock);
+        for (NvComputer* computer : std::as_const(hosts)) {
+            if (m_KnownHosts.contains(computer->uuid) || m_ForgottenUuids.contains(computer->uuid)) {
+                delete computer;
+                continue;
+            }
+            m_KnownHosts[computer->uuid] = computer;
+            m_LastSerializedHosts[computer->uuid] = *computer;
+            startPollingComputer(computer);
+            added.append(computer);
+        }
+    }
+
+    for (NvComputer* computer : std::as_const(added)) {
+        emit computerStateChanged(computer);
     }
 }
 
@@ -422,6 +537,11 @@ void ComputerManager::startPollingComputer(NvComputer* computer)
         return;
     }
 
+    // Not while it is being paired: finishPairing() starts its poller again
+    if (computer->uuid == m_PairingUuid) {
+        return;
+    }
+
     ComputerPollingEntry* pollingEntry;
 
     if (!m_PollEntries.contains(computer->uuid)) {
@@ -495,8 +615,25 @@ void ComputerManager::saveHost(NvComputer *computer)
     }
 }
 
+bool ComputerManager::isKnownHost(NvComputer* computer)
+{
+    QReadLocker lock(&m_Lock);
+    for (const NvComputer* known : std::as_const(m_KnownHosts)) {
+        if (known == computer) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void ComputerManager::handleComputerStateChanged(NvComputer* computer)
 {
+    // A poll or an add that ended just before the host was forgotten: its signal was queued
+    // before deleteHost() ran. The host has left the list; nothing may read or save it again.
+    if (!isKnownHost(computer)) {
+        return;
+    }
+
     emit computerStateChanged(computer);
 
     if (computer->pendingQuit && computer->currentGameId == 0) {
@@ -523,48 +660,73 @@ QVector<NvComputer*> ComputerManager::getComputers()
 class DeferredHostDeletionTask : public QRunnable
 {
 public:
-    DeferredHostDeletionTask(ComputerManager* cm, NvComputer* computer)
+    DeferredHostDeletionTask(ComputerManager* cm, NvComputer* computer, ComputerPollingEntry* pollingEntry,
+                             bool deleteComputer)
         : m_Computer(computer),
-          m_ComputerManager(cm) {}
+          m_Uuid(computer->uuid),
+          m_ComputerManager(cm),
+          m_PollingEntry(pollingEntry),
+          m_DeleteComputer(deleteComputer) {}
 
     void run()
     {
-        ComputerPollingEntry* pollingEntry;
-
-        // Only do the minimum amount of work while holding the writer lock.
-        // We must release it before calling saveHosts().
-        {
-            QWriteLocker lock(&m_ComputerManager->m_Lock);
-
-            pollingEntry = m_ComputerManager->m_PollEntries.take(m_Computer->uuid);
-
-            m_ComputerManager->m_KnownHosts.remove(m_Computer->uuid);
-        }
-
-        // Persist the new host list with this computer deleted
-        m_ComputerManager->saveHosts();
-
         // Delete the polling entry first. This will stop all polling threads too.
-        delete pollingEntry;
+        delete m_PollingEntry;
 
-        // Delete cached box art
-        BoxArtManager::deleteBoxArt(m_Computer);
+        // Delete cached box art (by uuid: m_Computer is not ours to read when a pairing deletes it)
+        BoxArtManager::deleteBoxArt(m_Uuid);
 
-        // Finally, delete the computer itself. This must be done
-        // last because the polling thread might be using it.
-        delete m_Computer;
+        // Finally, delete the computer itself, on the GUI thread: after the signals its poller
+        // queued there before it stopped (ComputerManager::handleComputerStateChanged drops them,
+        // the host being out of the list). A pairing still using it deletes it when it ends.
+        if (m_DeleteComputer) {
+            NvComputer* computer = m_Computer;
+            QMetaObject::invokeMethod(m_ComputerManager, [computer] { delete computer; }, Qt::QueuedConnection);
+        }
     }
 
 private:
     NvComputer* m_Computer;
+    QString m_Uuid;
     ComputerManager* m_ComputerManager;
+    ComputerPollingEntry* m_PollingEntry;
+    bool m_DeleteComputer;
 };
 
 void ComputerManager::deleteHost(NvComputer* computer)
 {
+    // Out of the list now, on the GUI thread, so every model and the home see it gone at once.
+    // It used to leave the list later, on a worker thread, without any signal: the home kept
+    // showing it and its AppModel read the deleted object.
+    ComputerPollingEntry* pollingEntry;
+    QString uuid;
+    {
+        QWriteLocker lock(&m_Lock);
+        uuid = computer->uuid;
+        if (m_KnownHosts.value(uuid) != computer) {
+            return;
+        }
+        pollingEntry = m_PollEntries.take(uuid);
+        m_KnownHosts.remove(uuid);
+    }
+    {
+        QMutexLocker lock(&m_DelayedFlushMutex);
+        m_ForgottenUuids.insert(uuid);
+    }
+
+    // Persist the new host list with this computer deleted
+    saveHosts();
+
+    emit computerRemoved(computer);
+
+    bool pairing = computer == m_PairingComputer;
+    if (pairing) {
+        m_DeleteAfterPairing.append(computer);
+    }
+
     // Punt to a worker thread to avoid stalling the
     // UI while waiting for the polling thread to die
-    QThreadPool::globalInstance()->start(new DeferredHostDeletionTask(this, computer));
+    QThreadPool::globalInstance()->start(new DeferredHostDeletionTask(this, computer, pollingEntry, !pairing));
 }
 
 void ComputerManager::renameHost(NvComputer* computer, QString name)
@@ -597,96 +759,259 @@ void ComputerManager::handleAboutToQuit()
     }
 }
 
-class PendingPairingTask : public QObject, public QRunnable
+// The pairing errors, Android's sentences (HostsActivity, v2_pair_*): they name the host and never
+// carry the host's raw XML or an English exception text (French in qml_fr.ts)
+QString ComputerManager::pairingErrorText(const QString& name, PairingError error, const QString& detail)
 {
-    Q_OBJECT
+    switch (error) {
+    case PairingError::WrongPin:
+        return tr("The code entered on %1 is not the right one. Try again: a new code will be shown.").arg(name);
+    case PairingError::InGame:
+        return tr("Pairing with %1 failed: a session is running on this PC. Quit it, then try again.").arg(name);
+    case PairingError::Busy:
+        return tr("A pairing is already under way on %1. Finish or cancel it in LavApollo, then try again.").arg(name);
+    case PairingError::UnknownHost:
+        return tr("The address of %1 cannot be found.").arg(name);
+    case PairingError::NotFound:
+        return tr("%1 did not answer the pairing request (error 404). Check that LavApollo is what runs on it.").arg(name);
+    case PairingError::Network:
+        return tr("The connection with %1 was lost during pairing (%2).").arg(name, detail);
+    case PairingError::TimedOut:
+        return tr("%1 did not get the code in time. Try again: a new code will be shown.").arg(name);
+    case PairingError::LinkExpired:
+        return tr("The link's code is no longer valid on %1: it works only once and expires after 3 minutes. Make a new link in LavApollo.").arg(name);
+    case PairingError::Failed:
+        break;
+    }
+    return tr("Pairing with %1 failed. Check that LavApollo runs on this PC, then try again.").arg(name);
+}
 
+QString ComputerManager::pairingErrorText(const QString& name, const GfeHttpResponseException& e)
+{
+    if (e.getStatusCode() == 404) {
+        return pairingErrorText(name, PairingError::NotFound);
+    }
+    if (e.getStatusCode() == 503 && QString(e.getStatusMessage()).contains("OTP", Qt::CaseInsensitive)) {
+        return pairingErrorText(name, PairingError::LinkExpired);
+    }
+    return pairingErrorText(name, PairingError::Network, tr("error %1").arg(e.getStatusCode()));
+}
+
+QString ComputerManager::pairingErrorText(const QString& name, const QtNetworkReplyException& e)
+{
+    switch (e.getError()) {
+    case QNetworkReply::HostNotFoundError:
+        return pairingErrorText(name, PairingError::UnknownHost);
+    case QNetworkReply::ContentNotFoundError:
+        return pairingErrorText(name, PairingError::NotFound);
+    case QNetworkReply::TimeoutError:
+    case QNetworkReply::OperationCanceledError:
+        return pairingErrorText(name, PairingError::Network, tr("no answer in time"));
+    case QNetworkReply::ConnectionRefusedError:
+        return pairingErrorText(name, PairingError::Network, tr("connection refused"));
+    case QNetworkReply::RemoteHostClosedError:
+        return pairingErrorText(name, PairingError::Network, tr("connection closed by the PC"));
+    case QNetworkReply::SslHandshakeFailedError:
+        return pairingErrorText(name, PairingError::Network, tr("secure connection failed"));
+    default:
+        return pairingErrorText(name, PairingError::Network, tr("network error %1").arg((int)e.getError()));
+    }
+}
+
+// How long the host may take before its user types the PIN (the first pairing request waits for
+// it). Android waits forever; here a pairing left behind would block every other one.
+#define PAIRING_PIN_WAIT_MS (3 * 60 * 1000)
+
+class PendingPairingTask : public QRunnable
+{
 public:
-    PendingPairingTask(ComputerManager* computerManager, NvComputer* computer, QString pin)
+    PendingPairingTask(ComputerManager* computerManager, NvComputer* computer, QString pin,
+                       ComputerPollingEntry* pollingEntry)
         : m_ComputerManager(computerManager),
           m_Computer(computer),
-          m_Pin(pin)
+          m_Pin(pin),
+          m_PollingEntry(pollingEntry)
     {
-        connect(this, &PendingPairingTask::pairingCompleted,
-                computerManager, &ComputerManager::pairingCompleted);
     }
-
-signals:
-    void pairingCompleted(NvComputer* computer, QString error);
 
 private:
     void run()
     {
-        NvPairingManager pairingManager(m_Computer);
+        // No poll may run during pairing (Android's HostsActivity stops them the same way): the
+        // poller's entry was taken out by beginPairing(); deleting it waits for its thread
+        delete m_PollingEntry;
 
-        try {
-           NvPairingManager::PairState result = pairingManager.pair(m_Computer->appVersion, m_Pin, m_Computer->serverCert);
-           switch (result)
-           {
-           case NvPairingManager::PairState::PIN_WRONG:
-               emit pairingCompleted(m_Computer, tr("The PIN from the PC didn't match. Please try again."));
-               break;
-           case NvPairingManager::PairState::FAILED:
-               if (m_Computer->currentGameId != 0) {
-                   emit pairingCompleted(m_Computer, tr("You cannot pair while a previous session is still running on the host PC. Quit any running games or reboot the host PC, then try pairing again."));
-               }
-               else {
-                   emit pairingCompleted(m_Computer, tr("Pairing failed. Please try again."));
-               }
-               break;
-           case NvPairingManager::PairState::ALREADY_IN_PROGRESS:
-               emit pairingCompleted(m_Computer, tr("Another pairing attempt is already in progress."));
-               break;
-           case NvPairingManager::PairState::PAIRED:
-               // Lock the computer manager to update the computer's state atomically
-               {
-                   QWriteLocker lock(&m_ComputerManager->m_Lock);
-                   m_Computer->pairState = NvComputer::PS_PAIRED;
-               }
-
-               // Persist the newly pinned server certificate for this host
-               m_ComputerManager->saveHost(m_Computer);
-
-               emit pairingCompleted(m_Computer, nullptr);
-               break;
-           }
-        } catch (const GfeHttpResponseException& e) {
-            emit pairingCompleted(m_Computer, tr("The host returned an error: %1").arg(e.toQString()));
-        } catch (const QtNetworkReplyException& e) {
-            emit pairingCompleted(m_Computer, e.toQString());
+        QString name, appVersion;
+        QSslCertificate serverCert;
+        {
+            QReadLocker lock(&m_Computer->lock);
+            name = m_Computer->name;
+            appVersion = m_Computer->appVersion;
+            serverCert = m_Computer->serverCert;
         }
+
+        QString error;
+        QSslCertificate pairedCert;
+        try {
+            std::unique_ptr<NvPairingManager> pairingManager;
+            {
+                QReadLocker lock(&m_Computer->lock);
+                pairingManager.reset(new NvPairingManager(m_Computer, PAIRING_PIN_WAIT_MS));
+            }
+            NvPairingManager::PairState result = pairingManager->pair(appVersion, m_Pin, serverCert);
+            switch (result)
+            {
+            case NvPairingManager::PairState::PIN_WRONG:
+                error = ComputerManager::pairingErrorText(name, ComputerManager::PairingError::WrongPin);
+                break;
+            case NvPairingManager::PairState::FAILED: {
+                bool inGame;
+                {
+                    QReadLocker lock(&m_Computer->lock);
+                    inGame = m_Computer->currentGameId != 0;
+                }
+                error = ComputerManager::pairingErrorText(name, inGame ? ComputerManager::PairingError::InGame
+                                                                         : ComputerManager::PairingError::Failed);
+                break;
+            }
+            case NvPairingManager::PairState::ALREADY_IN_PROGRESS:
+                error = ComputerManager::pairingErrorText(name, ComputerManager::PairingError::Busy);
+                break;
+            case NvPairingManager::PairState::PAIRED:
+                // Pinned by finishPairing(), on the GUI thread, under the computer's lock
+                pairedCert = serverCert;
+                break;
+            }
+        } catch (const GfeHttpResponseException& e) {
+            qWarning() << "Pairing with" << name << "failed:" << e.toQString();
+            error = ComputerManager::pairingErrorText(name, e);
+        } catch (const QtNetworkReplyException& e) {
+            qWarning() << "Pairing with" << name << "failed:" << e.toQString();
+            // The first request waits for the PIN: its own time limit is the user's, not the network's
+            error = e.getError() == QNetworkReply::TimeoutError
+                    ? ComputerManager::pairingErrorText(name, ComputerManager::PairingError::TimedOut)
+                    : ComputerManager::pairingErrorText(name, e);
+        } catch (const std::exception& e) {
+            qWarning() << "Pairing with" << name << "failed:" << e.what();
+            error = ComputerManager::pairingErrorText(name, ComputerManager::PairingError::Failed);
+        }
+
+        ComputerManager* cm = m_ComputerManager;
+        NvComputer* computer = m_Computer;
+        QMetaObject::invokeMethod(cm, [cm, computer, error, pairedCert] {
+            cm->finishPairing(computer, error, pairedCert);
+        }, Qt::QueuedConnection);
     }
 
     ComputerManager* m_ComputerManager;
     NvComputer* m_Computer;
     QString m_Pin;
+    ComputerPollingEntry* m_PollingEntry;
 };
 
-void ComputerManager::pairHost(NvComputer* computer, QString pin)
+bool ComputerManager::beginPairing(NvComputer* computer, QString pin, ComputerPollingEntry*& pollingEntry)
 {
-    // Punt to a worker thread to avoid stalling the
-    // UI while waiting for pairing to complete
-    PendingPairingTask* pairing = new PendingPairingTask(this, computer, pin);
-    QThreadPool::globalInstance()->start(pairing);
+    pollingEntry = nullptr;
+    if (m_PairingComputer != nullptr) {
+        qWarning() << "A pairing is already under way with" << m_PairingUuid;
+        return false;
+    }
+
+    QWriteLocker lock(&m_Lock);
+    if (m_KnownHosts.value(computer->uuid) != computer) {
+        return false;
+    }
+    m_PairingComputer = computer;
+    m_PairingUuid = computer->uuid;
+    m_PairingPin = pin;
+
+    // Its poller stops for the pairing (startPollingComputer() skips it meanwhile) and starts
+    // again in finishPairing()
+    pollingEntry = m_PollEntries.take(computer->uuid);
+    if (pollingEntry != nullptr) {
+        pollingEntry->interrupt();
+    }
+    return true;
 }
 
-class PendingOTPPairingTask : public QObject, public QRunnable
+void ComputerManager::finishPairing(NvComputer* computer, QString error, QSslCertificate pairedCert)
 {
-    Q_OBJECT
+    Q_ASSERT(computer == m_PairingComputer);
+    m_PairingComputer = nullptr;
+    {
+        QWriteLocker lock(&m_Lock);
+        m_PairingUuid.clear();
+    }
+    m_PairingPin.clear();
+
+    if (m_DeleteAfterPairing.removeOne(computer)) {
+        // Forgotten during its pairing: out of the list already, nothing to update
+        emit pairingCompleted(computer, error);
+        delete computer;
+        return;
+    }
+
+    if (error.isEmpty()) {
+        {
+            QWriteLocker lock(&computer->lock);
+            if (!pairedCert.isNull()) {
+                computer->serverCert = pairedCert;
+            }
+            computer->pairState = NvComputer::PS_PAIRED;
+        }
+
+        // Persist the newly pinned server certificate for this host
+        saveHost(computer);
+    }
+
+    {
+        QWriteLocker lock(&m_Lock);
+        startPollingComputer(computer);
+    }
+
+    // The models see it paired before the pairing completes (the home only shows paired hosts)
+    if (error.isEmpty()) {
+        handleComputerStateChanged(computer);
+    }
+    emit pairingCompleted(computer, error);
+}
+
+bool ComputerManager::pairHost(NvComputer* computer, QString pin)
+{
+    ComputerPollingEntry* pollingEntry;
+    if (!beginPairing(computer, pin, pollingEntry)) {
+        return false;
+    }
+
+    // Punt to a worker thread to avoid stalling the
+    // UI while waiting for pairing to complete
+    QThreadPool::globalInstance()->start(new PendingPairingTask(this, computer, pin, pollingEntry));
+    return true;
+}
+
+QString ComputerManager::pairingUuid()
+{
+    return m_PairingUuid;
+}
+
+QString ComputerManager::pairingPin()
+{
+    return m_PairingPin;
+}
+
+class PendingOTPPairingTask : public QRunnable
+{
 
 public:
-    PendingOTPPairingTask(ComputerManager* computerManager, NvComputer* computer, QString pin, QString passphrase)
+    PendingOTPPairingTask(ComputerManager* computerManager, NvComputer* computer, QString pin, QString passphrase,
+                          ComputerPollingEntry* pollingEntry)
         : m_ComputerManager(computerManager),
           m_Computer(computer),
           m_Pin(pin),
-          m_Passphrase(passphrase)
+          m_Passphrase(passphrase),
+          m_PollingEntry(pollingEntry)
     {
-        connect(this, &PendingOTPPairingTask::pairingCompleted,
-                computerManager, &ComputerManager::pairingCompleted);
     }
-
-signals:
-    void pairingCompleted(NvComputer* computer, QString error);
 
 private:
     // Helper functions for crypto operations
@@ -981,154 +1306,116 @@ qDebug() << "PendingOTPPairingTask: Generated AES key from salt+PIN";
         }
     }
     
+    // Ends on the GUI thread (ComputerManager::finishPairing), like the PIN pairing
+    void done(const QString& error, const QSslCertificate& pairedCert = QSslCertificate())
+    {
+        ComputerManager* cm = m_ComputerManager;
+        NvComputer* computer = m_Computer;
+        QMetaObject::invokeMethod(cm, [cm, computer, error, pairedCert] {
+            cm->finishPairing(computer, error, pairedCert);
+        }, Qt::QueuedConnection);
+    }
+
     void run()
     {
-        qDebug() << "PendingOTPPairingTask: Starting OTP pairing task for" << m_Computer->name;
-        
+        // No poll during pairing (see PendingPairingTask)
+        delete m_PollingEntry;
+
+        QString name;
+        std::unique_ptr<NvHTTP> httpHolder;
+        {
+            QReadLocker lock(&m_Computer->lock);
+            name = m_Computer->name;
+            httpHolder.reset(new NvHTTP(m_Computer));
+        }
+        NvHTTP& http = *httpHolder;
+        const QString failed = ComputerManager::pairingErrorText(name, ComputerManager::PairingError::Failed);
+
+        qInfo() << "PendingOTPPairingTask: Starting Apollo OTP pairing with" << name;
+
         try {
-            // Create NvHTTP instance for this computer
-            NvHTTP http(m_Computer);
-            
-            qDebug() << "PendingOTPPairingTask: Starting Apollo OTP pairing";
-            qDebug() << "PendingOTPPairingTask: PIN from user:" << m_Pin;
-            qDebug() << "PendingOTPPairingTask: Passphrase from user:" << m_Passphrase;
-            
             // Generate a 16-byte salt
             QByteArray saltBytes(16, 0);
             for (int i = 0; i < 16; i++) {
                 saltBytes[i] = QRandomGenerator::global()->bounded(256);
             }
             QString saltStr = saltBytes.toHex();
-            
-            // Generate the OTP hash
+
+            // Generate the OTP hash (never logged: it is derived from the PIN and the passphrase)
             QString plainText = m_Pin + saltStr + m_Passphrase;
             QCryptographicHash hash(QCryptographicHash::Sha256);
             hash.addData(plainText.toUtf8());
             QString otpHash = hash.result().toHex().toUpper();
-            
-            qDebug() << "PendingOTPPairingTask: Generated OTP hash:" << otpHash;
-            qDebug() << "PendingOTPPairingTask: Using salt:" << saltStr;
-            
-            // Build the pairing parameters - use consistent device name
-            QString deviceName = QSysInfo::machineHostName();
-            if (deviceName.isEmpty()) {
-                deviceName = "LavArtemis";
-            }
+
             QString pairingParams = QString("devicename=%1&updateState=1&phrase=getservercert&salt=%2&clientcert=%3&otpauth=%4")
-                .arg(deviceName)
+                .arg(ComputerManager::clientDeviceName())
                 .arg(saltStr)
                 .arg(QString(IdentityManager::get()->getCertificate().toHex()))
                 .arg(otpHash);
-            
-            qDebug() << "PendingOTPPairingTask: Sending OTP pairing request";
-            
+
             QString pairingRequest = http.openConnectionToString(
                 http.m_BaseUrlHttp,
                 "pair",
                 pairingParams,
                 5000
             );
-            
-            qDebug() << "PendingOTPPairingTask: Received response:" << pairingRequest;
-            
-            // Parse the response
+
             if (pairingRequest.isEmpty()) {
-                qDebug() << "PendingOTPPairingTask: OTP pairing failed - no response";
-                emit pairingCompleted(m_Computer, "No response from Apollo server. Please check the server is running and OTP is active.");
+                qWarning() << "PendingOTPPairingTask: no response";
+                done(failed);
                 return;
             }
-            
-            // Check for specific error cases
-            if (pairingRequest.contains("status_message=\"OTP auth not available.\"")) {
-                qDebug() << "PendingOTPPairingTask: OTP pairing failed - OTP not available";
-                emit pairingCompleted(m_Computer, "OTP is not available or has expired. Please generate a new OTP on the Apollo server.");
+
+            // The OTP expired or was used already
+            if (pairingRequest.contains("OTP auth not available")) {
+                qWarning() << "PendingOTPPairingTask: OTP not available";
+                done(ComputerManager::pairingErrorText(name, ComputerManager::PairingError::LinkExpired));
                 return;
             }
-            
-            // Check if pairing was successful
-            if (pairingRequest.contains("<root status_code=\"200\">") && pairingRequest.contains("<paired>1</paired>")) {
-                qDebug() << "PendingOTPPairingTask: OTP pairing successful, extracting server certificate";
-                
-                // Extract the server certificate from the response
-                QRegularExpression certRegex(R"(<plaincert>([A-Fa-f0-9]+)</plaincert>)");
-                QRegularExpressionMatch certMatch = certRegex.match(pairingRequest);
-                
-                if (certMatch.hasMatch()) {
-                    QString serverCertHex = certMatch.captured(1);
-                    QByteArray serverCertBytes = QByteArray::fromHex(serverCertHex.toUtf8());
-                    QSslCertificate serverCert(serverCertBytes);
-                    
-                    if (!serverCert.isNull()) {
-                        // Set the server certificate for HTTPS requests
-                        m_Computer->serverCert = serverCert;
-                        http.setServerCert(serverCert);
-                        
-                        qDebug() << "PendingOTPPairingTask: Server certificate obtained, preparing for full handshake";
-                        
-                        qDebug() << "PendingOTPPairingTask: Server certificate obtained, performing full pairing handshake";
-                        
-                        // Complete the full pairing process like Android client does
-                        if (performFullPairingHandshake(http, saltStr, otpHash, m_Pin)) {
-                            // Lock the computer manager to update the computer's state atomically
-                            QWriteLocker lock(&m_ComputerManager->m_Lock);
 
-                            // Update the computer object with the new cert and paired state
-                            m_Computer->serverCert = serverCert;
-                            m_Computer->pairState = NvComputer::PS_PAIRED;
-
-                            // Unlock before notifying and saving
-                            lock.unlock();
-
-                            qDebug() << "PendingOTPPairingTask: Full pairing handshake successful, saving host";
-                            
-                            // Persist the newly paired computer
-                            m_ComputerManager->saveHost(m_Computer);
-                            
-                            qDebug() << "PendingOTPPairingTask: Computer saved, notifying UI";
-                            
-                            // Notify the UI that the computer state has changed
-                            m_ComputerManager->handleComputerStateChanged(m_Computer);
-                            
-                            qDebug() << "PendingOTPPairingTask: Emitting pairingCompleted signal with success";
-                            
-                            emit pairingCompleted(m_Computer, QString());
-                            return;
-                        } else {
-                            qDebug() << "PendingOTPPairingTask: Full pairing handshake failed";
-                            emit pairingCompleted(m_Computer, "Apollo pairing handshake failed");
-                            return;
-                        }
-                    } else {
-                        qDebug() << "PendingOTPPairingTask: Invalid server certificate received";
-                        emit pairingCompleted(m_Computer, "Invalid server certificate received from Apollo server");
-                        return;
-                    }
-                } else {
-                    qDebug() << "PendingOTPPairingTask: No server certificate found in response";
-                    emit pairingCompleted(m_Computer, "Server certificate not found in Apollo response");
-                    return;
-                }
-            } else {
-                qDebug() << "PendingOTPPairingTask: OTP pairing failed with response:" << pairingRequest;
-                emit pairingCompleted(m_Computer, "Apollo OTP pairing failed: " + pairingRequest);
+            if (!pairingRequest.contains("<root status_code=\"200\">") || !pairingRequest.contains("<paired>1</paired>")) {
+                qWarning() << "PendingOTPPairingTask: OTP pairing refused:" << pairingRequest;
+                done(failed);
                 return;
             }
-            
+
+            // Extract the server certificate from the response
+            QRegularExpression certRegex(R"(<plaincert>([A-Fa-f0-9]+)</plaincert>)");
+            QRegularExpressionMatch certMatch = certRegex.match(pairingRequest);
+            if (!certMatch.hasMatch()) {
+                qWarning() << "PendingOTPPairingTask: no server certificate in the answer";
+                done(failed);
+                return;
+            }
+
+            QSslCertificate serverCert(QByteArray::fromHex(certMatch.captured(1).toUtf8()));
+            if (serverCert.isNull()) {
+                qWarning() << "PendingOTPPairingTask: invalid server certificate";
+                done(failed);
+                return;
+            }
+
+            // HTTPS for the end of the handshake with this certificate; the host's is pinned by
+            // finishPairing(), under the computer's lock, only once the handshake succeeded
+            http.setServerCert(serverCert);
+            if (!performFullPairingHandshake(http, saltStr, otpHash, m_Pin)) {
+                // A wrong code or passphrase fails here (the host answered the first step anyway)
+                qWarning() << "PendingOTPPairingTask: handshake failed";
+                done(failed);
+                return;
+            }
+
+            qInfo() << "PendingOTPPairingTask: paired with" << name;
+            done(QString(), serverCert);
         } catch (const GfeHttpResponseException& e) {
-            QString errorMsg = QString("Apollo OTP pairing failed: %1 (Code: %2)")
-                                .arg(e.getStatusMessage())
-                                .arg(e.getStatusCode());
-            qDebug() << "PendingOTPPairingTask: HTTP error:" << errorMsg;
-            emit pairingCompleted(m_Computer, errorMsg);
+            qWarning() << "PendingOTPPairingTask: HTTP error:" << e.toQString();
+            done(ComputerManager::pairingErrorText(name, e));
         } catch (const QtNetworkReplyException& e) {
-            QString errorMsg = QString("Apollo OTP pairing network error: %1")
-                                .arg(e.getErrorText());
-            qDebug() << "PendingOTPPairingTask: Network error:" << errorMsg;
-            emit pairingCompleted(m_Computer, errorMsg);
+            qWarning() << "PendingOTPPairingTask: network error:" << e.toQString();
+            done(ComputerManager::pairingErrorText(name, e));
         } catch (const std::exception& e) {
-            QString errorMsg = QString("Apollo OTP pairing error: %1").arg(e.what());
-            qDebug() << "PendingOTPPairingTask: General error:" << errorMsg;
-            emit pairingCompleted(m_Computer, errorMsg);
+            qWarning() << "PendingOTPPairingTask: error:" << e.what();
+            done(failed);
         }
     }
 
@@ -1136,14 +1423,32 @@ qDebug() << "PendingOTPPairingTask: Generated AES key from salt+PIN";
     NvComputer* m_Computer;
     QString m_Pin;
     QString m_Passphrase;
+    ComputerPollingEntry* m_PollingEntry;
 };
 
-void ComputerManager::pairHostWithOTP(NvComputer* computer, QString pin, QString passphrase)
+bool ComputerManager::pairHostWithOTP(NvComputer* computer, QString pin, QString passphrase)
 {
+    ComputerPollingEntry* pollingEntry;
+    if (!beginPairing(computer, QString(), pollingEntry)) {
+        return false;
+    }
+
     // Punt to a worker thread to avoid stalling the
     // UI while waiting for OTP pairing to complete
-    PendingOTPPairingTask* pairing = new PendingOTPPairingTask(this, computer, pin, passphrase);
-    QThreadPool::globalInstance()->start(pairing);
+    QThreadPool::globalInstance()->start(new PendingOTPPairingTask(this, computer, pin, passphrase, pollingEntry));
+    return true;
+}
+
+// The name this PC gives the host when it pairs (the host lists its clients by it), as in
+// serverinfo and like Android (its device model): the old "roth" made LavApollo list every
+// LavArtemis PC as « Legacy Moonlight Client »
+QString ComputerManager::clientDeviceName()
+{
+    QString deviceName = QSysInfo::machineHostName();
+    if (deviceName.isEmpty()) {
+        deviceName = "LavArtemis";
+    }
+    return QString::fromLatin1(QUrl::toPercentEncoding(deviceName));
 }
 
 class PendingQuitTask : public QObject, public QRunnable
@@ -1259,23 +1564,74 @@ void ComputerManager::addNewHostManually(QString address)
 {
 #ifdef LAV_TEST_BUILD
     if (!testGuardRefusal(address).isEmpty()) {
-        emit computerAddCompleted(false, false, QVariant());
+        emit computerAddCompleted(false, false, QVariant(), address);
         return;
     }
 #endif
 
+    NvAddress parsed;
+    if (parseManualAddress(address, parsed)) {
+        addNewHost(parsed, false, QString(), NvAddress(), address);
+    }
+    else {
+        emit computerAddCompleted(false, false, QVariant(), address);
+    }
+}
+
+bool ComputerManager::parseManualAddress(QString address, NvAddress& result)
+{
+    address = address.trimmed();
+    if (address.isEmpty()) {
+        return false;
+    }
+
     QUrl url = QUrl::fromUserInput("art://" + address);
-    if (url.isValid() && !url.host().isEmpty() && url.scheme() == "art") {
+    if (url.isValid() && !url.host().isEmpty() && url.scheme() == "art" &&
+            url.path().isEmpty() && !url.hasQuery() && !url.hasFragment() && url.userInfo().isEmpty()) {
         // If there wasn't a port specified, use the default
-        addNewHost(NvAddress(url.host(), url.port(DEFAULT_HTTP_PORT)), false);
+        result = NvAddress(url.host(), url.port(DEFAULT_HTTP_PORT));
+        return true;
     }
     else if (QHostAddress(address).protocol() == QAbstractSocket::IPv6Protocol) {
         // The user specified an IPv6 literal without URL escaping, so use the default port
-        addNewHost(NvAddress(address, DEFAULT_HTTP_PORT), false);
+        result = NvAddress(address, DEFAULT_HTTP_PORT);
+        return true;
     }
-    else {
-        emit computerAddCompleted(false, false, QVariant());
+    return false;
+}
+
+bool ComputerManager::isValidManualAddress(QString address)
+{
+    NvAddress parsed;
+    return parseManualAddress(address, parsed);
+}
+
+// Android's AddComputerManually.isWrongSubnetSiteLocalAddress(): a private IPv4 address (RFC 1918)
+// that is in none of this PC's IPv4 networks -- the usual typo, or another network entirely
+bool ComputerManager::isWrongSubnetAddress(QString address)
+{
+    NvAddress parsed;
+    if (!parseManualAddress(address, parsed)) {
+        return false;
     }
+    QHostAddress target(parsed.address());
+    if (target.protocol() != QAbstractSocket::IPv4Protocol ||
+            !(target.isInSubnet(QHostAddress("10.0.0.0"), 8) ||
+              target.isInSubnet(QHostAddress("172.16.0.0"), 12) ||
+              target.isInSubnet(QHostAddress("192.168.0.0"), 16))) {
+        return false;
+    }
+
+    const auto interfaces = QNetworkInterface::allInterfaces();
+    for (const QNetworkInterface& iface : interfaces) {
+        for (const QNetworkAddressEntry& entry : iface.addressEntries()) {
+            if (entry.ip().protocol() == QAbstractSocket::IPv4Protocol && entry.prefixLength() > 0 &&
+                    target.isInSubnet(entry.ip(), entry.prefixLength())) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 class PendingAddTask : public QObject, public QRunnable
@@ -1283,13 +1639,15 @@ class PendingAddTask : public QObject, public QRunnable
     Q_OBJECT
 
 public:
-    PendingAddTask(ComputerManager* computerManager, QString name, NvAddress address, NvAddress mdnsIpv6Address, bool mdns)
+    PendingAddTask(ComputerManager* computerManager, QString name, NvAddress address, NvAddress mdnsIpv6Address, bool mdns,
+                   QString userInput)
         : m_ComputerManager(computerManager),
           m_Name(name),
           m_Address(address),
           m_MdnsIpv6Address(mdnsIpv6Address),
           m_Mdns(mdns),
-          m_AboutToQuit(false)
+          m_AboutToQuit(false),
+          m_UserInput(userInput)
     {
         connect(this, &PendingAddTask::computerAddCompleted,
                 computerManager, &ComputerManager::computerAddCompleted);
@@ -1300,7 +1658,7 @@ public:
     }
 
 signals:
-    void computerAddCompleted(QVariant success, QVariant detectedPortBlocking, QVariant uuid);
+    void computerAddCompleted(QVariant success, QVariant detectedPortBlocking, QVariant uuid, QVariant address);
 
     void computerStateChanged(NvComputer* computer);
 
@@ -1358,7 +1716,7 @@ private:
                 }
 #endif
 
-                emit computerAddCompleted(false, portTestResult != 0 && portTestResult != ML_TEST_RESULT_INCONCLUSIVE, QVariant());
+                emit computerAddCompleted(false, portTestResult != 0 && portTestResult != ML_TEST_RESULT_INCONCLUSIVE, QVariant(), m_UserInput);
             }
             return QString();
         }
@@ -1403,6 +1761,7 @@ private:
             QReadLocker lock(&m_ComputerManager->m_Lock);
             existingComputer = m_ComputerManager->m_KnownHosts.value(newComputer->uuid);
             if (existingComputer != nullptr) {
+                QReadLocker computerLock(&existingComputer->lock);
                 http.setServerCert(existingComputer->serverCert);
             }
         }
@@ -1494,7 +1853,7 @@ private:
 
                 // For non-mDNS clients, let them know it succeeded, and which host answered
                 if (!m_Mdns) {
-                    emit computerAddCompleted(true, false, uuid);
+                    emit computerAddCompleted(true, false, uuid, m_UserInput);
                 }
             }
             else {
@@ -1533,7 +1892,7 @@ private:
 
                 // For non-mDNS clients, let them know it succeeded, and which host answered
                 if (!m_Mdns) {
-                    emit computerAddCompleted(true, false, uuid);
+                    emit computerAddCompleted(true, false, uuid, m_UserInput);
                 }
             }
         }
@@ -1545,13 +1904,14 @@ private:
     NvAddress m_MdnsIpv6Address;
     bool m_Mdns;
     bool m_AboutToQuit;
+    QString m_UserInput;
 };
 
-void ComputerManager::addNewHost(NvAddress address, bool mdns, QString name, NvAddress mdnsIpv6Address)
+void ComputerManager::addNewHost(NvAddress address, bool mdns, QString name, NvAddress mdnsIpv6Address, QString userInput)
 {
     // Punt to a worker thread to avoid stalling the
     // UI while waiting for serverinfo query to complete
-    PendingAddTask* addTask = new PendingAddTask(this, name, address, mdnsIpv6Address, mdns);
+    PendingAddTask* addTask = new PendingAddTask(this, name, address, mdnsIpv6Address, mdns, userInput);
     QThreadPool::globalInstance()->start(addTask);
 }
 
