@@ -177,6 +177,8 @@ void Session::clStageFailed(int stage, int errorCode)
 
     char failingPorts[128];
     LiStringifyPortFlags(portFlags, ", ", failingPorts, sizeof(failingPorts));
+    // Before the signal, which is queued to the main thread: its slots read it
+    s_ActiveSession->m_FailedStageName = QString::fromLatin1(LiGetStageName(stage));
     emit s_ActiveSession->stageFailed(stageLabel(stage), errorCode, QString(failingPorts));
 }
 
@@ -188,6 +190,10 @@ void Session::clConnectionTerminated(int errorCode)
 #else
     s_ActiveSession->m_PortTestResults = LiTestClientConnectivity(CONN_TEST_SERVER, 443, portFlags);
 #endif
+
+    if (errorCode != ML_ERROR_GRACEFUL_TERMINATION) {
+        s_ActiveSession->m_TerminationErrorCode = errorCode;
+    }
 
     // Display the termination dialog if this was not intended
     switch (errorCode) {

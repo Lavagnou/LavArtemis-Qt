@@ -218,6 +218,12 @@ public:
 
     int streamFps() const { return m_StreamConfig.fps; }
 
+    // For the benchmark's notes, stored in English (Benchmark::Notes): the stage that failed by
+    // moonlight-common-c's own name (stageFailed() carries the translated label), and the error
+    // code of a connection that ended unexpectedly (0 when it did not).
+    QString failedStageName() const { return m_FailedStageName; }
+    int terminationErrorCode() const { return m_TerminationErrorCode; }
+
 #ifdef LAV_TEST_BUILD
     // Test build (app/testctl): the stream window while exec()'s SDL loop runs, nullptr before
     // and after (m_Window outlives SDL_DestroyWindow). Main thread.
@@ -420,6 +426,8 @@ private:
     Uint32 m_FullScreenFlag;
     QQuickWindow* m_QtWindow;
     bool m_UnexpectedTermination;
+    QString m_FailedStageName;
+    int m_TerminationErrorCode = 0;
     SdlInputHandler* m_InputHandler;
     int m_MouseEmulationRefCount;
     int m_FlushingWindowEventsRef;

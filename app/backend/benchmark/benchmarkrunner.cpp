@@ -1,5 +1,6 @@
 #include "benchmarkrunner.h"
 
+#include "benchmarknotes.h"
 #include "benchmarkscoring.h"
 
 #include "backend/computermanager.h"
@@ -16,6 +17,7 @@
 #include <QLocale>
 #include <QReadLocker>
 #include <QSysInfo>
+#include <QThread>
 #include <QThreadPool>
 #include <QTimer>
 #include <QUrl>
@@ -45,33 +47,6 @@ std::string pacingOf(bool vsync, bool framePacing, bool vrr, int vrrLatencyMode)
     return framePacing ? "vsync-paced" : "vsync";
 }
 
-QString codecLabel(Codec codec)
-{
-    switch (codec) {
-    case Codec::H264: return QStringLiteral("H.264");
-    case Codec::HEVC: return QStringLiteral("HEVC");
-    case Codec::AV1: return QStringLiteral("AV1");
-    case Codec::PyroWave: return QStringLiteral("PyroWave");
-    }
-    return QString();
-}
-
-QString pacingLabel(const std::string& pacing)
-{
-    if (pacing == "vsync-off") return BenchmarkRunner::tr("V-Sync off");
-    if (pacing == "vsync") return BenchmarkRunner::tr("V-Sync");
-    if (pacing == "vsync-paced") return BenchmarkRunner::tr("V-Sync + frame pacing");
-    if (pacing == "vrr-low-latency") return BenchmarkRunner::tr("VRR, low latency");
-    if (pacing == "vrr-balanced") return BenchmarkRunner::tr("VRR, balanced");
-    if (pacing == "vrr-smooth") return BenchmarkRunner::tr("VRR, smooth");
-    // Android's modes, for reports made there
-    if (pacing == "default") return BenchmarkRunner::tr("Default pacing");
-    if (pacing == "ull") return BenchmarkRunner::tr("Ultra low latency");
-    if (pacing == "paced-ull") return BenchmarkRunner::tr("Paced ultra low latency");
-    if (pacing == "predictive") return BenchmarkRunner::tr("Predictive pacing");
-    return QString::fromStdString(pacing);
-}
-
 QString roleLabel(Role role)
 {
     switch (role) {
@@ -98,6 +73,47 @@ QVariantMap metricsToMap(const Metrics& m)
 }
 
 } // namespace
+
+#ifdef LAV_TEST_BUILD
+namespace {
+// LAV_TEST_BENCHMARK="warmup,measure,window[,quitDelayMs]" (testbench): part n, or fallback
+int testTiming(int part, int fallback)
+{
+    const QStringList parts = qEnvironmentVariable("LAV_TEST_BENCHMARK").split(',');
+    bool ok = false;
+    const int value = parts.value(part).trimmed().toInt(&ok);
+    return ok && value >= 0 ? value : fallback;
+}
+}
+#endif
+
+int BenchmarkRunner::warmupSeconds()
+{
+#ifdef LAV_TEST_BUILD
+    return testTiming(0, kWarmupSeconds);
+#else
+    return kWarmupSeconds;
+#endif
+}
+
+int BenchmarkRunner::measureSeconds(Mode mode)
+{
+    const int measure = mode == Mode::Quick ? kQuickMeasureSeconds : kMeasureSeconds;
+#ifdef LAV_TEST_BUILD
+    return qMax(1, testTiming(1, measure));
+#else
+    return measure;
+#endif
+}
+
+int BenchmarkRunner::windowSeconds()
+{
+#ifdef LAV_TEST_BUILD
+    return qMax(1, testTiming(2, kWindowSeconds));
+#else
+    return kWindowSeconds;
+#endif
+}
 
 BenchmarkRunner::BenchmarkRunner(QObject* parent)
     : QObject(parent)
@@ -232,11 +248,11 @@ QVariantMap BenchmarkRunner::describe(ComputerManager* manager, const QString& h
     fromString(goal.toStdString(), g);
     Planner planner(plannerInput(host, m, g, requestedBaseline()));
     const int runs = planner.estimatedRuns();
-    const int measure = m == Mode::Quick ? kQuickMeasureSeconds : kMeasureSeconds;
+    const int measure = measureSeconds(m);
 
     result["available"] = true;
     result["runs"] = runs;
-    result["minutes"] = qMax(1, (runs * (kWarmupSeconds + measure + kRunOverheadSeconds) + 59) / 60);
+    result["minutes"] = qMax(1, (runs * (warmupSeconds() + measure + kRunOverheadSeconds) + 59) / 60);
     result["otherAppRunning"] = currentGameId != 0 && currentGameId != benchmarkAppId;
     result["baseline"] = describeConfig(requestedBaseline());
     return result;
@@ -285,8 +301,8 @@ void BenchmarkRunner::start(ComputerManager* manager, const QString& hostUuid, c
     m_Report.width = prefs->width;
     m_Report.height = prefs->height;
     m_Report.fps = prefs->fps;
-    m_Report.warmupSeconds = kWarmupSeconds;
-    m_Report.measureSeconds = m_Mode == Mode::Quick ? kQuickMeasureSeconds : kMeasureSeconds;
+    m_Report.warmupSeconds = warmupSeconds();
+    m_Report.measureSeconds = measureSeconds(m_Mode);
 
     m_Running = true;
     refreshReportView();
@@ -327,6 +343,10 @@ void BenchmarkRunner::quitHostApp(std::function<void()> then)
         } catch (...) {
             // Nothing running is fine; anything else surfaces as the next launch's error
         }
+#ifdef LAV_TEST_BUILD
+        // Test build: a window to stop the benchmark in while the host's app quits
+        QThread::msleep(static_cast<unsigned long>(testTiming(3, 0)));
+#endif
         QMetaObject::invokeMethod(QCoreApplication::instance(), [self, then]() {
             if (self) {
                 self->m_HostAppRunning = false;
@@ -355,7 +375,7 @@ void BenchmarkRunner::advance()
         const RunResult& baseline = m_Report.runs.front();
         if (baseline.status != Status::Ok) {
             setMessage(tr("Streaming with your settings failed, so there is nothing to compare with: %1")
-                           .arg(QString::fromStdString(baseline.note)));
+                           .arg(Notes::localized(baseline.note)));
             finish();
             return;
         }
@@ -388,6 +408,16 @@ void BenchmarkRunner::advance()
 
 void BenchmarkRunner::launch(Role role, const RunConfig& config, bool userSettings)
 {
+    // A launch held by the host's app quitting (the scene restarting between a VRR run and
+    // another) may come after « Arrêter »: cancel() has already finished the benchmark
+    if (!m_Running) {
+        return;
+    }
+    if (m_CancelRequested) {
+        finish();
+        return;
+    }
+
     const bool vrr = isVrrPacing(userSettings ? requestedBaseline().pacing : config.pacing);
 
     // The host only builds its 1000 Hz display for VRR at /launch: switch through a quit
@@ -424,10 +454,10 @@ void BenchmarkRunner::launch(Role role, const RunConfig& config, bool userSettin
     const int number = static_cast<int>(m_Report.runs.size()) + 1;
     const QString label = roleLabel(role).isEmpty() ? describeConfig(m_RunRequested)
                                                     : roleLabel(role) + " (" + describeConfig(m_RunRequested) + ")";
-    const int measure = m_Mode == Mode::Quick ? kQuickMeasureSeconds : kMeasureSeconds;
+    const int measure = measureSeconds(m_Mode);
 
     auto session = new Session(m_Host, app, m_RunPrefs);
-    session->setBenchmarkMode(kWarmupSeconds, measure, kWindowSeconds,
+    session->setBenchmarkMode(warmupSeconds(), measure, windowSeconds(),
                               tr("run %1 of %2, %3").arg(number).arg(runEstimate()).arg(label));
     connect(session, &Session::connectionStarted, this, [this]() {
         m_RunConnected = true;
@@ -436,8 +466,10 @@ void BenchmarkRunner::launch(Role role, const RunConfig& config, bool userSettin
     connect(session, &Session::displayLaunchError, this, [this](QString text) {
         m_RunError = text;
     });
-    connect(session, &Session::stageFailed, this, [this](QString stage, int errorCode, QString) {
-        m_RunError = tr("Starting %1 failed: error %2").arg(stage).arg(errorCode);
+    // Notes are stored in English (docs/benchmark.md) and translated when shown: the stage by
+    // moonlight-common-c's own name, not the label the stream screen shows
+    connect(session, &Session::stageFailed, this, [this, session](QString, int errorCode, QString) {
+        m_RunError = QString::fromStdString(Notes::startFailed(session->failedStageName(), errorCode));
     });
     connect(session, &Session::sessionFinished, this, &BenchmarkRunner::onSessionFinished);
     connect(session, &Session::readyForDeletion, this, &BenchmarkRunner::onReadyForDeletion);
@@ -460,7 +492,7 @@ void BenchmarkRunner::abortRun(const QString& error)
     if (!m_Session) {
         return;
     }
-    m_RunError = error.isEmpty() ? tr("The stream could not start.") : error;
+    m_RunError = error.isEmpty() ? QString::fromStdString(Notes::streamCouldNotStart()) : error;
     onReadyForDeletion();
 }
 
@@ -492,14 +524,23 @@ RunResult BenchmarkRunner::measure(Session* session) const
     r.role = m_RunRole;
     r.requested = m_RunRequested;
     r.effective = m_RunConnected ? session->effectiveBenchmarkConfig() : m_RunRequested;
+    // The reference records what it streamed (Android does the same): Auto has no codec name, and
+    // the planner works on the requested configurations -- requesting the guess (HEVC for Auto) made
+    // the adaptive mode climb on, and confirm, a codec the baseline never streamed
+    if (r.role == Role::Baseline || r.role == Role::BaselineRepeat) {
+        r.requested = r.effective;
+    }
 
+    // Notes in English, translated when shown (Notes::localized), as on Android: a report reads the
+    // same on both clients. A launch error is kept as it was shown (it has no English form here).
     const auto& snapshots = session->benchmarkSnapshots();
     if (!m_RunConnected || !session->benchmarkCompleted() || snapshots.size() < 2) {
         r.status = Status::Failed;
-        r.note = (!m_RunError.isEmpty() ? m_RunError
-                  : !m_RunConnected ? tr("The stream did not start.")
-                  : snapshots.size() < 2 ? tr("No frames arrived to measure.")
-                  : tr("The run was cut short.")).toStdString();
+        r.note = session->terminationErrorCode() != 0 ? Notes::connectionEnded(session->terminationErrorCode())
+                 : !m_RunError.isEmpty() ? m_RunError.toStdString()
+                 : !m_RunConnected ? Notes::streamDidNotStart()
+                 : snapshots.size() < 2 ? Notes::noFramesArrived()
+                 : Notes::cutShort();
         return r;
     }
 
@@ -509,7 +550,7 @@ RunResult BenchmarkRunner::measure(Session* session) const
     r.scores = computeScores(r.metrics);
     if (r.metrics.framesRendered == 0) {
         r.status = Status::Failed;
-        r.note = tr("No frames were shown.").toStdString();
+        r.note = Notes::noFramesShown();
         return r;
     }
 
@@ -526,16 +567,11 @@ RunResult BenchmarkRunner::measure(Session* session) const
     if (r.role == Role::Candidate || r.role == Role::Confirm) {
         if (r.effective.codec != r.requested.codec || r.effective.pacing != r.requested.pacing) {
             r.status = Status::Fallback;
-            QString note = tr("Ran as %1 instead.").arg(describeConfig(r.effective));
-            const QStringList warnings = session->property("launchWarnings").toStringList();
-            if (!warnings.isEmpty()) {
-                note += " " + warnings.join(" ");
-            }
-            r.note = note.toStdString();
+            r.note = Notes::ranAs(r.effective.codec, r.effective.pacing);
         }
     }
     if (r.effective.bitrateKbps != r.requested.bitrateKbps && r.note.empty()) {
-        r.note = tr("The bitrate was capped at %1 Mbps.").arg(r.effective.bitrateKbps / 1000.0).toStdString();
+        r.note = Notes::bitrateCapped(r.effective.bitrateKbps);
     }
     return r;
 }
@@ -564,6 +600,11 @@ void BenchmarkRunner::finish()
             setMessage(tr("Benchmark stopped. What was measured is kept."));
         }
     }
+    else if (m_CancelRequested) {
+        // « Stopping after this run... » must not stay: there is no run to wait for
+        setMessage(m_Report.runs.empty() ? tr("Benchmark stopped before the first run: nothing was measured.")
+                                         : tr("Benchmark stopped: nothing could be measured."));
+    }
     refreshReportView();
 
     // Leave the host as it was: the scene off and its virtual display gone
@@ -587,6 +628,8 @@ void BenchmarkRunner::refreshReportView()
     view["createdAt"] = report.createdAt.toLocalTime().toString(QLocale().dateTimeFormat(QLocale::ShortFormat));
     view["mode"] = toString(report.mode);
     view["goal"] = toString(report.goal);
+    view["modeLabel"] = modeLabel(report.mode);
+    view["goalLabel"] = goalLabel(report.goal);
     view["hostName"] = report.hostName;
     view["platform"] = report.platform;
     view["device"] = report.device;
@@ -614,7 +657,7 @@ void BenchmarkRunner::refreshReportView()
         run["role"] = toString(r.role);
         run["roleLabel"] = roleLabel(r.role);
         run["status"] = toString(r.status);
-        run["note"] = QString::fromStdString(r.note);
+        run["note"] = Notes::localized(r.note);
         run["label"] = describeConfig(r.requested);
         run["effectiveLabel"] = describeConfig(r.effective);
         run["latency"] = r.scores.latency;
@@ -670,6 +713,8 @@ QVariantList BenchmarkRunner::history(const QString& hostUuid)
             { "createdAt", report.createdAt.toLocalTime().toString(QLocale().dateTimeFormat(QLocale::ShortFormat)) },
             { "mode", toString(report.mode) },
             { "goal", toString(report.goal) },
+            { "modeLabel", modeLabel(report.mode) },
+            { "goalLabel", goalLabel(report.goal) },
             { "platform", report.platform },
             { "runs", static_cast<int>(report.runs.size()) },
             { "best", best ? describeConfig(best->requested) : QString() },

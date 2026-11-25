@@ -70,6 +70,18 @@ public:
 
     static QString describeConfig(const Benchmark::RunConfig& config);
 
+    // The timing of a run: kWarmupSeconds..., except in the test build, where the testbench
+    // shortens them (LAV_TEST_BENCHMARK="warmup,measure,window[,quitDelayMs]") so a run takes
+    // seconds; quitDelayMs holds every quit of the host's app that long, to stop inside it.
+    static int warmupSeconds();
+    static int measureSeconds(Benchmark::Mode mode);
+    static int windowSeconds();
+
+#ifdef LAV_TEST_BUILD
+    // Test build: the report in progress or shown, as saved (docs/benchmark.md)
+    QJsonObject testReportJson() const { return Benchmark::toJson(m_Report); }
+#endif
+
 signals:
     void changed();
     // QML pushes a StreamSegue for it. The runner owns the session.

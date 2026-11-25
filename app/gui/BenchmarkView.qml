@@ -42,16 +42,6 @@ Item {
     readonly property color betterColor: "#4caf50"
     readonly property color worseColor: "#f44336"
 
-    // The planner's skip reasons are plain English (it is shared, line for line, with Android);
-    // the runner's own notes already went through tr(). Older reports may hold either.
-    function localizedNote(note) {
-        var m = /^(.+) is not available: the (?:client|device) fell back to (.+)$/.exec(note)
-        if (m) return qsTr("%1 is not available: the client fell back to %2").arg(m[1]).arg(m[2])
-        if (note === "VRR is not available on this display" || note === "VRR pacing is not available")
-            return qsTr("VRR is not available on this display")
-        return note
-    }
-
     function refreshPlan() {
         plan = BenchmarkRunner.describe(ComputerManager, hostUuid, mode, goal)
     }
@@ -94,7 +84,10 @@ Item {
         }
 
         function onFinished() {
-            showingReport = true
+            // Stopped before any run: nothing to show, the setup page (and its message) comes back
+            var runs = BenchmarkRunner.report.runs
+            showingReport = runs !== undefined && runs.length > 0
+            refreshPlan()
             refreshHistory()
         }
     }
@@ -230,7 +223,7 @@ Item {
                         Label {
                             Layout.fillWidth: true
                             wrapMode: Text.Wrap
-                            text: modelData.createdAt + " - " + modelData.mode + ", " + modelData.goal
+                            text: modelData.createdAt + " - " + modelData.modeLabel + ", " + modelData.goalLabel
                                   + (modelData.platform === "android" ? " (Android)" : "")
                                   + (modelData.best ? " - " + qsTr("best: %1").arg(modelData.best) : "")
                                   + (modelData.cancelled ? " - " + qsTr("stopped") : "")
@@ -293,7 +286,7 @@ Item {
                     wrapMode: Text.Wrap
                     font.bold: true
                     text: qsTr("%1, %2 - %3, goal: %4 - %5").arg(reportView.report.hostName || "").arg(reportView.report.createdAt || "")
-                              .arg(reportView.report.mode || "").arg(reportView.report.goal || "").arg(reportView.report.stream || "")
+                              .arg(reportView.report.modeLabel || "").arg(reportView.report.goalLabel || "").arg(reportView.report.stream || "")
                 }
 
                 Label {
@@ -344,7 +337,7 @@ Item {
                                 color: modelData.status === "fallback" ? Material.accent : worseColor
                                 text: (modelData.status === "skipped" ? qsTr("Skipped") :
                                        modelData.status === "fallback" ? qsTr("Not tested as asked") : qsTr("Failed"))
-                                      + (modelData.note ? ": " + benchmarkPage.localizedNote(modelData.note) : "")
+                                      + (modelData.note ? ": " + modelData.note : "")
                             }
 
                             RowLayout {

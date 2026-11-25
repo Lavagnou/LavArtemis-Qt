@@ -225,6 +225,7 @@ SOURCES += \
     backend/benchmark/benchmarktypes.cpp \
     backend/benchmark/benchmarkscoring.cpp \
     backend/benchmark/benchmarkplanner.cpp \
+    backend/benchmark/benchmarknotes.cpp \
     backend/benchmark/benchmarkreport.cpp \
     backend/benchmark/benchmarkrunner.cpp \
     backend/otppairingmanager.cpp \
@@ -295,6 +296,7 @@ HEADERS += \
     backend/benchmark/benchmarktypes.h \
     backend/benchmark/benchmarkscoring.h \
     backend/benchmark/benchmarkplanner.h \
+    backend/benchmark/benchmarknotes.h \
     backend/benchmark/benchmarkreport.h \
     backend/benchmark/benchmarkrunner.h \
     backend/otppairingmanager.h \

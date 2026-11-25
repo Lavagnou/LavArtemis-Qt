@@ -2,11 +2,14 @@
 // come from LavApollo's docs/benchmark.md; the Android client's BenchmarkScoringTest
 // checks the same ones, so both clients score a run identically.
 
+#include "../../app/backend/benchmark/benchmarknotes.h"
 #include "../../app/backend/benchmark/benchmarkplanner.h"
 #include "../../app/backend/benchmark/benchmarkreport.h"
 #include "../../app/backend/benchmark/benchmarkscoring.h"
 
 #include <QCoreApplication>
+#include <QFileInfo>
+#include <QTranslator>
 #include <QJsonArray>
 #include <QTemporaryDir>
 #include <QTimeZone>
@@ -327,6 +330,72 @@ void testAdaptive()
     check(climbed.size() == 1, "a lossy bitrate ends the climb");
 }
 
+// The runner records the baseline as what it streamed (requested = effective), and the plan is made
+// from it: with the codec on Auto, the codec stage, the climb and the confirmation stay on the codec
+// the baseline really used, never on the guess (findings B3; Android: BenchmarkControllerTest)
+void testAdaptiveFromAutoBaseline()
+{
+    PlannerInput in = desktopInput(Mode::Adaptive);
+    in.baseline = RunConfig { Codec::H264, 20000, "vsync" };   // Auto, streamed as H.264
+    in.codecs = { Codec::H264 };                                 // a host without HEVC
+    Planner planner(in);
+    std::vector<RunResult> results;
+    auto runs = drive(planner, [](const RunConfig& c) { return c.bitrateKbps == 20000 && c.pacing == "vsync" ? 60.0 : 50.0; }, &results);
+    bool allH264 = true;
+    for (const auto& run : runs) {
+        allH264 = allH264 && run.config.codec == Codec::H264;
+    }
+    check(allH264, "every run of an Auto baseline streamed as H.264 is H.264");
+    check(std::none_of(runs.begin(), runs.end(), [](const PlannedRun& r) { return r.role == Role::Confirm; }),
+          "the baseline won: nothing to confirm");
+    check(runs.back().role == Role::BaselineRepeat && runs.back().config == in.baseline, "the baseline again, as it streamed");
+}
+
+// Notes are stored in English (the same sentences as Android) and shown in the app's language
+void testNotes()
+{
+    using namespace Benchmark::Notes;
+    check(ranAs(Codec::HEVC, "vsync") == "Ran as hevc, vsync instead.", "ran as: Android's form");
+    check(startFailed("RTSP handshake", -1) == "Starting RTSP handshake failed: error -1.", "start failed: Android's form");
+    check(connectionEnded(-102) == "The connection ended (error -102).", "connection ended: Android's form");
+    check(bitrateCapped(50000) == "The bitrate was capped at 50 Mbps.", "capped, in Mbps");
+    check(bitrateCapped(12500) == "The bitrate was capped at 12.5 Mbps.", "capped, a decimal point whatever the locale");
+    check(localized("") .isEmpty() && localized("Le stream a échoué.") == "Le stream a échoué.", "an unknown note stays as it is");
+
+    QTranslator fr;
+    const QString qm = QFileInfo(QStringLiteral(__FILE__)).dir().filePath("../../app/languages/qml_fr.qm");
+    if (!fr.load(qm)) {
+        check(false, "qml_fr.qm loads");
+        return;
+    }
+    QCoreApplication::installTranslator(&fr);
+    struct { const char* note; const char* french; } cases[] = {
+        { "No frames arrived to measure.", "Aucune image n'est arrivée pour la mesure." },
+        { "The run was cut short.", "Le passage a été interrompu." },
+        { "No frames were shown.", "Aucune image n'a été affichée." },
+        { "The stream did not start.", "Le stream n'a pas démarré." },
+        { "The stream could not start.", "Le stream n'a pas pu démarrer." },
+        { "VRR is not available on this display", "Le pacing VRR n'est pas disponible" },
+        { "VRR pacing is not available", "Le pacing VRR n'est pas disponible" },
+        { "av1 is not available: the device fell back to hevc", "AV1 n'est pas disponible : l'appareil est revenu à HEVC" },
+        { "av1 is not available: the client fell back to h264", "AV1 n'est pas disponible : l'appareil est revenu à H.264" },
+        { "Ran as hevc, vsync-off instead.", "Passé en HEVC, V-Sync désactivée à la place." },
+        { "Ran as h264, ull instead.", "Passé en H.264, Latence ultra faible à la place." },
+        { "Starting RTSP handshake failed: error -1.", "Échec au démarrage (négociation RTSP) : erreur -1." },
+        { "The connection ended (error -102).", "La connexion s'est coupée (erreur -102)." },
+        { "The bitrate was capped at 50 Mbps.", "Le débit a été plafonné à 50 Mbit/s." },
+    };
+    for (const auto& c : cases) {
+        const QString got = localized(c.note);
+        if (got != QString::fromUtf8(c.french)) {
+            std::fprintf(stderr, "FAIL: note %s -> %s\n", c.note, got.toUtf8().constData());
+            ++failures;
+        }
+    }
+    check(modeLabel(Mode::Quick) == "Rapide" && goalLabel(Goal::Balanced) == QString::fromUtf8("Équilibré"), "mode and goal names in French");
+    QCoreApplication::removeTranslator(&fr);
+}
+
 void testReport()
 {
     Report report;
@@ -409,6 +478,8 @@ int main(int argc, char** argv)
     testFull();
     testSkips();
     testAdaptive();
+    testAdaptiveFromAutoBaseline();
+    testNotes();
     testReport();
     if (failures == 0) {
         std::printf("tst_benchmark: all checks passed\n");
