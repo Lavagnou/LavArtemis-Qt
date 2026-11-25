@@ -204,6 +204,7 @@ SOURCES += \
     streaming/panzoom.cpp \
     streaming/displaylayout.cpp \
     backend/autoupdatechecker.cpp \
+    backend/updaterules.cpp \
     path.cpp \
     settings/mappingmanager.cpp \
     gui/sdlgamepadkeynavigation.cpp \
@@ -270,6 +271,7 @@ HEADERS += \
     streaming/panzoom.h \
     streaming/displaylayout.h \
     backend/autoupdatechecker.h \
+    backend/updaterules.h \
     path.h \
     settings/mappingmanager.h \
     gui/sdlgamepadkeynavigation.h \

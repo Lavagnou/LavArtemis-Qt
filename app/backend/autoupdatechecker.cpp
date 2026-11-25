@@ -1,4 +1,5 @@
 #include "autoupdatechecker.h"
+#include "updaterules.h"
 #include "settings/artemissettings.h"
 
 #include <QCoreApplication>
@@ -25,12 +26,7 @@ AutoUpdateChecker::AutoUpdateChecker(QObject *parent) :
     m_DownloadReply(nullptr),
     m_DownloadCanceled(false)
 {
-    QString currentVersion(VERSION_STR);
-    qDebug() << "Current Artemis version:" << currentVersion;
-    parseStringToVersionQuad(currentVersion, m_CurrentVersionQuad);
-
-    // Should at least have a 1.0-style version number
-    Q_ASSERT(m_CurrentVersionQuad.count() > 1);
+    qDebug() << "Current LavArtemis version:" << VERSION_STR;
 
     // An installer cannot delete itself: installAndRestart() hands it the file
     // and quits, so the only process that could clean up is the one being
@@ -155,37 +151,6 @@ void AutoUpdateChecker::performCheck()
 #endif
 }
 
-bool AutoUpdateChecker::isDevVersion(const QString& version)
-{
-    return version.contains(QStringLiteral("-dev."));
-}
-
-int AutoUpdateChecker::pickDevRelease(const QJsonArray& releases)
-{
-    // Newest first. Stable and "-ci." builds are never offered to the Dev app.
-    for (int i = 0; i < releases.size(); i++) {
-        QJsonObject release = releases[i].toObject();
-        if (release["draft"].toBool()) {
-            continue;
-        }
-        // A manual run of release.yml from the dev branch publishes "v…-dev.N-ci.M": a build, not a
-        // Dev release, though its tag carries "-dev." too
-        QString tag = release["tag_name"].toString();
-        if (isDevVersion(tag) && !tag.contains(QStringLiteral("-ci."))) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-void AutoUpdateChecker::parseStringToVersionQuad(QString& string, QVector<int>& version)
-{
-    QStringList list = string.split('.');
-    for (const QString& component : std::as_const(list)) {
-        version.append(component.toInt());
-    }
-}
-
 QString AutoUpdateChecker::getPlatform()
 {
 #if defined(STEAM_LINK)
@@ -199,109 +164,6 @@ QString AutoUpdateChecker::getPlatform()
 #else
     return QSysInfo::productType();
 #endif
-}
-
-int AutoUpdateChecker::compareVersion(QVector<int>& version1, QVector<int>& version2) {
-    for (int i = 0;; i++) {
-        int v1Val = 0;
-        int v2Val = 0;
-
-        // Treat missing decimal places as 0
-        if (i < version1.count()) {
-            v1Val = version1[i];
-        }
-        if (i < version2.count()) {
-            v2Val = version2[i];
-        }
-        if (i >= version1.count() && i >= version2.count()) {
-            // Equal versions
-            return 0;
-        }
-
-        if (v1Val < v2Val) {
-            return -1;
-        }
-        else if (v1Val > v2Val) {
-            return 1;
-        }
-    }
-}
-
-int AutoUpdateChecker::compareVersionStrings(const QString& a, const QString& b)
-{
-    // Versions look like "0.7.0", "0.7.0-dev.3" or "0.7.0-dev.3-ci.42"
-    QStringList partsA = a.split('-');
-    QStringList partsB = b.split('-');
-
-    QString baseA = partsA.value(0);
-    QString baseB = partsB.value(0);
-    QVector<int> quadA, quadB;
-    parseStringToVersionQuad(baseA, quadA);
-    parseStringToVersionQuad(baseB, quadB);
-
-    // Up to 21.x the version came from Moonlight; LavArtemis then started its
-    // own numbering (0.7.0-dev.1, 1.0.0), which stays below 20.0.0 forever.
-    // A 20+ version is therefore the old numbering, older than any new one
-    // (the MSI's Upgrade table applies the same rule, see Product.wxs).
-    bool legacyA = quadA.value(0) >= LEGACY_VERSION_MAJOR;
-    bool legacyB = quadB.value(0) >= LEGACY_VERSION_MAJOR;
-    if (legacyA != legacyB) {
-        return legacyA ? -1 : 1;
-    }
-
-    int baseCmp = compareVersion(quadA, quadB);
-    if (baseCmp != 0) {
-        return baseCmp;
-    }
-
-    // Same base: a stable release (no suffix) is newer than any prerelease
-    bool preA = partsA.size() > 1;
-    bool preB = partsB.size() > 1;
-    if (preA != preB) {
-        return preA ? -1 : 1;
-    }
-    if (preA) {
-        // Both prereleases, e.g. "ci.42": compare the trailing build number
-        int buildA = partsA.value(1).split('.').last().toInt();
-        int buildB = partsB.value(1).split('.').last().toInt();
-        return buildA - buildB;
-    }
-    return 0;
-}
-
-QString AutoUpdateChecker::findAssetDownloadUrl(const QJsonObject& releaseObj)
-{
-#ifdef Q_OS_WIN32
-    // One installer covers both architectures: the WiX bundle carries the x64
-    // and the arm64 MSI and picks by NativeMachine. The per-arch zips published
-    // beside it are portable builds with no installer inside, so pointing arm64
-    // at one of those left installAndRestart() with a .zip to execute.
-    QString wantedSuffix = QStringLiteral("-win-installer.exe");
-#elif defined(Q_OS_DARWIN)
-    QString wantedSuffix = QStringLiteral(".dmg");
-#elif defined(APP_IMAGE)
-    QString wantedSuffix = QStringLiteral("-linux-x86_64.AppImage");
-#else
-    // A distro or source build updates through whatever installed it, so there
-    // is no asset to pick. Declared empty rather than returned early: `return`
-    // does not stop the compiler from parsing the loop below, so an early exit
-    // here left `wantedSuffix` undeclared and broke every Linux build that was
-    // not the AppImage.
-    QString wantedSuffix;
-#endif
-
-    if (wantedSuffix.isEmpty()) {
-        return QString();
-    }
-
-    QJsonArray assets = releaseObj["assets"].toArray();
-    for (const QJsonValue& assetVal : assets) {
-        QJsonObject asset = assetVal.toObject();
-        if (asset["name"].toString().endsWith(wantedSuffix)) {
-            return asset["browser_download_url"].toString();
-        }
-    }
-    return QString();
 }
 
 bool AutoUpdateChecker::canSelfInstall() const
@@ -416,26 +278,15 @@ void AutoUpdateChecker::cleanupDownloadedInstallers()
     const QStringList leftovers = tempDir.entryList(
                 QStringList() << QStringLiteral("LavArtemis-v*-win-installer.exe"),
                 QDir::Files);
-    if (leftovers.isEmpty()) {
-        return;
-    }
-
-    QString currentVersion(VERSION_STR);
-    static const QRegularExpression versionRe(
-                QStringLiteral("^LavArtemis-v(.+)-win-installer\\.exe$"));
-
+#ifdef LAV_DEV_CHANNEL
+    const bool devChannel = true;
+#else
+    const bool devChannel = false;
+#endif
     for (const QString& name : leftovers) {
-        QRegularExpressionMatch match = versionRe.match(name);
-        if (!match.hasMatch()) {
-            continue;
-        }
-
-        // An installer newer than what is running may be a download in flight
-        // from another instance -- there is no single-instance lock -- so it
-        // stays. Everything else has either been installed already or been
-        // abandoned, and comparing versions rather than timestamps is what
-        // makes that distinction safe without any locking.
-        if (compareVersionStrings(match.captured(1), currentVersion) > 0) {
+        // Only this app's channel, and only what is not newer than this version: the stable app
+        // and LavArtemis Dev share %TEMP%, and either may be downloading its own installer now
+        if (!UpdateRules::isStaleInstaller(name, QStringLiteral(VERSION_STR), devChannel)) {
             continue;
         }
 
@@ -512,7 +363,7 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
         QJsonObject releaseObj;
         if (jsonDoc.isArray()) {
             QJsonArray releasesArray = jsonDoc.array();
-            int picked = pickDevRelease(releasesArray);
+            int picked = UpdateRules::pickDevRelease(releasesArray);
             if (picked < 0) {
                 qWarning() << "GitHub API response doesn't contain any dev release";
                 emit updateCheckFailed(tr("No release has been published yet."));
@@ -534,7 +385,8 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
         }
 
         qDebug() << "Latest version of LavArtemis from GitHub:" << version;
-        reportRelease(version, releaseObj["html_url"].toString(), findAssetDownloadUrl(releaseObj));
+        reportRelease(version, releaseObj["html_url"].toString(),
+                      UpdateRules::findAssetDownloadUrl(releaseObj, UpdateRules::platformAssetSuffix()));
     }
     else {
         qWarning() << "Update checking failed with error:" << reply->error() << reply->errorString();
@@ -548,7 +400,7 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
 void AutoUpdateChecker::reportRelease(const QString& version, const QString& pageUrl, const QString& downloadUrl)
 {
     QString currentVersion(VERSION_STR);
-    int res = compareVersionStrings(currentVersion, version);
+    int res = UpdateRules::compareVersionStrings(currentVersion, version);
     if (res < 0) {
         // Current version < latest version
         if (m_AutomaticCheck && QSettings().value(SKIPPED_VERSION_KEY).toString() == version) {

@@ -303,6 +303,8 @@ ApplicationWindow {
     // release page on platforms without self-install (macOS, Linux AppImage).
     NavigableMessageDialog {
         id: updateDialog
+        // A question, not an error (NavigableMessageDialog picks the error icon without Dialog.Yes)
+        imageSrc: "qrc:/res/baseline-help_outline-24px.svg"
         // « Ignorer cette version », as Android: the startup check no longer offers it
         // (AutoUpdateChecker::skipVersion), « Vérifier » in Réglages still does
         standardButtons: Dialog.Ok | Dialog.Cancel | Dialog.Discard

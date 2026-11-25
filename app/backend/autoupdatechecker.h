@@ -77,35 +77,15 @@ private:
     // + onUpdateAvailable) or not (noUpdateAvailable, skipped version included).
     void reportRelease(const QString& version, const QString& pageUrl, const QString& downloadUrl);
 
-    // Deletes update installers left in the temp directory. Called once per
-    // process, at construction, before any download of this run can start.
+    // Deletes update installers of this app's channel left in the temp directory
+    // (UpdateRules::isStaleInstaller). Called once per process, at construction,
+    // before any download of this run can start.
     void cleanupDownloadedInstallers();
-
-    void parseStringToVersionQuad(QString& string, QVector<int>& version);
-
-    int compareVersion(QVector<int>& version1, QVector<int>& version2);
-
-    // Versions from this major up are the old Moonlight-derived numbering
-    // (21.x), older than every version of LavArtemis' own (0.7.0-dev.1, 1.0.0).
-    static constexpr int LEGACY_VERSION_MAJOR = 20;
-
-    // Compares two version strings of the form x.y.z with an optional
-    // "-dev.N" / "-ci.N" prerelease suffix. A stable release sorts after a
-    // prerelease with the same base version; an old 20+ version sorts before
-    // any version of the new numbering.
-    int compareVersionStrings(const QString& a, const QString& b);
-
-    // Dev channel helpers ("0.7.0-dev.3"), public for the tests.
-    static bool isDevVersion(const QString& version);
-    static int pickDevRelease(const QJsonArray& releases);
 
     QString getPlatform();
 
-    // Returns the browser_download_url of the release asset matching the
-    // current platform and CPU architecture, or an empty string if none.
-    QString findAssetDownloadUrl(const QJsonObject& releaseObj);
-
-    QVector<int> m_CurrentVersionQuad;
+    // The version rules (compare, Dev release, asset, stale installer) are in
+    // backend/updaterules: pure functions, tested by tests/updater.
 
     // Created per check and destroyed when it completes, so the bearer plugin
     // doesn't poll in the background between checks.
