@@ -1504,6 +1504,10 @@ private:
                 // Start polling if enabled (write lock required)
                 m_ComputerManager->startPollingComputer(newComputer);
 
+                // The uuid the add completes with is copied under the lock, like the branch above: once
+                // it drops, the poller and the GUI thread (which may forget the PC) share newComputer.
+                QString uuid = newComputer->uuid;
+
                 // Drop the lock before notifying
                 m_ComputerManager->m_Lock.unlock();
 
@@ -1529,7 +1533,7 @@ private:
 
                 // For non-mDNS clients, let them know it succeeded, and which host answered
                 if (!m_Mdns) {
-                    emit computerAddCompleted(true, false, newComputer->uuid);
+                    emit computerAddCompleted(true, false, uuid);
                 }
             }
         }
