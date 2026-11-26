@@ -446,7 +446,7 @@ fichier) ; `scripts/generate-ico.sh` n'est plus qu'un renvoi vers lui. Ne jamais
 
 | Fichier | Rôle |
 |---|---|
-| `app/res/lavartemis.svg` / `lavartemis-dev.svg` | icône des fenêtres Qt (`main.cpp`, la Dev selon `LAV_DEV_CHANNEL`) |
+| `app/res/lavartemis.svg` / `lavartemis-dev.svg` | icône des fenêtres Qt (`main.cpp`, la Dev selon `LAV_DEV_CHANNEL`) ; `lavartemis-dev.svg` est aussi **le logo de l'en-tête de l'accueil en Dev, dans tous les thèmes** (`v2/ThemeLogo.qml`, décision du 2026-11-26 : plan d'atelier, pastille DEV comprise ; la stable a `lavartemis-braise.svg` / `-affiche-*.svg` / `lavartemis.svg` selon le thème) |
 | `app/res/lavartemis-session.svg` / `lavartemis-dev-session.svg` | icône de la **fenêtre du stream** (SDL, `Session` : l'écran allumé = session en cours, comme l'icône de LavApollo) |
 | `app/lavartemis.ico` / `lavartemis-dev.ico` | icône de l'exe (`RC_ICONS`, la Dev le remplace dans le bloc `-dev.` d'`app.pro`) et de l'installeur (`Bundle.wxs`, `BundleIcon`) |
 | `wix/LavArtemisSetup/theme/<dev\|stable>/` | **fenêtre de l'installeur** : `thm.xml`, images, `payloads.wxi`, générés par `generate-installer.mjs` (voir « Fenêtre de l'installeur ») |
@@ -843,8 +843,8 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
 - **Projecteur = `Theme.dim()`**, les valeurs `dimOff` / `dimFocus` du prototype par thème et mode :
   gris, luminosité puis opacité, sur **toute** la face (jaquette et nom). ⚠️ La luminosité
   **multiplie** (calque noir) : `MultiEffect.brightness` ajoute, et noircissait les jaquettes
-  sombres. `AppMenu.qml` : popover au pointeur à la souris,
-  centré sinon (`customEntries` pour d'autres menus du même style).
+  sombres. Menus : `LavOptions.qml` (popover au pointeur à la souris, centré sinon) ; l'ancien
+  `AppMenu.qml` est supprimé (port V8).
 - **Survol et focus des cartes et jaquettes** (`CoverTile`, `AppCard`, cartes de Mes PC), comme le prototype :
   à la souris (`mouseHover`), la carte monte de 5 px avec une ombre douce (`HoverDecor.qml`, sous le fond
   comme `LiveHalo`) et un fin liseré (`Theme.hoverRing` / `hoverRingWidth`, prototype `ringMouse`) ; à la
@@ -923,7 +923,7 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
     l'autre processus (scénario 9, `test_forgotten_pc_stored_again_by_another_process`).
 - Les jeux **masqués** (« Masquer ») se réaffichent depuis l'accueil (bouton sous la bibliothèque) et se
   démasquent depuis leur menu. **« Masquer » ne s'offre que pour les jeux Playnite**, comme sur Android
-  (`openMenu(…, isGame)` → `AppMenu.canHide`) ; une carte Bureau / Playnite masquée par une version
+  (`HomeView.openTargetOptions` ne la propose que pour un jeu) ; une carte Bureau / Playnite masquée par une version
   antérieure garde « Ne plus masquer ».
 - **États de l'accueil, ceux d'Android** (`HomeScreen.bind`, mêmes textes) : « Aucun PC appairé », « Connexion
   à %1… » (hôte pas encore joint, `statusUnknown`), « Chargement des applis… » (en ligne, liste d'applis pas
@@ -1088,7 +1088,9 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
   l'id `home`). Briques : `HomeTile` (focus, survol, assombrissement, halo, ⋯, clic / clic droit / appui 500 ms),
   `HeaderButton`, `HomeHeaderButtons`, `FocusRing` (anneau par thème), `LiveDot` (pastille qui pulse), `LavToast`
   (en haut, 2,4 s), `HintsBar` (manette / clavier seulement), `LavOptions` (dialogue centré par thème, ou popover au
-  pointeur avec la souris), `CoverFace`, `DashedRect`, `DevChip`, `ThemeLogo`, `UpdateButton`, `NoGamesCard`,
+  pointeur avec la souris), `CoverFace`, `DashedRect`, `ThemeLogo` (⚠️ **la Dev montre toujours son icône « plan d'atelier »**, fond
+  `#1D4E89` quadrillé, dessin blanc, pastille verte DEV : `res/lavartemis-dev.svg`, décision du 2026-11-26 ; plus de
+  puce DEV à côté du nom ; la stable a le logo du thème), `UpdateButton`, `NoGamesCard`,
   `MouseMoves`.
 - **Focus en grille, pas la chaîne de focus Qt** : `focusId` (`nh`, `ns`, `resume`, `squit`, `a0`, `a1`, `r0`…`r5`,
   `lib`, `wake`), `grid` et `move()` = ceux du prototype. Entrée / A : activer, **maintenue 500 ms = options**
@@ -1141,6 +1143,42 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
 - ⚠️ **`font.pixelSize` est un entier** : un littéral `12.5` fait refuser le composant entier (« le type int est
   attendu », puis « Le type SettingRow n'est pas disponible » et Réglages ne s'ouvre plus). Une expression
   (`12.5 * k`) est arrondie sans erreur.
+- **Temps de jeu** (décision du 2026-11-26) : « 25 min jouées » sous une heure (minutes entières, au moins 1),
+  « 3 h jouées » ensuite (heures arrondies), « Jamais lancé » ; colonne de la bibliothèque « 25 min » / « 3 h » / « — ».
+  `backend/playtimetext.{h,cpp}` (fonctions pures, `tests/playtime`), exposées en QML par
+  `SystemProperties.playtimeText()` / `playtimeShort()`.
+- **Mes PC : PC en ligne d'abord** (puis par nom), comme le prototype : `ComputerModel.onlineFirst` (posé par
+  `HostsView` seulement ; l'accueil garde l'ordre par nom de `ComputerManager::getComputers()`). Une carte change
+  de place quand son PC s'allume.
+- **Segues** (planches V8-24, 71, 25) : `v2/SegueScreen.qml` (fond du jeu à 32 %, jaquette floutée sans fond,
+  vignette, jaquette, « ● LANCEMENT SUR ATLAS-PC… », titre, barre qui glisse, astuce), utilisé par `StreamSegue`
+  (« Lancement sur », « Reprise sur », « Connexion à la session de » quand un autre appareil streame) et
+  `QuitSegue` (« Fermeture sur »). Plus de spinner ni d'étapes RTSP à l'écran (sauf la reconnexion « Écran du PC
+  modifié »). L'accueil passe la jaquette, le fond, le PC, `home` et le toast (`HomeView.segueProps`).
+  - **Toasts du prototype sur le stream** : `Session.startToast` (« Connecté à ATLAS-PC », « Session reprise »,
+    « Session rejointe », « {jeu} lancé dans Playnite : le stream continue », « Session relancée : cet écran »),
+    affiché par `Session::exec()` dès que la boucle du stream tourne (`showNotification`).
+  - **Fin du stream : retour à l'accueil** (`stackView.pop(home)`, même lancé depuis la bibliothèque ou les
+    détails, comme le prototype), avec « Session terminée » (quitté) ou « Déconnecté : la session continue sur le
+    PC » (textes choisis 150-151) ; `QuitSegue` dit « Session terminée » quand il ne lance rien ensuite.
+- **Statistiques sur une ligne** (prototype `statsText`) : `FFmpegVideoDecoder::stringifyVideoStatsLine()`
+  (« 1920 × 1080 · 120 fps · HEVC · 50 Mbit/s · réseau 4 ms · décodage 3,1 ms · pertes 0,0 % », débit mesuré,
+  nombres en français ; Ludique sans « pertes »), choisi par `OverlayManager::setDebugOneLine()` (posé par
+  `Session` avec la boîte du thème). Les lignes détaillées restent pour le journal et pour
+  `MOONLIGHT_VRR_DEEP_TRACE=1`.
+- **Détails, ligne « Écran »** : « Écran de cet appareil · 1920 × 1080 · 120 Hz » (taille du stream) ou « Écran du
+  PC · 2560 × 1600 · 120 Hz » (rôle `hostDisplay` de `ComputerModel`, d'après `CurrentDisplay*` du `serverinfo` ;
+  un hôte qui ne le dit pas : le nom seul).
+- **Bibliothèque Braise** : fond et image de la fiche floutés (BLUR) quand le jeu n'a pas d'image de fond
+  (`CoverFace.blurred`). Affiche et Ludique n'ont pas de fond dans le prototype.
+- **Mise à jour** (V8-13) : `LavOptions` de `main.qml` (`updateOptions`) : « LavArtemis X est disponible »,
+  « Télécharger et installer » / « Ignorer cette version » / « Plus tard », puis la barre du téléchargement
+  (« Téléchargement… » / « Téléchargée », %) et « Installer et redémarrer ». Le téléchargement garde son état si le
+  dialogue se ferme ; seul « Annuler le téléchargement » l'arrête.
+- **Réglages** : libellés et descriptions des textes choisis (Synchronisation verticale, Frame Pacing, Envoyer mon
+  micro au PC hôte, Assigner les boutons d'une manette, Native · W × H, « 80 Mbit/s · auto », raccourcis système
+  En plein écran / Toujours / Jamais, Automatique (français), Menu du stream…).
+- `AppMenu.qml` et `DevChip.qml` sont supprimés.
 - Ce qui reste et les écarts : `port-notes.md`, section PC.
 
 ## 🇫🇷 Langue
