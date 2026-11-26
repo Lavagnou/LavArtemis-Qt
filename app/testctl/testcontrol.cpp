@@ -367,6 +367,7 @@ void TestControl::registerCommands()
     m_Dispatcher.add("quit", bind(&TestControl::cmdQuit));
     m_Dispatcher.add("clipboard", bind(&TestControl::cmdClipboard));
     m_Dispatcher.add("appasset", bind(&TestControl::cmdAppAsset));
+    m_Dispatcher.add("hoststore", bind(&TestControl::cmdHostStore));
     m_Dispatcher.add("commands", [this](const QJsonObject&, QJsonObject& result, QString&) {
         result["commands"] = QJsonArray::fromStringList(m_Dispatcher.commands());
         return true;
@@ -1075,6 +1076,93 @@ bool TestControl::cmdAppAsset(const QJsonObject& args, QJsonObject& result, QStr
     result["width"] = image.isNull() ? 0 : image.width();
     result["height"] = image.isNull() ? 0 : image.height();
     return true;
+}
+
+namespace {
+
+// The stored host list (ComputerManager's "hosts" array), one map of keys per host
+QList<QVariantMap> readStoredHosts()
+{
+    QList<QVariantMap> hosts;
+    QSettings settings;
+    const int count = settings.beginReadArray(QStringLiteral("hosts"));
+    for (int i = 0; i < count; i++) {
+        settings.setArrayIndex(i);
+        QVariantMap entry;
+        const QStringList keys = settings.allKeys();
+        for (const QString& key : keys) {
+            entry.insert(key, settings.value(key));
+        }
+        hosts.append(entry);
+    }
+    settings.endArray();
+    return hosts;
+}
+
+}
+
+bool TestControl::cmdHostStore(const QJsonObject& args, QJsonObject& result, QString& error)
+{
+    // The host list as another LavArtemis process sees it on disk (there is no single instance: an
+    // art:// pairing link starts a second process, which stores the hosts it pairs). Only two
+    // processes can show what happens between them, and the bench runs one client at a time, so
+    // this command plays the other one:
+    //   {"action": "list"}             -> {"hosts": [{"uuid", "name"}]}, as stored right now
+    //   {"action": "keep", "uuid": u}  -> remembers that host's stored entry, keys as written
+    //   {"action": "restore"}          -> writes it back into the stored list (replacing an entry
+    //                                     of the same uuid), as the other process's flush would
+    const QString action = args.value("action").toString("list");
+    if (action == "list") {
+        QJsonArray hosts;
+        for (const QVariantMap& entry : readStoredHosts()) {
+            QJsonObject h;
+            h["uuid"] = entry.value("uuid").toString();
+            h["name"] = entry.value("hostname").toString();
+            hosts.append(h);
+        }
+        result["hosts"] = hosts;
+        return true;
+    }
+    if (action == "keep") {
+        const QString uuid = args.value("uuid").toString();
+        for (const QVariantMap& entry : readStoredHosts()) {
+            if (!uuid.isEmpty() && entry.value("uuid").toString() == uuid) {
+                m_KeptHostEntry = entry;
+                result["kept"] = uuid;
+                return true;
+            }
+        }
+        error = QStringLiteral("no stored host with uuid ") + uuid;
+        return false;
+    }
+    if (action == "restore") {
+        if (m_KeptHostEntry.isEmpty()) {
+            error = QStringLiteral("nothing kept (\"keep\" first)");
+            return false;
+        }
+        const QString uuid = m_KeptHostEntry.value("uuid").toString();
+        QList<QVariantMap> hosts = readStoredHosts();
+        hosts.erase(std::remove_if(hosts.begin(), hosts.end(), [&uuid](const QVariantMap& entry) {
+            return entry.value("uuid").toString() == uuid;
+        }), hosts.end());
+        hosts.append(m_KeptHostEntry);
+        QSettings settings;
+        settings.remove(QStringLiteral("hosts"));
+        settings.beginWriteArray(QStringLiteral("hosts"));
+        for (int i = 0; i < hosts.count(); i++) {
+            settings.setArrayIndex(i);
+            for (auto it = hosts[i].constBegin(); it != hosts[i].constEnd(); ++it) {
+                settings.setValue(it.key(), it.value());
+            }
+        }
+        settings.endArray();
+        settings.sync();
+        result["restored"] = uuid;
+        result["count"] = static_cast<int>(hosts.count());
+        return true;
+    }
+    error = QStringLiteral("action: \"list\" (default), \"keep\" with \"uuid\", or \"restore\"");
+    return false;
 }
 
 bool TestControl::cmdClipboard(const QJsonObject& args, QJsonObject& result, QString& error)

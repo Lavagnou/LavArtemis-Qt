@@ -310,6 +310,9 @@ void DelayedFlushThread::run() {
         // handed to the GUI thread, which adopts them (ComputerManager::adoptStoredHosts)
         QVector<NvComputer*> foreignHosts;
 
+        // Hosts forgotten here that this flush writes out of the stored list (see below)
+        QSet<QString> forgottenNowWritten;
+
         // Wait for a delayed flush request or an interruption
         {
             QMutexLocker locker(&m_ComputerManager->m_DelayedFlushMutex);
@@ -333,6 +336,7 @@ void DelayedFlushThread::run() {
             // the list: take them in instead of writing over them. Compared with what we last
             // stored, under the delayed flush mutex, before that snapshot is replaced below.
             foreignHosts = m_ComputerManager->mergeStoredHosts();
+            forgottenNowWritten = m_ComputerManager->m_ForgottenUuids;
 
             // Update the last serialized hosts map under the delayed flush mutex
             m_ComputerManager->m_LastSerializedHosts.clear();
@@ -383,6 +387,15 @@ void DelayedFlushThread::run() {
 
             // Finally, delete the backup copy
             settings.remove(SER_HOSTS_BACKUP);
+        }
+
+        // The hosts forgotten before this flush are out of the stored list now: from here on, one
+        // found there again was stored by another process since (an art:// link paired it again)
+        // and is taken in like any other. Kept for the whole process, they were dropped from the
+        // stored list at every later flush, and the other process's pairing was lost.
+        if (!forgottenNowWritten.isEmpty()) {
+            QMutexLocker locker(&m_ComputerManager->m_DelayedFlushMutex);
+            m_ComputerManager->m_ForgottenUuids.subtract(forgottenNowWritten);
         }
 
         if (!foreignHosts.isEmpty()) {
@@ -1486,57 +1499,124 @@ class PendingQuitTask : public QObject, public QRunnable
     Q_OBJECT
 
 public:
+    // On the GUI thread. Everything the worker needs is read now: the host may be forgotten, and
+    // its object deleted, while the request runs (the worker used to read and write it)
     PendingQuitTask(ComputerManager* computerManager, NvComputer* computer)
-        : m_Computer(computer)
+        : m_Target(NvHttpTarget::of(computer))
     {
+        {
+            QReadLocker lock(&computer->lock);
+            m_Uuid = computer->uuid;
+            m_CurrentGameId = computer->currentGameId;
+            for (const NvApp& app : std::as_const(computer->appList)) {
+                if (app.id == m_CurrentGameId) {
+                    m_AppName = app.name;
+                    break;
+                }
+            }
+        }
+        if (m_AppName.isEmpty()) {
+            m_AppName = ComputerManager::tr("the app");
+        }
         connect(this, &PendingQuitTask::quitAppFailed,
-                computerManager, &ComputerManager::quitAppCompleted);
+                computerManager, &ComputerManager::handleQuitAppFailed);
     }
 
 signals:
-    void quitAppFailed(QString error);
+    void quitAppFailed(QString uuid, QString error);
 
 private:
     void run()
     {
-        NvHTTP http(m_Computer);
+        NvHTTP http(m_Target);
 
         try {
-            if (m_Computer->currentGameId != 0) {
+            if (m_CurrentGameId != 0) {
                 http.quitApp();
             }
         } catch (const GfeHttpResponseException& e) {
-            {
-                QWriteLocker lock(&m_Computer->lock);
-                m_Computer->pendingQuit = false;
-            }
-            if (e.getStatusCode() == 599) {
-                // 599 is a special code we make a custom message for
-                emit quitAppFailed(tr("The running game wasn't started by this PC. "
-                                      "You must quit the game on the host PC manually or use the device that originally started the game."));
-            }
-            else {
-                emit quitAppFailed(e.toQString());
-            }
+            emit quitAppFailed(m_Uuid, ComputerManager::quitErrorText(m_AppName, e));
         } catch (const QtNetworkReplyException& e) {
-            {
-                QWriteLocker lock(&m_Computer->lock);
-                m_Computer->pendingQuit = false;
-            }
-            emit quitAppFailed(e.toQString());
+            emit quitAppFailed(m_Uuid, ComputerManager::quitErrorText(m_AppName, e));
         }
     }
 
-    NvComputer* m_Computer;
+    NvHttpTarget m_Target;
+    QString m_Uuid;
+    int m_CurrentGameId = 0;
+    QString m_AppName;
 };
 
 void ComputerManager::quitRunningApp(NvComputer* computer)
 {
-    QWriteLocker lock(&computer->lock);
-    computer->pendingQuit = true;
+    {
+        QWriteLocker lock(&computer->lock);
+        computer->pendingQuit = true;
+    }
 
+    // Built outside the lock: it reads the host under its own
     PendingQuitTask* quit = new PendingQuitTask(this, computer);
     QThreadPool::globalInstance()->start(quit);
+}
+
+void ComputerManager::handleQuitAppFailed(QString uuid, QString error)
+{
+    {
+        QReadLocker lock(&m_Lock);
+        NvComputer* computer = m_KnownHosts.value(uuid);
+        if (computer != nullptr) {
+            QWriteLocker computerLock(&computer->lock);
+            computer->pendingQuit = false;
+        }
+    }
+    emit quitAppCompleted(error);
+}
+
+QString ComputerManager::hostErrorDetail(const GfeHttpResponseException& e)
+{
+    return tr("error %1").arg(e.getStatusCode());
+}
+
+QString ComputerManager::hostErrorDetail(const QtNetworkReplyException& e)
+{
+    // The host answered, with an HTTP error (Apollo's clipboard: 403, 500...): its status, as
+    // Android says it (« erreur 403 »)
+    if (e.getHttpStatus() > 0) {
+        return tr("error %1").arg(e.getHttpStatus());
+    }
+    switch (e.getError()) {
+    case QNetworkReply::HostNotFoundError:
+        return tr("address not found");
+    case QNetworkReply::ContentNotFoundError:
+        return tr("error %1").arg(404);
+    case QNetworkReply::TimeoutError:
+    case QNetworkReply::OperationCanceledError:
+        return tr("no answer in time");
+    case QNetworkReply::ConnectionRefusedError:
+        return tr("connection refused");
+    case QNetworkReply::RemoteHostClosedError:
+        return tr("connection closed by the PC");
+    case QNetworkReply::SslHandshakeFailedError:
+        return tr("secure connection failed");
+    default:
+        return tr("network error %1").arg((int)e.getError());
+    }
+}
+
+QString ComputerManager::quitErrorText(const QString& appName, const GfeHttpResponseException& e)
+{
+    if (e.getStatusCode() == 599) {
+        // 599 is a special code we make a custom message for
+        return QCoreApplication::translate("PendingQuitTask",
+                                           "The running game wasn't started by this PC. "
+                                           "You must quit the game on the host PC manually or use the device that originally started the game.");
+    }
+    return tr("Could not quit %1 on the PC (%2).").arg(appName, hostErrorDetail(e));
+}
+
+QString ComputerManager::quitErrorText(const QString& appName, const QtNetworkReplyException& e)
+{
+    return tr("Could not quit %1 on the PC (%2).").arg(appName, hostErrorDetail(e));
 }
 
 void ComputerManager::stopPollingAsync()

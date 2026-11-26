@@ -157,17 +157,20 @@ void ComputerModel::handleComputerRemoved(NvComputer* computer)
 class DeferredWakeHostTask : public QRunnable
 {
 public:
+    // On the GUI thread: a copy of the host, taken now. The worker never reads the host itself,
+    // which may be forgotten (and deleted) while the packets go out
     DeferredWakeHostTask(ComputerModel* model, NvComputer* computer)
-        : m_Model(model), m_Computer(computer)
+        : m_Model(model)
     {
         QReadLocker lock(&computer->lock);
+        m_Host = *computer;
         m_Uuid = computer->uuid;
         m_Name = computer->name;
     }
 
     void run()
     {
-        bool sent = m_Computer->wake();
+        bool sent = m_Host.wake();
         QPointer<ComputerModel> model = m_Model;
         QString uuid = m_Uuid, name = m_Name;
         QMetaObject::invokeMethod(QCoreApplication::instance(), [model, uuid, name, sent] {
@@ -179,7 +182,7 @@ public:
 
 private:
     QPointer<ComputerModel> m_Model;
-    NvComputer* m_Computer;
+    NvComputer m_Host;
     QString m_Uuid;
     QString m_Name;
 };

@@ -1,4 +1,5 @@
 #include "clipboardmanager.h"
+#include "computermanager.h"
 #include "nvcomputer.h"
 #include "settings/artemissettings.h"
 
@@ -267,9 +268,10 @@ void ClipboardManager::download(Origin origin, std::function<void()> then)
                                                   CLIPBOARD_TIMEOUT_MS, NvHTTP::NVLL_VERBOSE);
             ok = true;
         } catch (const GfeHttpResponseException& e) {
-            error = e.toQString();
+            // « erreur 404 », « connexion refusée »: never the exception's English text
+            error = ComputerManager::hostErrorDetail(e);
         } catch (const QtNetworkReplyException& e) {
-            error = e.toQString();
+            error = ComputerManager::hostErrorDetail(e);
         }
         QMetaObject::invokeMethod(qApp, [self, generation, ok, content, error, origin, then]() {
             if (self && generation == self->m_generation) {

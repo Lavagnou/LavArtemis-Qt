@@ -16,6 +16,7 @@
 #include "backend/quickmenumanager.h"
 #include "backend/servercommandmanager.h"
 #include "backend/clipboardmanager.h"
+#include "backend/computermanager.h"
 #include "streaming/panzoom.h"
 #include "settings/artemissettings.h"
 #include "backend/systemproperties.h"
@@ -2078,8 +2079,12 @@ bool Session::validateLaunch(SDL_Window* testWindow)
 class DeferredSessionCleanupTask : public QRunnable
 {
 public:
+    // Built on the session's thread, which owns the host: how to reach it is read now, and the
+    // worker never reads the host itself (it may be forgotten meanwhile)
     DeferredSessionCleanupTask(Session* session) :
-        m_Session(session) {}
+        m_Session(session),
+        m_Target(NvHttpTarget::of(session->m_Computer)),
+        m_AppName(session->m_App.name) {}
 
 private:
     virtual ~DeferredSessionCleanupTask() override
@@ -2125,21 +2130,18 @@ private:
 
         // Perform a best-effort app quit
         if (shouldQuit) {
-            NvHTTP http(m_Session->m_Computer);
+            NvHTTP http(m_Target);
 
             // Logging is already done inside NvHTTP. A refusal is said, as when the home quits an
-            // app (PendingQuitTask): the app keeps running on the host.
+            // app (PendingQuitTask): the app keeps running on the host. In French, never the
+            // exception's English text.
             QString quitError;
             try {
                 http.quitApp();
             } catch (const GfeHttpResponseException& e) {
-                quitError = e.getStatusCode() == 599
-                        ? QCoreApplication::translate("PendingQuitTask",
-                                                      "The running game wasn't started by this PC. "
-                                                      "You must quit the game on the host PC manually or use the device that originally started the game.")
-                        : e.toQString();
+                quitError = ComputerManager::quitErrorText(m_AppName, e);
             } catch (const QtNetworkReplyException& e) {
-                quitError = e.toQString();
+                quitError = ComputerManager::quitErrorText(m_AppName, e);
             }
             if (!quitError.isEmpty()) {
                 emit m_Session->displayLaunchError(quitError);
@@ -2161,6 +2163,8 @@ private:
     }
 
     Session* m_Session;
+    NvHttpTarget m_Target;
+    QString m_AppName;
 };
 
 void Session::getWindowDimensions(int& x, int& y,

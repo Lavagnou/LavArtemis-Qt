@@ -66,11 +66,18 @@ private:
 class QtNetworkReplyException : public std::exception
 {
 public:
-    QtNetworkReplyException(QNetworkReply::NetworkError error, QString errorText) :
+    QtNetworkReplyException(QNetworkReply::NetworkError error, QString errorText, int httpStatus = 0) :
         m_Error(error),
-        m_ErrorText(errorText.toUtf8())
+        m_ErrorText(errorText.toUtf8()),
+        m_HttpStatus(httpStatus)
     {
 
+    }
+
+    // The HTTP status the host answered with (403, 500...), 0 when it did not answer
+    int getHttpStatus() const
+    {
+        return m_HttpStatus;
     }
 
     const char* what() const throw()
@@ -96,6 +103,7 @@ public:
 private:
     QNetworkReply::NetworkError m_Error;
     QByteArray m_ErrorText;
+    int m_HttpStatus;
 };
 
 class NvComputer;

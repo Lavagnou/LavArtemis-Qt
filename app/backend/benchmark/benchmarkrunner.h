@@ -111,6 +111,8 @@ private:
     int m_Estimate = 0;
 
     NvComputer* m_Host = nullptr;
+    // One per start(): a host-app quit still running from an earlier benchmark is ignored when it ends
+    quint64 m_Generation = 0;
     Benchmark::Mode m_Mode = Benchmark::Mode::Quick;
     Benchmark::Goal m_Goal = Benchmark::Goal::Balanced;
     std::unique_ptr<Benchmark::Planner> m_Planner;

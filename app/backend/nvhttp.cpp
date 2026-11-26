@@ -9,6 +9,7 @@
 #include <QUuid>
 #include <QtNetwork/QNetworkReply>
 #include <QEventLoop>
+#include <QRegularExpression>
 #include <QTimer>
 #include <QElapsedTimer>
 #include <QXmlStreamReader>
@@ -690,6 +691,33 @@ bool NvHTTP::isAllowedTestAddress(const QString& host, uint16_t port)
 }
 #endif
 
+namespace {
+
+// The arguments of a request as the log may show them. A pairing request carries the salt, the
+// OTP hash (otpauth) and the challenges: with them, the PIN -- and a short passphrase -- can be
+// found offline from a log file. Their names stay, their values never reach the log.
+QString loggableArguments(const QString& command, const QString& arguments)
+{
+    if (command != QLatin1String("pair") || arguments.isEmpty()) {
+        return arguments;
+    }
+    QStringList parts = arguments.split('&');
+    for (QString& part : parts) {
+        const int equals = part.indexOf('=');
+        if (equals < 0) {
+            continue;
+        }
+        const QString name = part.left(equals);
+        if (name != QLatin1String("devicename") && name != QLatin1String("updateState") &&
+                name != QLatin1String("phrase")) {
+            part = name + QStringLiteral("=<hidden>");
+        }
+    }
+    return parts.join('&');
+}
+
+}
+
 QString
 NvHTTP::openConnectionToString(QUrl baseUrl,
                                QString command,
@@ -724,7 +752,8 @@ NvHTTP::openConnection(QUrl baseUrl,
     // Suppress debug output for polling requests to reduce log noise
     bool suppressDebugOutput = (logLevel == NvLogLevel::NVLL_NONE);
     if (!suppressDebugOutput) {
-        qDebug() << "NvHTTP::openConnection - URL:" << baseUrl.toString() << "Command:" << command << "Arguments:" << arguments;
+        qDebug() << "NvHTTP::openConnection - URL:" << baseUrl.toString() << "Command:" << command
+                 << "Arguments:" << loggableArguments(command, arguments);
     }
 
     // Port must be set
@@ -839,7 +868,14 @@ NvHTTP::openConnection(QUrl baseUrl,
             throw exception;
         }
         else {
-            QtNetworkReplyException exception(reply->error(), reply->errorString());
+            QString errorText = reply->errorString();
+            if (command == QLatin1String("pair")) {
+                // Qt's text can name the whole URL, query included (salt, otpauth), and callers
+                // log it: the query goes, as in loggableArguments()
+                errorText.replace(QRegularExpression(QStringLiteral("\\?\\S*")), QStringLiteral("?<hidden>"));
+            }
+            QtNetworkReplyException exception(reply->error(), errorText,
+                                              reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt());
             delete reply;
             throw exception;
         }

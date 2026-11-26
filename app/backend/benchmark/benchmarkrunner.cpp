@@ -269,6 +269,7 @@ void BenchmarkRunner::start(ComputerManager* manager, const QString& hostUuid, c
         return;
     }
 
+    m_Generation++;
     m_Host = findHost(manager, hostUuid);
     fromString(mode.toStdString(), m_Mode);
     fromString(goal.toStdString(), m_Goal);
@@ -335,11 +336,15 @@ void BenchmarkRunner::cancel()
 
 void BenchmarkRunner::quitHostApp(std::function<void()> then)
 {
-    NvComputer* host = m_Host;
+    // How to reach the host, read now on this thread: the worker never reads the host itself
+    const NvHttpTarget target = NvHttpTarget::of(m_Host);
+    // The benchmark this quit belongs to: « Arrêter » then « Démarrer » before it comes back
+    // starts another one, which its callback must leave alone (it launched a run of the old plan)
+    const quint64 generation = m_Generation;
     QPointer<BenchmarkRunner> self(this);
-    QThreadPool::globalInstance()->start([host, self, then]() {
+    QThreadPool::globalInstance()->start([target, self, then, generation]() {
         try {
-            NvHTTP(host).quitApp();
+            NvHTTP(target).quitApp();
         } catch (...) {
             // Nothing running is fine; anything else surfaces as the next launch's error
         }
@@ -347,8 +352,8 @@ void BenchmarkRunner::quitHostApp(std::function<void()> then)
         // Test build: a window to stop the benchmark in while the host's app quits
         QThread::msleep(static_cast<unsigned long>(testTiming(3, 0)));
 #endif
-        QMetaObject::invokeMethod(QCoreApplication::instance(), [self, then]() {
-            if (self) {
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [self, then, generation]() {
+            if (self && self->m_Generation == generation) {
                 self->m_HostAppRunning = false;
                 then();
             }
@@ -783,7 +788,7 @@ bool BenchmarkRunner::applyRunAsProfile(int runIndex, const QString& profileName
     if (runIndex < 0 || runIndex >= static_cast<int>(m_Report.runs.size()) || m_Report.platform == "android") {
         return false;
     }
-    // An empty profile inherits the current settings; switching to it makes it the one written
+    // A snapshot of the current settings (createProfile); switching to it makes it the one written
     ProfileManager* profiles = ProfileManager::instance();
     profiles->setActiveProfile(profiles->createProfile(profileName));
     return applyRun(runIndex);

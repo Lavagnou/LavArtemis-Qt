@@ -13,6 +13,7 @@
 #include <QObject>
 #include <QPointer>
 #include <QStringList>
+#include <QVariantMap>
 
 #include <functional>
 
@@ -77,6 +78,7 @@ private:
     bool cmdQuit(const QJsonObject& args, QJsonObject& result, QString& error);
     bool cmdClipboard(const QJsonObject& args, QJsonObject& result, QString& error);
     bool cmdAppAsset(const QJsonObject& args, QJsonObject& result, QString& error);
+    bool cmdHostStore(const QJsonObject& args, QJsonObject& result, QString& error);
 
     // Stream input (SDL_PushEvent into the session's SDL loop)
     bool pushKey(SDL_Window* window, const TestProtocol::KeySpec& key, int modifiers, int state, QString& error);
@@ -123,4 +125,6 @@ private:
     _SDL_Joystick* m_Joystick = nullptr;
     int m_JoystickInstance = -1;
     QTimer* m_PadTimer;
+    // "hoststore" keep/restore: one stored host entry (its keys under hosts/<i>), as written
+    QVariantMap m_KeptHostEntry;
 };

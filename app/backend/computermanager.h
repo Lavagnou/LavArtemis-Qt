@@ -219,6 +219,7 @@ class ComputerManager : public QObject
     friend class PendingPairingTask;
     friend class PendingOTPPairingTask;
     friend class DelayedFlushThread;
+    friend class PendingQuitTask;
 
 public:
     explicit ComputerManager(StreamingPreferences* prefs);
@@ -268,13 +269,24 @@ public:
     // devicename= of the pairing requests (percent-encoded): this PC's name, as in serverinfo
     static QString clientDeviceName();
 
+    // A host's refusal or a lost connection, as the end of a sentence (« erreur 500 »,
+    // « connexion refusée »): translated, never the exception's English text
+    static QString hostErrorDetail(const GfeHttpResponseException& e);
+    static QString hostErrorDetail(const QtNetworkReplyException& e);
+
+    // Quitting an app on the host failed (the home, the end of a session): 599, an app started by
+    // another device, has its own sentence; otherwise « Impossible de quitter %1 sur le PC (…) »,
+    // as Android (R.string.v2_quit_failed)
+    static QString quitErrorText(const QString& appName, const GfeHttpResponseException& e);
+    static QString quitErrorText(const QString& appName, const QtNetworkReplyException& e);
+
     void quitRunningApp(NvComputer* computer);
 
     QVector<NvComputer*> getComputers();
 
-    // The host leaves the list now (computerRemoved, then computerStateChanged, on this thread);
-    // the object itself is deleted later, on this thread too, once its poller has stopped and no
-    // pairing uses it. GUI thread only.
+    // The host leaves the list now (computerRemoved, on this thread; no computerStateChanged
+    // follows for it); the object itself is deleted later, on this thread too, once its poller has
+    // stopped and no pairing uses it. GUI thread only.
     void deleteHost(NvComputer* computer);
 
     void renameHost(NvComputer* computer, QString name);
@@ -284,8 +296,8 @@ public:
 signals:
     void computerStateChanged(NvComputer* computer);
 
-    // Emitted on the GUI thread by deleteHost(), before computerStateChanged(): whoever keeps
-    // this pointer (AppModel) must drop it now and never read it again
+    // Emitted on the GUI thread by deleteHost(), the only signal for a forgotten host: whoever
+    // keeps this pointer (AppModel, ComputerModel) must drop it now and never read it again
     void computerRemoved(NvComputer* computer);
 
     // On the GUI thread, after the host's new state (paired) is in the list. error: empty on
@@ -306,6 +318,10 @@ private slots:
     void handleComputerStateChanged(NvComputer* computer);
 
     void handleMdnsServiceResolved(MdnsPendingComputer* computer, QVector<QHostAddress>& addresses);
+
+    // A quit (PendingQuitTask) failed: the host, found again by uuid on this thread, is no longer
+    // quitting, and quitAppCompleted says why
+    void handleQuitAppFailed(QString uuid, QString error);
 
 private:
     void saveHosts();
@@ -350,6 +366,8 @@ private:
     NvComputer* m_PairingComputer = nullptr;
     // Forgotten during their pairing: deleted when it ends
     QVector<NvComputer*> m_DeleteAfterPairing;
-    // Forgotten here (uuid): a flush never brings them back from what another process stored
+    // Forgotten here (uuid), until the flush that writes the list without them: that flush must not
+    // bring them back from the list on disk, which still has them. Cleared then, so that a host
+    // another process stores afterwards (paired again by an art:// link) is taken in.
     QSet<QString> m_ForgottenUuids;
 };

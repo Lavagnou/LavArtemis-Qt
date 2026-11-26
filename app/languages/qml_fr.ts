@@ -601,6 +601,18 @@
         <source>network error %1</source>
         <translation>erreur réseau %1</translation>
     </message>
+    <message>
+        <source>the app</source>
+        <translation>l&apos;appli</translation>
+    </message>
+    <message>
+        <source>address not found</source>
+        <translation>adresse introuvable</translation>
+    </message>
+    <message>
+        <source>Could not quit %1 on the PC (%2).</source>
+        <translation>Impossible de quitter %1 sur le PC (%2).</translation>
+    </message>
 </context>
 <context>
     <name>ComputerModel</name>

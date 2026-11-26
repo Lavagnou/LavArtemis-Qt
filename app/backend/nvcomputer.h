@@ -22,7 +22,6 @@ class NvComputer
 {
     friend class PcMonitorThread;
     friend class ComputerManager;
-    friend class PendingQuitTask;
 
 private:
     void sortAppList();
