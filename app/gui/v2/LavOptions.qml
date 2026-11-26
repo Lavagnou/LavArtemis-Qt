@@ -32,6 +32,22 @@ Popup {
 
     signal picked(string action)
 
+    // The extra item is the caller's, hidden until a dialog shows it; one at a time. An extra with a
+    // `focusTarget` (a text field) gets the keys when the dialog opens
+    property Item shownExtra: null
+    onExtraChanged: {
+        if (shownExtra && shownExtra !== extra) shownExtra.visible = false
+        shownExtra = extra
+        if (extra) {
+            extra.parent = extraHolder
+            extra.width = Qt.binding(function() { return extraHolder.width })
+            extra.visible = true
+        }
+    }
+    onOpened: if (extra && extra.focusTarget) extra.focusTarget.forceActiveFocus()
+    // Named for the test channel (testbench helpers.popup_texts): the popup's own item
+    Component.onCompleted: if (background && background.parent) background.parent.objectName = "LavOptions"
+
     readonly property real k: 1.25 * Theme.stageScale
     readonly property var shown: popover ? entries.filter(function(e) { return e.a !== "cancel" }) : entries
     readonly property int cols: popover ? 1 : (shown.length > 14 ? 3 : (shown.length > 8 ? 2 : 1))
@@ -257,7 +273,6 @@ Popup {
             visible: opts.extra !== null
             width: content.innerW
             height: opts.extra ? opts.extra.implicitHeight : 0
-            onVisibleChanged: if (opts.extra) { opts.extra.parent = extraHolder; opts.extra.width = width }
         }
 
         // ---- entries

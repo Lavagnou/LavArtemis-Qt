@@ -108,8 +108,7 @@ FocusScope {
             var b = indexOfUuid(busy)
             pairingUuid = busy
             pairingName = b >= 0 ? role(b, "name") : pairingName
-            pairDialog.pin = ComputerManager.pairingPin()
-            pairDialog.open()
+            showPairing(ComputerManager.pairingPin())
             return
         }
         if (!role(i, "online")) {
@@ -120,8 +119,16 @@ FocusScope {
         if (!computerModel.pairComputer(i, pin)) return
         pairingUuid = role(i, "uuid")
         pairingName = role(i, "name")
-        pairDialog.pin = pin
-        pairDialog.open()
+        showPairing(pin)
+    }
+    // Planche V8-39: the code in big digits; « Annuler » only closes the dialog (the pairing goes on
+    // until the PC answers, or 3 minutes without the code), as « C'est fait » did
+    function showPairing(pin) {
+        pinBox.pin = pin.split("").join(" ")
+        showOptions("pair", {title: qsTr("Appairer %1").arg(pairingName), head: headLine(pairingName), info: true,
+                             note: qsTr("Sur %1, ouvre LavApollo › Appairage et entre ce code : %2. Il n’est demandé qu’une fois ; cette fenêtre se fermera toute seule.")
+                                   .arg(pairingName).arg(pin),
+                             extra: pinBox, entries: [cancelEntry]}, null, 0, 0)
     }
 
     function activate(i) {
@@ -135,7 +142,7 @@ FocusScope {
         // Another page's pairing, or a pairing of this page that the user left
         if (uuid !== pairingUuid) return
         pairingUuid = ""
-        pairDialog.close()
+        if (dialogKind === "pair" && dialog.opened) dialog.close()
         if (StackView.status !== StackView.Active) return
         if (error !== undefined) {
             showError(error)
@@ -154,29 +161,73 @@ FocusScope {
 
     // The menu and the dialogs keep the host's uuid, never its row: rows move while they are open
     // (a host comes online, one is added or forgotten), and the row could name another PC
+    // The prototype's dialogs (LavOptions): « PC · adresse » head line, title, note, entries. A popover
+    // at the pointer for the mouse (right click, ⋯), centred otherwise
+    readonly property string sep: Theme.affiche ? " — " : " · "
+    function headLine(where) {
+        var h = qsTr("PC") + (where ? sep + where : "")
+        return Theme.affiche ? h.toUpperCase() : h
+    }
+    property string dialogKind: ""
+    property string dialogUuid: ""
+    function showOptions(kind, cfg, item, x, y) {
+        dialogKind = kind
+        if (item && Theme.input === "mouse") {
+            var p = item.mapToItem(null, x, y)
+            dialog.showPopover(cfg, p.x, p.y)
+        } else {
+            dialog.showDialog(cfg)
+        }
+    }
+    readonly property var cancelEntry: ({l: qsTr("Annuler"), a: "cancel"})
+    // Type and link of a PC (« Tour · réseau filaire »), from LavApollo HostFormFactor / HostLink
+    function typeText(formFactor) {
+        return formFactor === "tower" ? qsTr("Tour") : formFactor === "mini" ? qsTr("Mini-PC") : formFactor === "laptop" ? qsTr("Portable") : ""
+    }
+    function linkText(link) { return link === "wired" ? qsTr("réseau filaire") : link === "wifi" ? qsTr("Wi-Fi") : "" }
+
     function openHostMenu(item, i, x, y) {
         var online = role(i, "online"), paired = role(i, "paired")
         var list = []
         if (online && paired) {
-            list.push({id: "open", label: qsTr("Ouvrir"), icon: "play", main: true})
-            list.push({id: "bench", label: qsTr("Benchmark des réglages"), icon: "gauge"})
+            list.push({l: qsTr("Ouvrir"), a: "open", main: true})
+            list.push({l: qsTr("Benchmark des réglages"), a: "bench"})
         } else if (online) {
-            list.push({id: "pair", label: qsTr("Appairer"), icon: "lock", main: true})
-        } else {
-            list.push({id: "wake", label: qsTr("Réveiller"), icon: "power", main: true})
+            list.push({l: qsTr("Appairer"), a: "pair", main: true})
+        } else if (role(i, "wakeable")) {
+            list.push({l: qsTr("Réveiller"), a: "wake", main: true})
         }
-        list.push({id: "rename", label: qsTr("Renommer"), icon: "pencil"})
-        list.push({id: "forget", label: qsTr("Oublier ce PC"), icon: "trash"})
-        hostMenu.hostUuid = role(i, "uuid")
-        hostMenu.appName = role(i, "name")
-        hostMenu.customEntries = list
-        var p = item.mapToItem(hostsPage, x, y)
-        hostMenu.openAt(p.x, p.y)
+        list.push({l: qsTr("Renommer"), a: "rename"})
+        list.push({l: qsTr("Oublier ce PC"), a: "forget"})
+        list.push(cancelEntry)
+        if (!list[0].main) list[0].main = true
+        dialogUuid = role(i, "uuid")
+        var meta = [typeText(role(i, "formFactor")), linkText(role(i, "link"))].filter(function(t) { return t.length > 0 })
+        var state = online ? qsTr("En ligne") + (role(i, "apolloVersion") ? " · LavApollo " + role(i, "apolloVersion") : "")
+                  : (role(i, "wakeable") ? qsTr("Éteint ou en veille : il peut être réveillé d’ici.") : qsTr("Éteint ou injoignable."))
+        showOptions("host", {title: role(i, "name"), head: headLine(role(i, "address")), info: true,
+                             note: [state].concat(meta).join(" · "), entries: list}, item, x, y)
     }
 
-    function onHostMenu(action) {
-        var i = indexOfUuid(hostMenu.hostUuid)
+    function onDialog(action) {
+        var kind = dialogKind
+        if (action === "cancel") return
+        if (kind === "add") return onAddMenu(action)
+        if (kind === "addr") { if (action === "addrOk") addByAddress(dialogField.text); return }
+        var i = indexOfUuid(dialogUuid)
         if (i < 0) return
+        if (kind === "rename") {
+            if (action === "renameOk" && dialogField.text.trim().length > 0) computerModel.renameComputer(i, dialogField.text.trim())
+            return
+        }
+        if (kind === "forget") {
+            if (action === "forgetOk") computerModel.deleteComputer(i)
+            return
+        }
+        onHostMenu(action, i)
+    }
+
+    function onHostMenu(action, i) {
         if (action === "open") openHost(i)
         else if (action === "pair") pairHost(i)
         else if (action === "wake") wakeHost(i)
@@ -190,29 +241,36 @@ FocusScope {
             // as a component: the StackView owns the page and destroys it on pop
             stackView.push(Qt.createComponent("../BenchmarkView.qml"), {"hostUuid": role(i, "uuid"), "hostName": role(i, "name")})
         } else if (action === "rename") {
-            renameDialog.hostUuid = role(i, "uuid")
-            renameField.text = role(i, "name")
-            renameDialog.open()
+            dialogUuid = role(i, "uuid")
+            dialogField.label = qsTr("Nom")
+            dialogField.text = role(i, "name")
+            dialogField.placeholder = role(i, "name")
+            showOptions("rename", {title: qsTr("Renommer %1").arg(role(i, "name")), head: headLine(role(i, "address")), info: true,
+                                   note: qsTr("Le nom de ce PC dans LavArtemis. Le PC lui-même garde le sien."), extra: dialogField,
+                                   entries: [{l: qsTr("Renommer"), a: "renameOk", main: true}, cancelEntry]}, null, 0, 0)
         } else if (action === "forget") {
-            forgetDialog.hostUuid = role(i, "uuid")
-            forgetDialog.hostName = role(i, "name")
-            forgetDialog.open()
+            dialogUuid = role(i, "uuid")
+            showOptions("forget", {title: qsTr("Oublier %1 ?").arg(role(i, "name")), head: headLine(role(i, "address")), warn: true,
+                                   note: qsTr("Il disparaît de LavArtemis. Pour le retrouver, il faudra l’ajouter et l’appairer à nouveau."),
+                                   entries: [{l: qsTr("Oublier"), a: "forgetOk", main: true}, cancelEntry]}, null, 0, 0)
         }
     }
 
+    // « Ajouter un PC » (planche V8-65): the PCs found on the local network, « Saisir une adresse… »
     function openAddMenu(item, x, y) {
         var list = []
         for (var i = 0; i < computerModel.rowCount(); i++) {
             if (!role(i, "paired") && role(i, "online")) {
                 var addr = role(i, "address")
-                list.push({id: "pair:" + role(i, "uuid"), label: role(i, "name") + (addr ? " · " + addr : ""), icon: "monitor", main: list.length === 0})
+                list.push({l: role(i, "name") + (addr ? " · " + addr : ""), a: "pair:" + role(i, "uuid")})
             }
         }
-        list.push({id: "manual", label: qsTr("Saisir une adresse…"), icon: "search", main: list.length === 0})
-        addMenu.customEntries = list
-        addMenu.appName = list.length > 1 ? qsTr("Trouvés sur le réseau") : qsTr("Aucun PC trouvé sur le réseau")
-        var p = item.mapToItem(hostsPage, x, y)
-        addMenu.openAt(p.x, p.y)
+        list.push({l: qsTr("Saisir une adresse…"), a: "manual"})
+        list.push(cancelEntry)
+        showOptions("add", {title: qsTr("Ajouter un PC"), head: headLine(qsTr("réseau local")), info: true,
+                            note: list.length > 2 ? qsTr("PC trouvés sur ton réseau local (Apollo ou Sunshine) :")
+                                                  : qsTr("Aucun PC trouvé sur ton réseau local pour l’instant."),
+                            entries: list}, null, 0, 0)
     }
 
     function onAddMenu(action) {
@@ -220,8 +278,12 @@ FocusScope {
             var i = indexOfUuid(action.slice(5))
             if (i >= 0) pairHost(i)
         } else if (action === "manual") {
-            addressField.text = ""
-            addDialog.open()
+            dialogField.label = qsTr("Adresse")
+            dialogField.text = ""
+            dialogField.placeholder = "192.168.1.24"
+            showOptions("addr", {title: qsTr("Saisir une adresse"), head: headLine(qsTr("réseau local")), info: true,
+                                 note: qsTr("Adresse IP ou nom du PC hôte (par exemple 192.168.1.24)."), extra: dialogField,
+                                 entries: [{l: qsTr("Ajouter"), a: "addrOk", main: true}, cancelEntry]}, null, 0, 0)
         }
     }
 
@@ -286,8 +348,8 @@ FocusScope {
     }
 
     function showError(text) {
-        errorDialog.text = text
-        errorDialog.open()
+        showOptions("error", {title: qsTr("Oups"), head: headLine(""), info: true, note: text,
+                              entries: [{l: qsTr("OK"), a: "cancel", main: true}]}, null, 0, 0)
     }
 
     // Arrow keys / d-pad across the grid (cards, then "Ajouter un PC")
@@ -335,8 +397,9 @@ FocusScope {
 
             Column {
                 id: column
-                x: 50; y: 6 // Close under the title bar, which is empty and in the theme's colours (see main.qml themedFrame)
-                width: parent.width - 100
+                // Prototype V8 hosts: header at 28 px, the cards from 130 px (x k = 35 and 162 on the stage)
+                x: 60; y: 22
+                width: parent.width - 120
                 spacing: 30
 
                 Item {
@@ -356,6 +419,8 @@ FocusScope {
                         font.pixelSize: 18
                     }
                 }
+
+                Item { width: 1; height: 24 }
 
                 Flow {
                     id: grid
@@ -377,11 +442,14 @@ FocusScope {
                             required property string apolloVersion
                             required property string address
                             required property string runningApp
+                            required property string formFactor
+                            required property string link
+                            required property int latencyMs
 
                             // Unpaired hosts are offered by "Ajouter un PC" instead
                             visible: paired
                             width: grid.cardWidth
-                            height: 470
+                            height: 500
                             hoverEnabled: true
                             focusPolicy: Qt.StrongFocus
 
@@ -391,7 +459,11 @@ FocusScope {
                                 ? address + (apolloVersion.length > 0 ? " · LavApollo " + apolloVersion : "")
                                 : (statusUnknown ? "" : (wakeable ? qsTr("Éteint ou en veille : il peut être réveillé d'ici.")
                                                                   : qsTr("Éteint ou injoignable.")))
-                            readonly property string actionLabel: online ? qsTr("Ouvrir") : (statusUnknown ? "" : qsTr("Réveiller"))
+                            readonly property string actionLabel: online ? qsTr("Ouvrir") : (statusUnknown || !wakeable ? "" : qsTr("Réveiller"))
+                            // « Tour · réseau filaire · 4 ms » (prototype HOSTS: type, net, ms)
+                            readonly property string meta: [hostsPage.typeText(formFactor), hostsPage.linkText(link),
+                                                            online && latencyMs > 0 ? qsTr("%1 ms").arg(latencyMs) : ""]
+                                                           .filter(function(t) { return t.length > 0 }).join(" · ")
 
                             onClicked: hostsPage.activate(index)
                             Keys.onReturnPressed: hostsPage.activate(index)
@@ -446,7 +518,14 @@ FocusScope {
                                         width: 80; height: 80
                                         radius: Theme.rs
                                         color: Theme.surface2
-                                        LavIcon { anchors.centerIn: parent; name: "monitor"; size: 38; stroke: 1.8; color: Theme.fg }
+                                        // The prototype's icon per kind of PC (HOSTS[].icon); the screen when unknown
+                                        LavIcon {
+                                            anchors.centerIn: parent; size: 38; stroke: 1.8; color: Theme.fg
+                                            name: "monitor"
+                                            path: card.formFactor === "tower" ? "M7 2h10v20H7zM10 6h4M10 9h4M12 17h.01"
+                                                : card.formFactor === "mini" ? "M4 8h16v9H4zM7 12.5h.01M11 12.5h6M6 17v2M18 17v2"
+                                                : card.formFactor === "laptop" ? "M5 5h14v10H5zM3 19h18" : ""
+                                        }
                                     }
                                     Item { width: 1; height: 4 }
                                     Text {
@@ -485,6 +564,23 @@ FocusScope {
                                         font.family: Theme.textFont
                                         font.pixelSize: 17
                                         lineHeight: 1.2
+                                    }
+                                    Row {
+                                        visible: card.meta.length > 0
+                                        spacing: 7
+                                        LavIcon {
+                                            visible: card.link === "wired" || card.link === "wifi"
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            size: 17; stroke: 2; color: Theme.muted
+                                            path: card.link === "wired" ? "M12 3v6M7 9h10v5H7zM9 14v4M15 14v4M7 21h10"
+                                                                        : "M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0M12 19.5h.01"
+                                        }
+                                        Text {
+                                            text: card.meta
+                                            color: Theme.muted
+                                            font.family: Theme.textFont
+                                            font.pixelSize: 16
+                                        }
                                     }
                                     Rectangle {
                                         visible: card.busy
@@ -541,14 +637,10 @@ FocusScope {
                                 }
                             }
 
-                            Rectangle {
-                                anchors.fill: parent
-                                anchors.margins: -6
-                                radius: Theme.r + 6
-                                color: "transparent"
-                                border.width: 3
-                                border.color: Theme.accent
-                                visible: card.activeFocus && Theme.showFocus
+                            FocusRing {
+                                active: card.activeFocus && Theme.showFocus
+                                radius: Theme.r
+                                k: 1.25
                             }
 
                             TapHandler {
@@ -572,7 +664,7 @@ FocusScope {
                     AbstractButton {
                         id: addCard
                         width: grid.cardWidth
-                        height: 470
+                        height: 500
                         hoverEnabled: true
                         focusPolicy: Qt.StrongFocus
                         onClicked: hostsPage.openAddMenu(addCard, width / 2, height / 2)
@@ -648,14 +740,10 @@ FocusScope {
                           }
                         }
 
-                        Rectangle {
-                            anchors.fill: parent
-                            anchors.margins: -6
-                            radius: Theme.r + 6
-                            color: "transparent"
-                            border.width: 3
-                            border.color: Theme.accent
-                            visible: addCard.activeFocus && Theme.showFocus
+                        FocusRing {
+                            active: addCard.activeFocus && Theme.showFocus
+                            radius: Theme.r
+                            k: 1.25
                         }
                     }
                 }
@@ -666,10 +754,11 @@ FocusScope {
                     color: Theme.muted
                     font.family: Theme.textFont
                     font.pixelSize: 17
+                    // The prototype's hostsHelp, per input
                     text: Theme.input === "pad" ? qsTr("A : ouvrir le PC. Y ou A maintenu : réveiller, benchmark, renommer, oublier.")
-                        : Theme.input === "keys" ? qsTr("Entrée : ouvrir le PC. Touche Menu : réveiller, benchmark, renommer, oublier.")
-                        : Theme.input === "touch" ? qsTr("Touche pour ouvrir le PC. Appui long ou bouton « … » : réveiller, benchmark, renommer, oublier.")
-                        : qsTr("Clic : ouvrir le PC. Clic droit ou bouton « … » : réveiller, benchmark, renommer, oublier.")
+                        : Theme.input === "keys" ? qsTr("Entrée : ouvrir le PC. Touche Menu ou Entrée maintenue : réveiller, benchmark, renommer, oublier.")
+                        : Theme.input === "touch" ? qsTr("Touche pour ouvrir le PC. Appui long ou ⋯ : réveiller, benchmark, renommer, oublier.")
+                        : qsTr("Clic : ouvrir le PC. Clic droit ou ⋯ : réveiller, benchmark, renommer, oublier.")
                 }
             }
         }
@@ -685,86 +774,45 @@ FocusScope {
         })
     }
 
-    AppMenu {
-        id: hostMenu
-        property string hostUuid: ""
-        parent: hostsPage
-        onTriggered: (action) => hostsPage.onHostMenu(action)
+    LavOptions {
+        id: dialog
+        onPicked: (a) => hostsPage.onDialog(a)
+        onClosed: hostsPage.forceActiveFocus()
     }
-
-    AppMenu {
-        id: addMenu
-        parent: hostsPage
-        onTriggered: (action) => hostsPage.onAddMenu(action)
-    }
-
-    LavDialog {
-        id: pairDialog
-        property string pin: "0000"
-        title: qsTr("Appairer %1").arg(hostsPage.pairingName)
-        text: qsTr("Sur %1, ouvre LavApollo › Appairage et entre ce code : %2. Il n'est demandé qu'une fois ; cette fenêtre se fermera toute seule.")
-                .arg(hostsPage.pairingName).arg(pin.split("").join(" "))
-        acceptText: qsTr("C'est fait : le code est entré")
-        rejectText: ""
-    }
-
-    LavDialog {
-        id: addDialog
-        title: qsTr("Ajouter un PC")
-        text: qsTr("Adresse IP ou nom du PC hôte (par exemple 192.168.1.24).")
-        acceptText: qsTr("Ajouter")
-        acceptEnabled: addressField.text.trim().length > 0
-        initialFocus: addressField.input
-        fields: [
-            LavTextField {
-                id: addressField
-                width: addDialog.bodyWidth
-                placeholderText: "192.168.1.24"
-                onAccepted: addDialog.accept()
-            }
-        ]
-        onAccepted: hostsPage.addByAddress(addressField.text)
-    }
-
-    LavDialog {
-        id: renameDialog
-        property string hostUuid: ""
-        title: qsTr("Renommer")
-        text: qsTr("Le nom de ce PC dans LavArtemis. Le PC lui-même garde le sien.")
-        acceptText: qsTr("Renommer")
-        acceptEnabled: renameField.text.trim().length > 0
-        initialFocus: renameField.input
-        fields: [
-            LavTextField {
-                id: renameField
-                width: renameDialog.bodyWidth
-                maximumLength: 64
-                onAccepted: renameDialog.accept()
-            }
-        ]
-        onAccepted: {
-            var i = hostsPage.indexOfUuid(hostUuid)
-            if (i >= 0) hostsPage.computerModel.renameComputer(i, renameField.text.trim())
+    // The pairing code in big digits (prototype ctx.hasPin)
+    Rectangle {
+        id: pinBox
+        property string pin: ""
+        visible: false
+        implicitHeight: pinText.implicitHeight + 28 * dialog.k
+        radius: Theme.rs * dialog.k
+        color: Theme.surface2
+        Text {
+            id: pinText
+            anchors.centerIn: parent
+            text: pinBox.pin
+            color: Theme.fg
+            font.family: Theme.displayFont; font.weight: Theme.displayWeight; font.pixelSize: 54 * dialog.k
+            font.letterSpacing: 0.2 * 54 * dialog.k
         }
     }
-
-    LavDialog {
-        id: forgetDialog
-        property string hostUuid: ""
-        property string hostName: ""
-        title: qsTr("Oublier %1 ?").arg(hostName)
-        text: qsTr("Il disparaît de LavArtemis. Pour le retrouver, il faudra l'ajouter et l'appairer à nouveau.")
-        acceptText: qsTr("Oublier")
-        onAccepted: {
-            var i = hostsPage.indexOfUuid(hostUuid)
-            if (i >= 0) hostsPage.computerModel.deleteComputer(i)
+    // A labelled text field (prototype ctx.hasInput): the address, a new name
+    Column {
+        id: dialogField
+        property string label: ""
+        property alias text: dialogInput.text
+        property string placeholder: ""
+        readonly property Item focusTarget: dialogInput.input
+        visible: false
+        spacing: 6 * dialog.k
+        Text { text: dialogField.label; color: Theme.muted; font.family: Theme.textFont; font.weight: Font.Bold; font.pixelSize: 13 * dialog.k }
+        LavTextField {
+            id: dialogInput
+            width: dialogField.width
+            placeholderText: dialogField.placeholder
+            maximumLength: 64
+            onAccepted: dialog.pick(0)
         }
-    }
-
-    LavDialog {
-        id: errorDialog
-        title: qsTr("Oups")
-        rejectText: ""
     }
 
     Rectangle {
