@@ -187,8 +187,8 @@ FocusScope {
                 showError(qsTr("Impossible de streamer %1 depuis lui-même : LavApollo tourne sur ce PC. Lance le stream depuis un autre appareil.").arg(role(i, "name")))
                 return
             }
-            var component = Qt.createComponent("../BenchmarkView.qml")
-            stackView.push(component.createObject(stackView, {"hostUuid": role(i, "uuid"), "hostName": role(i, "name")}))
+            // as a component: the StackView owns the page and destroys it on pop
+            stackView.push(Qt.createComponent("../BenchmarkView.qml"), {"hostUuid": role(i, "uuid"), "hostName": role(i, "name")})
         } else if (action === "rename") {
             renameDialog.hostUuid = role(i, "uuid")
             renameField.text = role(i, "name")

@@ -12,11 +12,11 @@ import StreamingPreferences 1.0
 import SystemProperties 1.0
 import SdlGamepadKeyNavigation 1.0
 
-// Home of the redesigned interface: one host at a time. The running session is staged at the top
-// ("Scène"), everything else dimmed ("Projecteur") and the running item glows. Then Bureau and
-// Playnite Fullscreen as two half cards, then the Playnite library. The host's other apps (Apollo's
-// "Virtual Desktop"...) are not shown: the user asked for the home to hold only these two sections.
-// Spec: docs/superpowers/specs/2026-11-23-ui-redesign-design.md (LavArtemis).
+// Home of the redesigned interface (prototype V8, design-port-spec §1.3-1.5): one host at a time,
+// a layout of its own per theme (HomeBraise / HomeAffiche / HomeLudique), the running session staged
+// at the top ("Scène"), everything else dimmed and the running item glowing, then Bureau and
+// Playnite Fullscreen as two cards, then the 6 most recently played Playnite games and « Tout voir ».
+// This file holds the data, the focus grid and the actions; the layouts only draw and call back.
 FocusScope {
     id: home
     objectName: "LavArtemis"
@@ -69,7 +69,7 @@ FocusScope {
         function onModelReset() { refreshHostsLater.restart() }
         // Android's wake toasts: v2_wake_sent / v2_wake_failed
         function onWakeCompleted(uuid, name, sent) {
-            toast.show(sent ? qsTr("Réveil envoyé à %1").arg(name)
+            home.say(sent ? qsTr("Réveil envoyé à %1").arg(name)
                             : qsTr("Le réveil de %1 n'a pas pu être envoyé.").arg(name))
         }
     }
@@ -284,6 +284,11 @@ FocusScope {
 
     // Host polling is driven by main.qml (window active/visible), as for the legacy views.
     StackView.onActivated: {
+        // The keys come back here: a page pushed by createObject() is not destroyed by the pop and
+        // kept the focus of the StackView (no OS focus in the test client: nothing else moves it)
+        home.focus = false
+        home.focus = true
+        home.forceActiveFocus()
         refreshHostsLater.restart()
         rev++
         if (Theme.input === "mouse" && SdlGamepadKeyNavigation.getConnectedGamepads() > 0) {
@@ -300,39 +305,398 @@ FocusScope {
     AppKindModel { id: playniteModel; sourceModel: home.appModel; kind: "playnite" }
     AppKindModel { id: gamesModel; sourceModel: home.appModel; kind: "game" }
 
-    // ---- actions ------------------------------------------------------------------------------
-    // row: unused (the app is found by its id when the action runs: rows move under a dialog)
-    function launch(row, name, appid) {
-        if (!appModel || !appid) return
+    // ---- what the layouts show -----------------------------------------------------------------
+    // Prototype px are multiplied by k (the home is laid out on the 1600-wide Stage: x 1.25)
+    readonly property real k: 1.25
+    // The layouts have a `home` property of their own: they are given this one by another name
+    readonly property var homeRef: home
+
+    // Snapshot of the apps of the shown host: cards (Bureau, Playnite Fullscreen) and games in the
+    // host's order (most recently played first, NvComputer::sortApps), rebuilt on every model change
+    Instantiator {
+        id: appReader
+        model: home.appModel
+        delegate: QtObject {
+            required property int index
+            required property string name
+            required property bool running
+            required property string boxart
+            required property bool hidden
+            required property int appid
+            required property string kind
+            required property bool installed
+            required property real lastActivity
+            required property real playtime
+            required property string background
+        }
+        onObjectAdded: home.rev++
+        onObjectRemoved: home.rev++
+    }
+
+    readonly property var apps: {
+        rev
+        var list = []
+        for (var i = 0; i < appReader.count; i++) {
+            var o = appReader.objectAt(i)
+            if (o) list.push({name: o.name, running: o.running, cover: o.boxart, hidden: o.hidden, appid: o.appid,
+                              kind: o.kind, installed: o.installed, lastActivity: o.lastActivity,
+                              playtime: o.playtime, bg: o.background})
+        }
+        return list
+    }
+    function appOfKind(kind) {
+        for (var i = 0; i < apps.length; i++) if (apps[i].kind === kind && !apps[i].hidden) return apps[i]
+        return null
+    }
+    readonly property var games: apps.filter(function(a) { return a.kind === "game" && !a.hidden })
+    readonly property var recents: games.slice(0, 6)
+    readonly property bool noGames: appModel !== null && !appsLoading && games.length === 0
+    readonly property string libTotal: games.length === 1 ? qsTr("1 jeu") : qsTr("%1 jeux").arg(games.length)
+
+    function hoursText(g) {
+        if (!g || !(g.playtime > 0)) return qsTr("Jamais lancé")
+        return qsTr("%1 h jouées").arg(Math.max(1, Math.round(g.playtime / 3600)))
+    }
+
+    // The running Playnite game, when there is one (inside Playnite Fullscreen or alone)
+    readonly property var runningGame: {
+        if (runningKind === "game") {
+            for (var i = 0; i < apps.length; i++) if (apps[i].appid === runningId) return apps[i]
+        }
+        if (playniteGame.length > 0) {
+            for (var j = 0; j < apps.length; j++) if (apps[j].kind === "game" && apps[j].name === playniteGame) return apps[j]
+            return {name: playniteGame, cover: "", bg: "", appid: 0}
+        }
+        return null
+    }
+    // Choice 23: « Reprendre » when no other device is connected to the host, « Rejoindre » when one
+    // is. LavApollo does not say yet whether another device streams (port-notes): always Reprendre.
+    readonly property bool otherDevice: false
+    readonly property string resumeLabel: otherDevice ? qsTr("Rejoindre") : qsTr("Reprendre")
+    function playLabel(isGame) { return isGame ? qsTr("Jouer") : qsTr("Lancer") }
+
+    readonly property bool online: host !== null && host.online && appModel !== null && !appsLoading
+    readonly property bool stageOn: online && sessionRunning
+    readonly property string stageTitle: runningGame ? runningGame.name : (runningKind === "playnite" ? qsTr("Playnite Fullscreen") : runningTitle)
+    // « Bureau Windows » / « Playnite Fullscreen » / « dans Playnite Fullscreen » / « Jeu Playnite »
+    readonly property string stageVia: runningKind === "game" ? qsTr("Jeu Playnite")
+                                     : runningKind === "playnite" ? (playniteGame.length > 0 ? qsTr("dans Playnite Fullscreen") : qsTr("Playnite Fullscreen"))
+                                     : qsTr("Bureau Windows")
+    readonly property string stageTime: sessionMinutes < 1 ? qsTr("à l’instant")
+                                      : (sessionMinutes < 60 ? qsTr("depuis %1 min").arg(sessionMinutes)
+                                         : qsTr("depuis %1 h %2").arg(Math.floor(sessionMinutes / 60)).arg(String(sessionMinutes % 60).padStart(2, "0")))
+
+    // Bureau then Playnite Fullscreen (prototype a0, a1)
+    readonly property var cards: {
+        var out = []
+        var defs = [{kind: "desktop", title: qsTr("Bureau"), sub: qsTr("Ton bureau Windows, tel quel"), num: "01"},
+                    {kind: "playnite", title: qsTr("Playnite Fullscreen"), sub: qsTr("Plein écran, choisis ton jeu à la manette"), num: "02"}]
+        for (var i = 0; i < defs.length; i++) {
+            var a = appOfKind(defs[i].kind)
+            var on = a !== null && sessionRunning && runningKind === defs[i].kind
+            out.push({id: "a" + i, kind: defs[i].kind, title: defs[i].title, sub: defs[i].sub, num: defs[i].num,
+                      appid: a ? a.appid : 0, art: a ? a.cover : "", present: a !== null, running: on,
+                      run: on ? ((defs[i].kind === "playnite" && playniteGame.length > 0 ? playniteGame + " · " : "") + stageTime) : "",
+                      action: on ? resumeLabel : playLabel(false)})
+        }
+        return out
+    }
+    function isLive(g) { return runningGame !== null && g.appid !== 0 && (g.appid === runningGame.appid || g.name === playniteGame) }
+
+    // The item under the focus (a recent game: its name and hours in the section caption)
+    readonly property var focusedRecent: /^r\d$/.test(focusId) ? (recents[parseInt(focusId.substring(1))] || null) : null
+    readonly property string heroTitle: focusedRecent ? focusedRecent.name + " · " + hoursText(focusedRecent) : ""
+
+    // Braise hero background: the running game (stage), else the focused app card's art (blurred),
+    // else the focused recent game, else the running game, else the Bureau's art
+    readonly property var hero: {
+        var desk = appOfKind("desktop")
+        var deskArt = desk ? desk.cover : ""
+        var fa = (focusId === "a0" || focusId === "a1") ? cards[parseInt(focusId.substring(1))] : null
+        var g = stageOn ? runningGame : null
+        if (stageOn) return g ? {src: g.bg || g.cover, blur: !g.bg} : {src: deskArt, blur: false}
+        if (fa) return {src: fa.art, blur: true}
+        var hg = focusedRecent
+        return hg ? {src: hg.bg || hg.cover, blur: !hg.bg} : {src: deskArt, blur: false}
+    }
+
+    // Offline / first run / searching / loading: the card that replaces the apps (prototype homeCard)
+    readonly property var homeCard: {
+        if (!host) return {title: qsTr("AUCUN PC APPAIRÉ"), action: qsTr("Ajouter un PC →"), text: qsTr("Ajoute ton PC pour lancer ton bureau et tes jeux d’ici."), kind: "firstrun"}
+        if (!host.online && host.statusUnknown) return {title: qsTr("%1 — RECHERCHE…").arg(host.name), action: qsTr("Connexion à %1…").arg(host.name), text: qsTr("Allume-le ou réveille-le, il apparaîtra ici dès qu’il répond."), kind: "connecting"}
+        if (host.online && (appModel === null || appsLoading)) return {title: qsTr("%1 — EN LIGNE").arg(host.name), action: qsTr("Connexion à %1…").arg(host.name), text: qsTr("Chargement des applis…"), kind: "loading"}
+        if (!host.online) return host.wakeable ? {title: qsTr("%1 — HORS LIGNE").arg(host.name), action: qsTr("Réveiller →"), text: qsTr("Wake-on-LAN, puis connexion automatique."), kind: "offline"}
+                                              : {title: qsTr("%1 — HORS LIGNE").arg(host.name), action: qsTr("Mes PC →"), text: qsTr("Éteint ou injoignable : sans son adresse matérielle (MAC), il ne peut pas être réveillé d’ici."), kind: "nowol"}
+        return null
+    }
+    readonly property string hostStatus: !host ? qsTr("Ajoute ton PC")
+                                        : (host.online ? (sessionRunning ? qsTr("Session en cours") : qsTr("En ligne"))
+                                           : (host.statusUnknown ? qsTr("Recherche…") : qsTr("Hors ligne")))
+    readonly property string hostLine: host ? qsTr("Sur %1").arg(host.name) : ""
+    // Choice 3: chevrons with the mouse or touch, LB / RB with the gamepad, Q / E with the keyboard
+    readonly property string lbLabel: Theme.input === "pad" ? "LB" : (Theme.input === "keys" ? "Q" : "‹")
+    readonly property string rbLabel: Theme.input === "pad" ? "RB" : (Theme.input === "keys" ? "E" : "›")
+
+    // ---- focus grid (prototype grid(), move(), item()) ---------------------------------------------
+    property string focusId: "a1"
+    readonly property var grid: {
+        if (homeCard) return [["nh", "ns"], ["wake"]]
+        var rows = [["nh", "ns"]]
+        if (stageOn) rows.push(["resume", "squit"])
+        rows.push(["a0", "a1"])
+        if (!noGames) {
+            var r = []
+            for (var i = 0; i < recents.length; i++) r.push("r" + i)
+            r.push("lib")
+            rows.push(r)
+        }
+        return rows
+    }
+    // Focus shown: ring at the gamepad / keyboard, the hover look (ringMouse) at the mouse, nothing at touch
+    function isFocused(id) { return focusId === id && Theme.input !== "touch" }
+    function defaultFocus() { return homeCard ? "wake" : (stageOn ? "resume" : "a1") }
+    function ensureFocus() {
+        for (var r = 0; r < grid.length; r++) if (grid[r].indexOf(focusId) >= 0) return
+        focusId = defaultFocus()
+    }
+    onGridChanged: ensureFocus()
+    onStageOnChanged: if (stageOn && (focusId === "a1" || focusId === "a0")) focusId = "resume"
+
+    function move(dx, dy) {
+        var g = grid
+        if (dx && g.every(function(row) { return row.length === 1 })) { dy = dx; dx = 0 }
+        if (dy && g.length === 1) { dx = dy; dy = 0 }
+        var r = -1
+        for (var i = 0; i < g.length; i++) if (g[i].indexOf(focusId) >= 0) { r = i; break }
+        if (r < 0) { focusId = g[0][0]; return }
+        var c = g[r].indexOf(focusId)
+        if (dy) { r = Math.max(0, Math.min(g.length - 1, r + dy)); c = Math.min(c, g[r].length - 1) }
+        else c = Math.max(0, Math.min(g[r].length - 1, c + dx))
+        focusId = g[r][c]
+    }
+    // Mouse over an item: the focus follows (not within 900 ms of a touch)
+    property real touchAt: 0
+    function hover(id) {
+        if (Date.now() - touchAt < 900) return
+        // Only a mouse that moves: Qt also sends hover events when an item moves or appears
+        // under a resting pointer (a dialog closes, a card grows), and the keyboard focus was lost
+        if (Date.now() - mouseMovedAt > 200) return
+        Theme.input = "mouse"
+        focusId = id
+    }
+    property real mouseMovedAt: 0
+    property point lastMouse: Qt.point(-1, -1)
+
+    // ---- targets and actions (prototype act(), quick(), options(), ctxOpts()) -----------------------
+    // {kind: "app"|"game", appid, title, cover, isGame, installed, hours}
+    function targetOf(id) {
+        if (id === "a0" || id === "a1") {
+            var c = cards[parseInt(id.substring(1))]
+            return c && c.present ? {appid: c.appid, title: c.title, cover: c.art, isGame: false, kindName: qsTr("Application"),
+                                     sub: c.sub, installed: true, appKind: c.kind} : null
+        }
+        if (/^r\d$/.test(id)) {
+            var g = recents[parseInt(id.substring(1))]
+            return g ? gameTarget(g) : null
+        }
+        return null
+    }
+    function gameTarget(g) {
+        return {appid: g.appid, title: g.name, cover: g.cover, bg: g.bg, isGame: true, kindName: qsTr("Jeu Playnite"),
+                installed: g.installed, hours: hoursText(g), appKind: "game"}
+    }
+    // The target is exactly what runs: the app, or the game (alone or inside Playnite)
+    function isRunningTarget(t) {
+        if (!sessionRunning || !t) return false
+        if (t.isGame) return t.appid === runningId || (playniteGame.length > 0 && t.title === playniteGame)
+        return t.appid === runningId
+    }
+    function inPlaynite(t) { return !!t && t.isGame && sessionRunning && runningKind === "playnite" && !isRunningTarget(t) }
+    function closes(t) {
+        if (!sessionRunning || isRunningTarget(t)) return false
+        return inPlaynite(t) ? playniteGame.length > 0 : true
+    }
+    // « Le Bureau » / « Playnite Fullscreen » / the game, as the prototype's sessionName()
+    readonly property string sessionName: runningKind === "game" ? runningTitle
+                                        : runningKind === "playnite" ? qsTr("Playnite Fullscreen") : qsTr("Le Bureau")
+    function closingText() {
+        if (runningKind === "playnite" && playniteGame.length > 0)
+            return qsTr("Playnite Fullscreen et %1 tournent sur %2 : ils seront fermés.").arg(playniteGame).arg(host.name)
+        return qsTr("%1 tourne sur %2 : il sera fermé.").arg(sessionName).arg(host.name)
+    }
+
+    function act(id) {
+        if (id === "nh") return openHosts()
+        if (id === "ns") return openSettings()
+        if (id === "resume") return launchTarget({appid: runningId, title: runningTitle, isGame: false})
+        if (id === "squit") return askQuitApp()
+        if (id === "wake") return cardAct()
+        if (id === "lib") return openLibrary()
+        var t = targetOf(id)
+        if (t) quick(t, id)
+    }
+    // Launch right away, unless it would close what runs: then the options, with the warning
+    function quick(t, id) {
+        if (closes(t)) return openTargetOptions(t, id, null)
+        launchTarget(t)
+    }
+    function cardAct() {
+        var c = homeCard
+        if (!c) return
+        if (c.kind === "firstrun") return openHosts(true)
+        if (c.kind === "connecting" || c.kind === "loading") return say(qsTr("Connexion à %1…").arg(host.name))
+        if (c.kind === "nowol") return openHosts()
+        wakeHost()
+    }
+    function openHosts(addFirst) {
+        // pushed as a component: the StackView owns the page and destroys it when it is popped (an
+        // object made by createObject() stayed alive, invisible, and kept the keyboard focus)
+        stackView.push(Qt.createComponent("HostsView.qml"), {"home": home})
+    }
+    function openSettings() {
+        stackView.push(Qt.createComponent("SettingsView2.qml"), {})
+    }
+    function openLibrary() {
+        stackView.push(Qt.createComponent("LibraryView.qml"), {"home": home})
+    }
+    function shoulder(d) {
+        if (hosts.length < 1) return
+        switchHost(d)
+        focusId = (host && host.online) ? "a1" : "wake"
+    }
+
+    // ---- options (centred dialog, or a popover at the pointer with the mouse) ----------------------
+    // what: "target" | "relaunch" | "quitApp"; target kept by appid (rows move under a dialog)
+    property var ctxTarget: null
+    property string ctxKind: ""
+    property string ctxRet: ""
+    function options(id, item, x, y) {
+        var t = targetOf(id)
+        if (!t) return false
+        var at = null
+        if (item && Theme.input === "mouse") {
+            var p = item.mapToItem(null, x, y)
+            at = p
+        }
+        openTargetOptions(t, id, at)
+        return true
+    }
+    function openTargetOptions(t, id, at) {
+        ctxTarget = t
+        ctxKind = "target"
+        ctxRet = id
+        var running = isRunningTarget(t)
+        var art = [{l: qsTr("Créer un raccourci sur le bureau (.art)"), a: "export"}]
+        var hide = t.isGame ? [{l: appModel && appModel.isAppHidden(t.appid) ? qsTr("Ne plus masquer") : qsTr("Masquer"), a: "hide"}] : []
+        var cancel = [{l: qsTr("Annuler"), a: "cancel"}]
+        var entries, note, warn = false, popNote = ""
+        if (running) {
+            entries = [{l: resumeLabel, a: "launch", main: true, play: true}, {l: qsTr("Relancer la session"), a: "askRelaunch"},
+                       {l: qsTr("Quitter"), a: "askQuit"}, {l: qsTr("Afficher les détails"), a: "details"}].concat(art, hide, cancel)
+            note = qsTr("%1 tourne déjà : %2 garde l’écran actuel du PC. Relancer le recrée pour cet appareil.").arg(t.title).arg(resumeLabel)
+        } else {
+            var first = playLabel(t.isGame)
+            var popFirst = first
+            if (inPlaynite(t)) {
+                first = playniteGame.length > 0 ? qsTr("Fermer %1 et jouer dans Playnite").arg(playniteGame) : qsTr("Jouer dans Playnite")
+                popFirst = qsTr("Jouer dans Playnite")
+                if (playniteGame.length > 0) popNote = qsTr("Ferme %1 · le stream continue").arg(playniteGame)
+            } else if (sessionRunning) {
+                first = qsTr("Fermer %1 et lancer").arg(runningKind === "desktop" ? qsTr("le Bureau") : sessionName)
+                popNote = qsTr("Ferme %1").arg(runningKind === "playnite" && playniteGame.length > 0
+                                                 ? qsTr("Playnite Fullscreen et %1").arg(playniteGame)
+                                                 : (runningKind === "desktop" ? qsTr("le Bureau") : sessionName))
+            }
+            warn = closes(t)
+            note = warn ? closingText() : ""
+            entries = [{l: at && warn ? popFirst : first, a: "launch", main: true, play: true}, {l: qsTr("Afficher les détails"), a: "details"}].concat(art, hide, cancel)
+        }
+        var cfg = {title: t.title, head: headLine(t.kindName), cover: t.cover, warn: warn, info: false, note: note,
+                   popNote: popNote, entries: entries}
+        if (at) optionsMenu.showPopover(cfg, at.x, at.y)
+        else optionsMenu.showDialog(cfg)
+    }
+    function headLine(kind) {
+        var sep = Theme.affiche ? " — " : " · "
+        var where = host ? host.name : ""
+        return Theme.affiche ? (kind + sep + where).toUpperCase() : kind + (where ? sep + where : "")
+    }
+    function askRelaunch(t) {
+        ctxKind = "relaunch"
+        var who = runningKind === "playnite" && playniteGame.length > 0
+                ? qsTr("Playnite Fullscreen et %1 seront fermés sur %2, puis relancés").arg(playniteGame).arg(host.name)
+                : qsTr("%1 sera fermé sur %2, puis relancé").arg(t.title).arg(host.name)
+        optionsMenu.showDialog({title: t.title, head: headLine(t.kindName), cover: t.cover, warn: true,
+            note: who + qsTr(" avec un écran virtuel à la taille de cet appareil (%1). Ce qui n’est pas sauvegardé dans le jeu sera perdu.").arg(screensText()),
+            entries: [{l: qsTr("Fermer et relancer la session"), a: "relaunch", main: true, play: true}, {l: qsTr("Annuler"), a: "cancel"}]})
+    }
+    function askQuitApp() {
+        var t = {appid: runningId, title: stageTitle, cover: runningGame ? runningGame.cover : "", isGame: runningGame !== null,
+                 kindName: runningGame ? qsTr("Jeu Playnite") : qsTr("Application")}
+        ctxTarget = t
+        ctxKind = "quitApp"
+        ctxRet = "squit"
+        var who = runningKind === "playnite" && playniteGame.length > 0
+                ? qsTr("Playnite Fullscreen et %1 seront fermés sur %2.").arg(playniteGame).arg(host.name)
+                : qsTr("%1 sera fermé sur %2.").arg(runningKind === "game" ? runningTitle : sessionName).arg(host.name)
+        optionsMenu.showDialog({title: qsTr("Quitter %1 ?").arg(t.title), head: headLine(t.kindName), cover: t.cover, warn: true,
+            note: who + " " + qsTr("Ce qui n’est pas sauvegardé sera perdu."),
+            entries: [{l: qsTr("Quitter"), a: "quitApp", main: true}, {l: qsTr("Annuler"), a: "cancel"}]})
+    }
+    function screensText() {
+        return StreamingPreferences.useMultiDisplay && StreamingPreferences.useVirtualDisplay ? qsTr("tous tes écrans") : qsTr("cet écran")
+    }
+    function onOption(a) {
+        var t = ctxTarget
+        if (a === "cancel" || !t) return
+        if (a === "launch") return launchTarget(t)
+        if (a === "askRelaunch") return askRelaunch(t)
+        if (a === "askQuit") return askQuitApp()
+        if (a === "relaunch") return quitRunning(t.appid, t.title)
+        if (a === "quitApp") return quitRunning()
+        if (a === "details") return openDetails(t)
+        if (a === "export") {
+            exportArtDialog.appid = t.appid
+            exportArtDialog.currentFile = "file:///" + appModel.suggestedArtFileName(t.appid)
+            return exportArtDialog.open()
+        }
+        if (a === "hide" && appModel) appModel.setAppHidden(t.appid, !appModel.isAppHidden(t.appid))
+    }
+    function openDetails(t) {
+        stackView.push(Qt.createComponent("DetailsView.qml"), {"home": home, "target": t})
+    }
+
+    // ---- launching -------------------------------------------------------------------------------
+    function launchTarget(t) {
+        if (!appModel || !t || !t.appid) return
         if (host && !host.serverSupported) {
             // As Android (V2HostActivity.launch) and Mes PC: a message instead of a launch that fails half-way
-            showError(qsTr("La version du logiciel hôte de %1 n'est pas prise en charge (%2). Mets à jour LavApollo sur ce PC.")
-                      .arg(host.name).arg(host.serverVersion))
-            return
+            return showError(qsTr("La version du logiciel hôte de %1 n'est pas prise en charge (%2). Mets à jour LavApollo sur ce PC.")
+                             .arg(host.name).arg(host.serverVersion))
         }
         if (host && host.thisPc) {
             // Same check as Session::validateLaunch, before the stream screen opens
-            showError(qsTr("Impossible de streamer %1 depuis lui-même : LavApollo tourne sur ce PC. Lance le stream depuis un autre appareil.").arg(host.name))
-            return
+            return showError(qsTr("Impossible de streamer %1 depuis lui-même : LavApollo tourne sur ce PC. Lance le stream depuis un autre appareil.").arg(host.name))
         }
+        var appid = t.appid
         var inside = appModel.startsInsidePlaynite(appid)
-        if (runningId !== 0 && runningId !== appid && !inside) {
-            quitDialog.appName = runningTitle
-            quitDialog.nextAppName = name
-            quitDialog.nextAppId = appid
-            quitDialog.open()
-            return
-        }
+        // What runs already (Bureau after « Déconnecter », the game inside Playnite) is resumed:
+        // same app id, or the running Playnite game picked from its cover
+        var resumes = isRunningTarget(t) || inside
+        if (sessionRunning && !resumes) return quitRunning(appid, t.title)
+        if (isRunningTarget(t) && t.isGame && runningKind === "playnite") appid = runningId
         // By id, hidden apps included: Reprendre on a hidden running game works too
         var session = appModel.createSessionForApp(appid)
-        if (!session) return
+        if (!session) return showError(qsTr("%1 n'est plus dans la liste des applis de %2.").arg(t.title).arg(host.name))
         var component = Qt.createComponent("../StreamSegue.qml")
         stackView.push(component.createObject(stackView, {
-            "appName": name,
+            "appName": t.title,
             "session": session,
-            "isResume": runningId === appid || inside
+            "isResume": resumes
         }))
     }
+    // kept for HostsView / CliPair callers
+    function launch(row, name, appid) { launchTarget({appid: appid, title: name, isGame: false}) }
 
     function quitRunning(thenAppId, thenName) {
         if (!appModel) return
@@ -340,28 +704,16 @@ FocusScope {
         var component = Qt.createComponent("../QuitSegue.qml")
         var params = {"appName": runningTitle, "quitRunningAppFn": function() { model.quitRunningApp() }}
         var nextSession = thenAppId ? appModel.createSessionForApp(thenAppId) : null
-        if (nextSession) {
-            params.nextAppName = thenName
-            params.nextSession = nextSession
-        } else {
-            params.nextAppName = null
-            params.nextSession = null
-        }
+        params.nextAppName = nextSession ? thenName : null
+        params.nextSession = nextSession
         stackView.push(component.createObject(stackView, params))
     }
 
-    // Quitting loses what the game did not save: asked first, as on Android
-    function confirmQuit() {
-        confirmQuitDialog.relaunch = false
-        confirmQuitDialog.nextAppId = 0
-        confirmQuitDialog.nextAppName = ""
-        confirmQuitDialog.open()
-    }
-
     function showError(text) {
-        errorDialog.text = text
-        errorDialog.open()
+        optionsMenu.showDialog({title: qsTr("Oups"), head: headLine("PC"), info: true, note: text,
+                                entries: [{l: qsTr("OK"), a: "cancel", main: true}]})
     }
+    function say(text) { toast.show(text) }
 
     // The home's « Réveiller », with the messages of Mes PC (as Android's home)
     function wakeHost() {
@@ -375,62 +727,76 @@ FocusScope {
         }
     }
 
-    // isGame: « Masquer » is offered for the Playnite games only, as on Android (the button speaks
-    // of « jeux masqués »); a card hidden by an older version can still be shown again
-    // row: unused, the menu keeps the app's id (rows move while it is open)
-    function openMenu(item, row, name, cover, running, x, y, appid, isGame) {
-        appMenu.appid = appid
-        appMenu.appName = name
-        appMenu.cover = cover
-        appMenu.running = running
-        appMenu.hidden = appModel ? appModel.isAppHidden(appid) : false
-        appMenu.canHide = isGame === true || appMenu.hidden
-        var p = item.mapToItem(home, x, y)
-        appMenu.openAt(p.x, p.y)
+    // ---- header buttons ------------------------------------------------------------------------------
+    function cycleMode() {
+        Theme.cycleMode()
+        say(Theme.mode === 0 ? qsTr("Clair ou sombre : suit le système") : (Theme.mode === 1 ? qsTr("Thème clair") : qsTr("Thème sombre")))
     }
-
-    function onMenuAction(action) {
-        var appid = appMenu.appid
-        if (!appModel) return
-        if (action === "launch") {
-            launch(-1, appMenu.appName, appid)
-        } else if (action === "quit") {
-            confirmQuit()
-        } else if (action === "relaunch") {
-            // Quits and starts again, so the host recreates its virtual display for this device
-            confirmQuitDialog.relaunch = true
-            confirmQuitDialog.nextAppId = appid
-            confirmQuitDialog.nextAppName = appMenu.appName
-            confirmQuitDialog.open()
-        } else if (action === "art") {
-            exportArtDialog.appid = appid
-            exportArtDialog.currentFile = "file:///" + appModel.suggestedArtFileName(appid)
-            exportArtDialog.open()
-        } else if (action === "hide") {
-            appModel.setAppHidden(appid, true)
-        } else if (action === "unhide") {
-            appModel.setAppHidden(appid, false)
+    readonly property string modeTitle: Theme.mode === 0 ? qsTr("Clair ou sombre : suit le système (%1) · clic pour changer").arg(Theme.systemDark ? qsTr("sombre") : qsTr("clair"))
+                                      : (Theme.mode === 1 ? qsTr("Thème clair · clic pour changer") : qsTr("Thème sombre · clic pour changer"))
+    readonly property bool multiOn: StreamingPreferences.useMultiDisplay && StreamingPreferences.useVirtualDisplay
+    readonly property string multiTip: !StreamingPreferences.useVirtualDisplay ? qsTr("Nécessite l’écran virtuel")
+                                     : (StreamingPreferences.useMultiDisplay ? qsTr("Multi-écran : tous tes écrans") : qsTr("Un seul écran : clic pour streamer sur tous tes écrans"))
+    function toggleMulti() {
+        if (!StreamingPreferences.useVirtualDisplay)
+            return say(qsTr("Le multi-écran a besoin de l’écran virtuel (Réglages › Affichage)"))
+        StreamingPreferences.useMultiDisplay = !StreamingPreferences.useMultiDisplay
+        StreamingPreferences.save()
+        if (sessionRunning) {
+            ctxKind = "multi"
+            ctxTarget = {appid: runningId, title: stageTitle, kindName: qsTr("Application"), isGame: false}
+            optionsMenu.showDialog({title: StreamingPreferences.useMultiDisplay ? qsTr("Multi-écran activé") : qsTr("Multi-écran désactivé"),
+                head: headLine("PC"), warn: true,
+                note: qsTr("Il s’appliquera au prochain lancement : %1. La session en cours garde ses écrans actuels.").arg(screensText()),
+                entries: [{l: qsTr("Relancer la session maintenant"), a: "askRelaunch", main: true}, {l: qsTr("Plus tard"), a: "cancel"}]})
+        } else {
+            say(StreamingPreferences.useMultiDisplay ? qsTr("Multi-écran activé : tous tes écrans") : qsTr("Multi-écran désactivé : un seul écran"))
         }
     }
 
-    // ---- input tracking ---------------------------------------------------------------------
+    // ---- input: keys, gamepad (sent as keys by SdlGamepadKeyNavigation), mouse ------------------------
     HoverHandler {
-        onPointChanged: if (Theme.input !== "mouse" && point.device.type === PointerDevice.Mouse) Theme.input = "mouse"
+        onPointChanged: {
+            if (point.device.type !== PointerDevice.Mouse) return
+            var p = point.scenePosition
+            if (p.x === home.lastMouse.x && p.y === home.lastMouse.y) return
+            home.lastMouse = Qt.point(p.x, p.y)
+            home.mouseMovedAt = Date.now()
+            if (Theme.input !== "mouse" && Date.now() - home.touchAt > 900) Theme.input = "mouse"
+        }
     }
+    // A held 500 ms on a card, a game or a host = options; released before = activate
+    Timer {
+        id: holdTimer
+        interval: 500
+        onTriggered: home.options(home.focusId, null, 0, 0)
+    }
+    function holdable(id) { return targetOf(id) !== null }
     Keys.onPressed: (event) => {
-        if (Theme.input !== "keys") Theme.input = "keys"
-        if (event.key === Qt.Key_Q || event.key === Qt.Key_PageUp) { switchHost(-1); event.accepted = true }
-        else if (event.key === Qt.Key_E || event.key === Qt.Key_PageDown) { switchHost(1); event.accepted = true }
-        else if (event.key === Qt.Key_Right || event.key === Qt.Key_Down) {
-            var next = home.Window.activeFocusItem ? home.Window.activeFocusItem.nextItemInFocusChain(true) : null
-            if (next) { next.forceActiveFocus(); event.accepted = true }
-        } else if (event.key === Qt.Key_Left || event.key === Qt.Key_Up) {
-            var prev = home.Window.activeFocusItem ? home.Window.activeFocusItem.nextItemInFocusChain(false) : null
-            if (prev) { prev.forceActiveFocus(); event.accepted = true }
+        Theme.input = "keys" // a gamepad key is followed by gamepadInput(), which sets "pad"
+        var key = event.key
+        if (key === Qt.Key_Left) { move(-1, 0); event.accepted = true }
+        else if (key === Qt.Key_Right) { move(1, 0); event.accepted = true }
+        else if (key === Qt.Key_Up) { move(0, -1); event.accepted = true }
+        else if (key === Qt.Key_Down) { move(0, 1); event.accepted = true }
+        else if (key === Qt.Key_Return || key === Qt.Key_Enter || key === Qt.Key_Space) {
+            event.accepted = true
+            if (event.isAutoRepeat) return
+            if (holdable(focusId)) holdTimer.restart()
+            else act(focusId)
+        }
+        else if (key === Qt.Key_Menu || key === Qt.Key_Y) { options(focusId, null, 0, 0); event.accepted = true }
+        else if (key === Qt.Key_Q || key === Qt.Key_PageUp) { shoulder(-1); event.accepted = true }
+        else if (key === Qt.Key_E || key === Qt.Key_PageDown) { shoulder(1); event.accepted = true }
+    }
+    Keys.onReleased: (event) => {
+        if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) && !event.isAutoRepeat) {
+            if (holdTimer.running) { holdTimer.stop(); act(focusId) }
+            event.accepted = true
         }
     }
 
-    // ---- view -----------------------------------------------------------------------------
+    // ---- view ---------------------------------------------------------------------------------------
     Rectangle {
         anchors.fill: parent
         color: Theme.bg
@@ -438,482 +804,47 @@ FocusScope {
     }
 
     Stage {
+        id: stage
         anchors.fill: parent
-
-        // The header stays put while the page scrolls under it
-        Item {
-            id: headerHost
-            x: 50
-            y: 6 // Close under the title bar, which is empty and in the theme's colours (see main.qml themedFrame)
-            width: parent.width - 100
-            height: headerBar.height
-            z: 1
-
-            // Header (prototype V5, piste A, as validated). One row when everything fits: brand
-            // and update on the left, host switcher centred, pills on the right. Otherwise a
-            // two-row grid: brand | host switcher on the first row, update | pills on the second.
-            // Buttons keep their size, only the layout changes (shrinking them was rejected).
-            Item {
-                id: headerBar
-                width: parent.width
-                readonly property real updateWidth: updatePill.visible ? updatePill.width + 12 : 0
-                // What the single row needs: both side groups plus the switcher at full width.
-                // None of these widths depends on twoRows, so this cannot loop.
-                readonly property real switcherWidth: 2 * 40 + 2 * 22 + Math.min(hostNameMetrics.width, 240)
-                readonly property bool twoRows: brandRow.width + updateWidth + switcherWidth + rightRow.width + 2 * 24 > width
-                readonly property real row2: twoRows ? 74 : 0
-                height: twoRows ? 2 * 60 + 14 + 14 : 60
-
-                TextMetrics {
-                    id: hostNameMetrics
-                    font.family: Theme.textFont
-                    font.pixelSize: 19
-                    font.weight: Font.Bold
-                    text: home.host ? home.host.name.toUpperCase() : ""
-                }
-
-                Row {
-                    id: brandRow
-                    y: (60 - height) / 2
-                    spacing: 12
-                    // The app logo, recoloured for the theme when the original would clash
-                    // (LavArtemis docs/branding: Ludique keeps the original night blue).
-                    // LavArtemis Dev always shows its own logo, whatever the theme.
-                    Image {
-                        width: 36; height: 36
-                        sourceSize.width: 72; sourceSize.height: 72
-                        anchors.verticalCenter: parent.verticalCenter
-                        source: SystemProperties.isDevChannel ? "qrc:/res/lavartemis-dev.svg"
-                              : Theme.id === "braise" ? "qrc:/res/lavartemis-braise.svg"
-                              : Theme.id === "affiche" ? (Theme.dark ? "qrc:/res/lavartemis-affiche-dark.svg"
-                                                                     : "qrc:/res/lavartemis-affiche-light.svg")
-                              : "qrc:/res/lavartemis.svg"
-                    }
-                    Text {
-                        text: Theme.displayText("LavArtemis")
-                        anchors.verticalCenter: parent.verticalCenter
-                        color: Theme.fg
-                        font.family: Theme.displayFont
-                        font.pixelSize: 26
-                        font.weight: Theme.displayWeight
-                    }
-                    Rectangle {
-                        width: devText.implicitWidth + 14; height: 22
-                        radius: Theme.id === "affiche" ? 0 : 11
-                        color: Theme.badgeBg
-                        anchors.verticalCenter: parent.verticalCenter
-                        Text { id: devText; anchors.centerIn: parent; text: "DEV"; color: Theme.badgeFg; font.pixelSize: 12; font.bold: true }
-                    }
-                }
-
-                // The legacy toolbar's update button, which v2 hides (see main.qml updateVersion):
-                // after the brand on one row, under it (start of the pills' row) on two.
-                LavPill {
-                    id: updatePill
-                    x: headerBar.twoRows ? 0 : brandRow.width + 12
-                    y: headerBar.row2 + (60 - height) / 2
-                    iconName: "refresh"
-                    text: qsTr("Mise à jour")
-                    visible: window.updateVersion !== ""
-                    onClicked: window.openUpdateDialog()
-                    ToolTip.visible: hovered
-                    ToolTip.text: qsTr("LavArtemis %1 est disponible").arg(window.updateVersion)
-                }
-
-                Row {
-                    id: centerRow
-                    // One row: centred, but never over the side groups. Two rows: at the right
-                    // end of the brand's row.
-                    x: headerBar.twoRows ? parent.width - width
-                       : Math.max(brandRow.width + headerBar.updateWidth + 24,
-                                  Math.min((parent.width - width) / 2, rightRow.x - width - 24))
-                    y: (60 - height) / 2
-                    spacing: 22
-                    visible: home.host !== null
-
-                    RoundIconButton {
-                        iconName: "chevron-left"
-                        enabled: home.hosts.length > 1
-                        onClicked: home.switchHost(-1)
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    Column {
-                        anchors.verticalCenter: parent.verticalCenter
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: hostNameMetrics.text
-                            width: Math.min(implicitWidth, 240)
-                            elide: Text.ElideRight
-                            color: Theme.fg
-                            font.family: Theme.textFont
-                            font.pixelSize: 19
-                            font.weight: Font.Bold
-                        }
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: !home.host ? "" : (home.host.online ? (home.sessionRunning ? qsTr("Session en cours") : qsTr("En ligne"))
-                                  : (home.host.statusUnknown ? qsTr("Recherche…") : qsTr("Hors ligne")))
-                            color: Theme.muted
-                            font.family: Theme.textFont
-                            font.pixelSize: 14
-                        }
-                    }
-                    RoundIconButton {
-                        iconName: "chevron-right"
-                        enabled: home.hosts.length > 1
-                        onClicked: home.switchHost(1)
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                Row {
-                    id: rightRow
-                    anchors.right: parent.right
-                    y: headerBar.row2 + (60 - height) / 2
-                    spacing: 12
-
-                    LavPill {
-                        iconName: Theme.dark ? "moon" : "sun"
-                        badge: Theme.mode === 0 ? "A" : ""
-                        implicitWidth: 50
-                        onClicked: Theme.cycleMode()
-                        ToolTip.visible: hovered
-                        ToolTip.text: qsTr("Clair ou sombre : %1").arg(Theme.modeNames[Theme.mode])
-                    }
-                    LavPill {
-                        iconName: "screens"
-                        text: qsTr("Multi-écran")
-                        showSwitch: true
-                        switchOn: StreamingPreferences.useMultiDisplay
-                        visible: StreamingPreferences.useVirtualDisplay
-                        onClicked: {
-                            StreamingPreferences.useMultiDisplay = !StreamingPreferences.useMultiDisplay
-                            StreamingPreferences.save()
-                            if (home.sessionRunning) multiDialog.open()
-                        }
-                    }
-                    LavPill {
-                        iconName: "monitor"
-                        text: qsTr("Mes PC")
-                        onClicked: {
-                            var component = Qt.createComponent("HostsView.qml")
-                            stackView.push(component.createObject(stackView, {"home": home}))
-                        }
-                    }
-                    LavPill {
-                        iconName: "gear"
-                        text: qsTr("Réglages")
-                        onClicked: {
-                            var component = Qt.createComponent("SettingsView2.qml")
-                            stackView.push(component.createObject(stackView, {}))
-                        }
-                    }
-                }
-
-                // Two rows: a rule under the grid, as on the prototype
-                Rectangle {
-                    visible: headerBar.twoRows
-                    y: parent.height - 1
-                    width: parent.width
-                    height: 1
-                    color: Theme.borderColor
-                }
-            }
+        Loader {
+            id: layout
+            width: parent.width
+            height: parent.height
+            sourceComponent: Theme.affiche ? afficheLayout : (Theme.ludique ? ludiqueLayout : braiseLayout)
         }
-
-        Flickable {
-            id: flick
-            anchors.fill: parent
-            anchors.topMargin: headerHost.y + headerHost.height
-            contentWidth: width
-            contentHeight: page.implicitHeight + 60
-            boundsBehavior: Flickable.StopAtBounds
-            clip: true
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
-            Column {
-                id: page
-                x: 50
-                y: 26
-                width: flick.width - 100
-                spacing: 26
-
-                // Nothing to show yet, Android's states (HomeScreen.bind): no paired host, apps still
-                // loading, host offline (with « Réveiller » when it can be woken), host not answered yet
-                Column {
-                    id: emptyState
-                    // "none", "loading", "offline", "searching"
-                    readonly property string kind: !home.host ? "none"
-                                                   : (home.host.online ? (home.appModel === null || home.appsLoading ? "loading" : "")
-                                                      : (home.host.statusUnknown ? "searching" : "offline"))
-                    visible: kind !== ""
-                    width: parent.width
-                    spacing: 18
-                    topPadding: 80
-                    Text {
-                        width: parent.width
-                        horizontalAlignment: Text.AlignHCenter
-                        wrapMode: Text.WordWrap
-                        visible: text.length > 0
-                        text: emptyState.kind === "none" ? qsTr("Aucun PC appairé")
-                              : emptyState.kind === "offline" ? qsTr("%1 est hors ligne").arg(home.host.name)
-                              : emptyState.kind === "searching" ? qsTr("Connexion à %1…").arg(home.host.name) : ""
-                        color: Theme.fg
-                        font.family: Theme.displayFont
-                        font.pixelSize: 40
-                        font.weight: Theme.displayWeight
-                    }
-                    // The line under the title, Android's (v2_no_pc_text / v2_loading / v2_pc_offline_text)
-                    Text {
-                        width: parent.width
-                        horizontalAlignment: Text.AlignHCenter
-                        wrapMode: Text.WordWrap
-                        visible: text.length > 0
-                        text: emptyState.kind === "none" ? qsTr("Ajoute ton PC pour lancer ton bureau et tes jeux d'ici.")
-                              : emptyState.kind === "loading" ? qsTr("Chargement des applis…")
-                              : emptyState.kind === "offline" ? qsTr("Allume-le ou réveille-le, il apparaîtra ici dès qu'il répond.") : ""
-                        color: Theme.muted
-                        font.family: Theme.textFont
-                        font.pixelSize: 20
-                    }
-                    Row {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        spacing: 18
-                        LavButton {
-                            id: wakeButton
-                            visible: emptyState.kind === "offline" && home.host.wakeable
-                            text: qsTr("Réveiller")
-                            iconName: "power"
-                            focus: visible
-                            onClicked: home.wakeHost()
-                        }
-                        LavButton {
-                            primary: !wakeButton.visible
-                            text: emptyState.kind === "none" ? qsTr("Ajouter un PC") : qsTr("Mes PC")
-                            iconName: "monitor"
-                            onClicked: {
-                                var component = Qt.createComponent("HostsView.qml")
-                                stackView.push(component.createObject(stackView, {"home": home}))
-                            }
-                        }
-                    }
-                }
-
-                // Scène: the running session, always on top
-                Column {
-                    visible: home.sessionRunning
-                    width: parent.width
-                    spacing: 10
-
-                    Row {
-                        spacing: 10
-                        Rectangle { width: 8; height: 8; radius: 4; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
-                        Text {
-                            text: home.liveLine
-                            color: Theme.id === "affiche" ? Theme.fg : Theme.accent
-                            font.family: Theme.textFont
-                            font.pixelSize: 17
-                            font.weight: Font.Bold
-                            font.letterSpacing: 1
-                        }
-                    }
-                    Text {
-                        width: parent.width
-                        text: Theme.displayText(home.playniteGame.length > 0 ? home.playniteGame : home.runningTitle)
-                        color: Theme.fg
-                        elide: Text.ElideRight
-                        font.family: Theme.displayFont
-                        font.pixelSize: 56
-                        font.weight: Theme.displayWeight
-                        font.letterSpacing: Theme.tracking * 56
-                    }
-                    Row {
-                        spacing: 18
-                        LavButton {
-                            id: resumeButton
-                            text: qsTr("Reprendre")
-                            iconName: "play"
-                            hint: Theme.input === "pad" ? "A" : qsTr("Entrée")
-                            focus: home.sessionRunning
-                            onClicked: home.launch(-1, home.runningTitle, home.runningId)
-                        }
-                        LavButton {
-                            primary: false
-                            text: qsTr("Quitter")
-                            iconName: "stop"
-                            onClicked: home.confirmQuit()
-                        }
-                    }
-                }
-
-                SectionTitle {
-                    visible: home.appModel !== null && !home.appsLoading
-                    text: home.host ? qsTr("Sur %1").arg(home.host.name) : ""
-                }
-
-                // Bureau + Playnite Fullscreen, side by side
-                Row {
-                    id: mainCards
-                    visible: home.appModel !== null && (desktopModel.count + playniteModel.count) > 0
-                    width: parent.width
-                    spacing: 22
-                    readonly property int cards: Math.max(1, desktopModel.count + playniteModel.count)
-                    readonly property real cardWidth: (width - spacing * (cards - 1)) / cards
-
-                    Repeater {
-                        model: desktopModel
-                        delegate: AppCard {
-                            width: mainCards.cardWidth
-                            title: qsTr("Bureau")
-                            subtitle: qsTr("Ton bureau Windows, tel quel")
-                            cover: model.boxart
-                            running: model.running
-                            dimmed: home.sessionRunning && !model.running
-                            liveLine: qsTr("EN COURS")
-                            onClicked: home.launch(desktopModel.sourceRow(model.index), qsTr("Bureau"), model.appid)
-                            onMenuRequested: (x, y) => home.openMenu(this, desktopModel.sourceRow(model.index), qsTr("Bureau"), model.boxart, model.running, x, y, model.appid)
-                            Keys.onMenuPressed: home.openMenu(this, desktopModel.sourceRow(model.index), qsTr("Bureau"), model.boxart, model.running, width / 2, height / 2, model.appid)
-                        }
-                    }
-                    Repeater {
-                        model: playniteModel
-                        delegate: AppCard {
-                            width: mainCards.cardWidth
-                            title: qsTr("Playnite Fullscreen")
-                            subtitle: qsTr("Plein écran, choisis ton jeu à la manette")
-                            cover: model.boxart
-                            running: model.running
-                            dimmed: home.sessionRunning && !model.running
-                            liveLine: home.playniteGame.length > 0 ? qsTr("EN COURS · %1").arg(home.playniteGame) : qsTr("EN COURS")
-                            onClicked: home.launch(playniteModel.sourceRow(model.index), qsTr("Playnite Fullscreen"), model.appid)
-                            onMenuRequested: (x, y) => home.openMenu(this, playniteModel.sourceRow(model.index), qsTr("Playnite Fullscreen"), model.boxart, model.running, x, y, model.appid)
-                            Keys.onMenuPressed: home.openMenu(this, playniteModel.sourceRow(model.index), qsTr("Playnite Fullscreen"), model.boxart, model.running, width / 2, height / 2, model.appid)
-                        }
-                    }
-                }
-
-                SectionTitle {
-                    visible: home.appModel !== null && !home.appsLoading
-                    text: qsTr("Bibliothèque Playnite")
-                }
-                Text {
-                    visible: home.appModel !== null && !home.appsLoading && gamesModel.count === 0 && home.hiddenCount === 0
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                    text: qsTr("Aucun jeu Playnite sur ce PC. Installe l'extension LavApollo Link dans Playnite pour voir ta bibliothèque ici.")
-                    color: Theme.muted
-                    font.family: Theme.textFont
-                    font.pixelSize: 18
-                }
-                Flow {
-                    visible: home.appModel !== null && gamesModel.count > 0
-                    width: parent.width
-                    spacing: 20
-                    Repeater {
-                        model: gamesModel
-                        delegate: CoverTile {
-                            title: model.name
-                            cover: model.boxart
-                            // The game running inside Playnite glows too (matched by name)
-                            running: model.running || (home.playniteGame.length > 0 && model.name === home.playniteGame)
-                            dimmed: home.sessionRunning && !model.running && model.name !== home.playniteGame
-                            // Shown only with "Afficher les jeux masqués"
-                            opacity: model.hidden ? 0.45 : 1.0
-                            onClicked: home.launch(gamesModel.sourceRow(model.index), model.name, model.appid)
-                            onMenuRequested: (x, y) => home.openMenu(this, gamesModel.sourceRow(model.index), model.name, model.boxart, model.running, x, y, model.appid, true)
-                            Keys.onMenuPressed: home.openMenu(this, gamesModel.sourceRow(model.index), model.name, model.boxart, model.running, width / 2, height / 2, model.appid, true)
-                        }
-                    }
-                }
-
-                // Hidden games ("Masquer" in the menu): shown again on demand, to unhide them
-                LavButton {
-                    visible: home.hiddenCount > 0
-                    primary: false
-                    iconName: home.showHidden ? "eye-off" : "eye"
-                    text: home.showHidden ? qsTr("Cacher les jeux masqués")
-                                          : (home.hiddenCount > 1 ? qsTr("Afficher les %1 jeux masqués").arg(home.hiddenCount)
-                                                                  : qsTr("Afficher le jeu masqué"))
-                    onClicked: { home.showHidden = !home.showHidden; home.reloadApps() }
-                }
-            }
+        Component { id: braiseLayout; HomeBraise { home: homeRef } }
+        Component { id: afficheLayout; HomeAffiche { home: homeRef } }
+        Component { id: ludiqueLayout; HomeLudique { home: homeRef } }
+        HintsBar {
+            k: home.k
+            hints: home.homeCard ? [{k: "A", l: qsTr("Valider"), act: function() { home.act(home.focusId) }},
+                                    {k: "LB RB", l: qsTr("Changer de PC"), act: function() { home.shoulder(1) }}]
+                                 : [{k: "A", l: qsTr("Lancer"), act: function() { home.act(home.focusId) }},
+                                    {k: "Y", l: qsTr("Options (ou maintenir A)"), act: function() { home.options(home.focusId, null, 0, 0) }},
+                                    {k: "LB RB", l: qsTr("Changer de PC"), act: function() { home.shoulder(1) }}]
         }
+        LavToast { id: toast; k: home.k }
     }
 
-    AppMenu {
-        id: appMenu
-        property int appid: 0
-        parent: home
-        onTriggered: (action) => home.onMenuAction(action)
-    }
-
-    NavigableMessageDialog {
-        id: quitDialog
-        property string appName: ""
-        property string nextAppName: ""
-        property int nextAppId: 0
-        text: qsTr("%1 est en cours. Le quitter pour lancer %2 ? Ce qui n'est pas sauvegardé sera perdu.").arg(appName).arg(nextAppName)
-        standardButtons: Dialog.Yes | Dialog.No
-        onAccepted: home.quitRunning(nextAppId, nextAppName)
-    }
-
-    NavigableMessageDialog {
-        id: confirmQuitDialog
-        property bool relaunch: false
-        property string nextAppName: ""
-        property int nextAppId: 0
-        text: relaunch ? qsTr("Quitter %1 puis le relancer ? Ce qui n'est pas sauvegardé sera perdu.").arg(home.runningTitle)
-                       : qsTr("Quitter %1 ? Ce qui n'est pas sauvegardé sera perdu.").arg(home.runningTitle)
-        standardButtons: Dialog.Yes | Dialog.No
-        onAccepted: relaunch ? home.quitRunning(nextAppId, nextAppName) : home.quitRunning()
-    }
-
-    NavigableMessageDialog {
-        id: multiDialog
-        text: qsTr("Le multi-écran s'appliquera à la prochaine session. Relance la session en cours pour l'appliquer maintenant (menu « … » › Relancer la session).")
-        standardButtons: Dialog.Ok
+    LavOptions {
+        id: optionsMenu
+        onPicked: (a) => home.onOption(a)
+        // focus back to the page under the dialog (the home, the library, the details)
+        onClosed: if (stackView.currentItem) stackView.currentItem.forceActiveFocus()
     }
 
     FileDialog {
         id: exportArtDialog
         property int appid: 0
-        title: qsTr("Créer un raccourci .art")
+        title: qsTr("Créer un raccourci sur le bureau (.art)")
         fileMode: FileDialog.SaveFile
         defaultSuffix: "art"
         nameFilters: [qsTr("Raccourci LavArtemis (*.art)")]
         onAccepted: {
             var error = home.appModel ? home.appModel.exportArtFile(appid, selectedFile)
                                       : qsTr("Ce PC n'est plus dans la liste.")
-            if (error) {
-                artErrorDialog.text = error
-                artErrorDialog.open()
-            }
+            if (error) home.showError(error)
+            else home.say(qsTr("Raccourci créé sur le bureau : %1").arg(String(selectedFile).split("/").pop()))
         }
-    }
-
-    ErrorMessageDialog {
-        id: artErrorDialog
-    }
-
-    LavDialog {
-        id: errorDialog
-        title: qsTr("Oups")
-        rejectText: ""
-    }
-
-    Rectangle {
-        id: toast
-        function show(message) { toastText.text = message; opacity = 1; toastTimer.restart() }
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 40
-        width: toastText.implicitWidth + 40; height: 48
-        radius: Theme.pill
-        color: Theme.fg
-        opacity: 0
-        visible: opacity > 0
-        Behavior on opacity { NumberAnimation { duration: 200 } }
-        Text { id: toastText; anchors.centerIn: parent; color: Theme.bg; font.family: Theme.textFont; font.pixelSize: 16 }
-        Timer { id: toastTimer; interval: 2500; onTriggered: toast.opacity = 0 }
     }
 }

@@ -1320,8 +1320,7 @@ FocusScope {
                             buttonText: qsTr("Ouvrir")
                             onTriggered: {
                                 settingsPage.saveNow()
-                                var component = Qt.createComponent("../GamepadMapper.qml")
-                                stackView.push(component.createObject(stackView, {}))
+                                stackView.push(Qt.createComponent("../GamepadMapper.qml"), {})
                             }
                         }
 

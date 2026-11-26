@@ -16,6 +16,26 @@
         <file>gui/BenchmarkView.qml</file>
         <file>gui/v2/qmldir</file>
         <file>gui/v2/Theme.qml</file>
+        <file>gui/v2/MouseMoves.qml</file>
+        <file>gui/v2/DetailsView.qml</file>
+        <file>gui/v2/LibraryView.qml</file>
+        <file>gui/v2/FocusRing.qml</file>
+        <file>gui/v2/LiveDot.qml</file>
+        <file>gui/v2/LavToast.qml</file>
+        <file>gui/v2/HintsBar.qml</file>
+        <file>gui/v2/LavOptions.qml</file>
+        <file>gui/v2/HomeTile.qml</file>
+        <file>gui/v2/HeaderButton.qml</file>
+        <file>gui/v2/HomeHeaderButtons.qml</file>
+        <file>gui/v2/ThemeLogo.qml</file>
+        <file>gui/v2/DevChip.qml</file>
+        <file>gui/v2/DashedRect.qml</file>
+        <file>gui/v2/CoverFace.qml</file>
+        <file>gui/v2/UpdateButton.qml</file>
+        <file>gui/v2/NoGamesCard.qml</file>
+        <file>gui/v2/HomeBraise.qml</file>
+        <file>gui/v2/HomeAffiche.qml</file>
+        <file>gui/v2/HomeLudique.qml</file>
         <file>gui/v2/AppCard.qml</file>
         <file>gui/v2/AppMenu.qml</file>
         <file>gui/v2/CoverTile.qml</file>
