@@ -1813,8 +1813,8 @@ FocusScope {
             if (renamingId !== "") {
                 ProfileManager.renameProfile(renamingId, name)
             } else {
-                // Take a full snapshot: switch to the new profile first, then save, so it starts out
-                // matching what is in effect right now
+                // createProfile() takes a full snapshot of what is in effect (unsaved edits first);
+                // switching to it and saving writes the members as they are now
                 settingsPage.saveNow()
                 var id = ProfileManager.createProfile(name)
                 ProfileManager.setActiveProfile(id)

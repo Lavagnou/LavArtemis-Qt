@@ -168,6 +168,9 @@ QVariant ProfileManager::value(const QString& key, const QVariant& defaultValue)
     }
 #endif
     if (!isGlobalKey(key)) {
+        if (!m_KnownKeys.contains(key) || !m_KnownKeys.value(key).isValid()) {
+            m_KnownKeys.insert(key, defaultValue);
+        }
         const Profile* active = findProfile(m_ActiveProfileId);
         if (active != nullptr) {
             auto it = active->options.constFind(key);
@@ -186,6 +189,9 @@ QVariant ProfileManager::value(const QString& key, const QVariant& defaultValue)
 void ProfileManager::setValue(const QString& key, const QVariant& value)
 {
     if (!isGlobalKey(key)) {
+        if (!m_KnownKeys.contains(key)) {
+            m_KnownKeys.insert(key, QVariant());
+        }
         Profile* active = findProfile(m_ActiveProfileId);
         if (active != nullptr) {
             if (active->options.value(key) != value) {
@@ -230,13 +236,25 @@ QString ProfileManager::createProfile(const QString& name)
     profile.createdUtc = QDateTime::currentSecsSinceEpoch();
     profile.modifiedUtc = profile.createdUtc;
 
-    // A snapshot of the settings in use, as on Android: created under a profile, the new one
-    // starts with that profile's values. Left empty, it read the global settings once switched to
-    // (value() falls through), and Réglages then saved those into it: a profile made under
-    // « 4K maison » came out with the global resolution.
+    // A full snapshot of the settings in effect, as on Android (SettingsStore.snapshot): every key
+    // with the value it has now, defaults included. Copying only the active profile's map left a
+    // profile made with no profile active empty, and a sparse one partial: what it did not hold
+    // fell through to the global settings and followed them from then on, until someone saved
+    // into it (Réglages and the benchmark happen to, right after; nothing made them have to).
+    for (auto it = m_KnownKeys.constBegin(); it != m_KnownKeys.constEnd(); ++it) {
+        const QVariant current = value(it.key(), it.value());
+        if (current.isValid()) {
+            profile.options.insert(it.key(), current);
+        }
+    }
+    // Whatever else the active profile holds (a key this version never reads)
     const Profile* active = findProfile(m_ActiveProfileId);
     if (active != nullptr) {
-        profile.options = active->options;
+        for (auto it = active->options.constBegin(); it != active->options.constEnd(); ++it) {
+            if (!isGlobalKey(it.key()) && !profile.options.contains(it.key())) {
+                profile.options.insert(it.key(), it.value());
+            }
+        }
     }
 
     m_Profiles.append(profile);

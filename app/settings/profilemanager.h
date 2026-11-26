@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QSettings>
 #include <QVariantMap>
@@ -47,9 +48,11 @@ public:
     QString activeProfileName() const;
     QVariantList profileList() const;
 
-    // Returns the new profile's id. The profile starts as a copy of the active profile (Android:
-    // a new profile is a snapshot of the settings in use), or empty with no profile active, so
-    // that it reads the global settings; what it does not hold falls through to the global values.
+    // Returns the new profile's id. The profile is a full snapshot of the settings in effect, as
+    // on Android (SettingsStore.snapshot): every key the streaming settings read or write here,
+    // with the value value() gives now (the active profile's, else the global one, else the
+    // default), whether a profile is active or not. Global keys (language, app-wide keys) are
+    // never copied; the theme lives in ArtemisSettings, outside profiles. Not made active.
     Q_INVOKABLE QString createProfile(const QString& name);
     Q_INVOKABLE void renameProfile(const QString& id, const QString& name);
     Q_INVOKABLE void deleteProfile(const QString& id);
@@ -111,5 +114,8 @@ private:
 
     QVector<Profile> m_Profiles;
     QString m_ActiveProfileId;
+    // Every non-global key value() or setValue() has seen, with the default value() was given
+    // (StreamingPreferences::reload() reads them all at startup): what createProfile() copies
+    mutable QHash<QString, QVariant> m_KnownKeys;
     mutable QSettings* m_Settings;
 };
