@@ -1080,12 +1080,19 @@ bool TestControl::cmdAppAsset(const QJsonObject& args, QJsonObject& result, QStr
 
 namespace {
 
-// The stored host list (ComputerManager's "hosts" array), one map of keys per host
+// The stored host list, one map of keys per host, read as ComputerManager's constructor reads it:
+// "hostsbackup" while it exists, else "hosts". A flush writes the backup, removes and rewrites
+// "hosts", then removes the backup: reading "hosts" alone in between found it empty (a stored PC
+// "missing" right after the list showed it)
 QList<QVariantMap> readStoredHosts()
 {
     QList<QVariantMap> hosts;
     QSettings settings;
-    const int count = settings.beginReadArray(QStringLiteral("hosts"));
+    int count = settings.beginReadArray(QStringLiteral("hostsbackup"));
+    if (count == 0) {
+        settings.endArray();
+        count = settings.beginReadArray(QStringLiteral("hosts"));
+    }
     for (int i = 0; i < count; i++) {
         settings.setArrayIndex(i);
         QVariantMap entry;
