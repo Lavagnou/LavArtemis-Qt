@@ -7,6 +7,8 @@
 #include "settings/artemissettings.h"
 
 #include <QCoreApplication>
+#include <QLocale>
+#include <QStringList>
 #include <QDateTime>
 #include <QDir>
 #include <QStandardPaths>
@@ -1301,18 +1303,9 @@ void FFmpegVideoDecoder::finalizeActiveVideoStats()
     SDL_zero(m_ActiveWndVideoStats);
 }
 
-void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, int length)
+const char* FFmpegVideoDecoder::videoCodecName()
 {
-    int offset = 0;
     const char* codecString;
-    int ret;
-    // Match the worker's deep-trace switch, including Settings-enabled tracing.
-    // SDL2-compat may cache an older environment from before the connection.
-    const bool advancedStats = qEnvironmentVariable("MOONLIGHT_VRR_DEEP_TRACE")
-        .startsWith(QLatin1Char('1'));
-
-    // Start with an empty string
-    output[offset] = 0;
 
     switch (m_VideoFormat)
     {
@@ -1397,6 +1390,56 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
         codecString = "UNKNOWN";
         break;
     }
+
+    return codecString;
+}
+
+void FFmpegVideoDecoder::stringifyVideoStatsLine(VIDEO_STATS& stats, bool withLoss, char* output, int length)
+{
+    // The prototype's statsText, with this stream's figures (French numbers: « 3,1 ms »)
+    const QLocale french(QLocale::French);
+    QStringList parts;
+    const int width = m_VideoDecoderCtx != nullptr ? m_VideoDecoderCtx->width : m_OriginalVideoWidth;
+    const int height = m_VideoDecoderCtx != nullptr ? m_VideoDecoderCtx->height : m_OriginalVideoHeight;
+    if (width > 0 && height > 0) {
+        parts << QString::fromUtf8("%1 × %2").arg(width).arg(height);
+    }
+    if (stats.totalFps > 0) {
+        parts << QCoreApplication::translate("VideoStats", "%1 fps").arg(qRound(stats.totalFps));
+    }
+    parts << QString::fromUtf8(videoCodecName());
+    const double mbps = m_BwTracker.GetAverageMbps();
+    if (mbps > 0) {
+        parts << QCoreApplication::translate("VideoStats", "%1 Mbit/s").arg(qRound(mbps));
+    }
+    if (stats.lastRtt != 0) {
+        parts << QCoreApplication::translate("VideoStats", "réseau %1 ms").arg(stats.lastRtt);
+    }
+    if (stats.decodedFrames != 0) {
+        parts << QCoreApplication::translate("VideoStats", "décodage %1 ms")
+                 .arg(french.toString(stats.totalDecodeTimeUs / 1000.0 / stats.decodedFrames, 'f', 1));
+    }
+    if (withLoss && stats.totalFrames != 0) {
+        parts << QCoreApplication::translate("VideoStats", "pertes %1 %")
+                 .arg(french.toString((double)stats.networkDroppedFrames / stats.totalFrames * 100, 'f', 1));
+    }
+    snprintf(output, length, "%s", parts.join(QString::fromUtf8(" · ")).toUtf8().constData());
+}
+
+void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, int length)
+{
+    int offset = 0;
+    const char* codecString;
+    int ret;
+    // Match the worker's deep-trace switch, including Settings-enabled tracing.
+    // SDL2-compat may cache an older environment from before the connection.
+    const bool advancedStats = qEnvironmentVariable("MOONLIGHT_VRR_DEEP_TRACE")
+        .startsWith(QLatin1Char('1'));
+
+    // Start with an empty string
+    output[offset] = 0;
+
+    codecString = videoCodecName();
 
     if (stats.receivedFps > 0) {
         if (m_VideoDecoderCtx != nullptr || m_PyroWaveActive) {
@@ -3198,8 +3241,15 @@ int FFmpegVideoDecoder::submitDecodeUnit(PDECODE_UNIT du)
             addVideoStats(m_ActiveWndVideoStats, lastTwoWndStats);
 
             char text[4096];
-            stringifyVideoStats(lastTwoWndStats, text, sizeof(text));
-            Session::get()->getOverlayManager().updateOverlayText(Overlay::OverlayDebug, text);
+            auto& overlay = Session::get()->getOverlayManager();
+            // One line (prototype V8), unless the deep VRR trace asks for the detailed rows
+            if (overlay.debugOneLine() && !qEnvironmentVariable("MOONLIGHT_VRR_DEEP_TRACE").startsWith(QLatin1Char('1'))) {
+                stringifyVideoStatsLine(lastTwoWndStats, overlay.debugOneLineWithLoss(), text, sizeof(text));
+            }
+            else {
+                stringifyVideoStats(lastTwoWndStats, text, sizeof(text));
+            }
+            overlay.updateOverlayText(Overlay::OverlayDebug, text);
         }
 
         // Emit one CSV row per stats window, same cadence as the Android client

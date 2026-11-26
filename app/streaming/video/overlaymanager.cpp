@@ -249,6 +249,25 @@ void OverlayManager::run()
     }
 }
 
+void OverlayManager::setDebugOneLine(bool oneLine, bool withLoss)
+{
+    std::lock_guard<std::mutex> lock(m_StateLock);
+    m_DebugOneLine = oneLine;
+    m_DebugOneLineWithLoss = withLoss;
+}
+
+bool OverlayManager::debugOneLine()
+{
+    std::lock_guard<std::mutex> lock(m_StateLock);
+    return m_DebugOneLine;
+}
+
+bool OverlayManager::debugOneLineWithLoss()
+{
+    std::lock_guard<std::mutex> lock(m_StateLock);
+    return m_DebugOneLineWithLoss;
+}
+
 void OverlayManager::setDebugBoxStyle(bool on, SDL_Color text, SDL_Color background, int padding)
 {
     {

@@ -1687,6 +1687,8 @@ bool Session::initialize(QQuickWindow* qtWindow)
         const QString theme = ArtemisSettings::instance()->uiTheme();
         const int mode = ArtemisSettings::instance()->uiThemeMode();
         const bool dark = mode == 2 || (mode == 0 && QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark);
+        // and on one line (prototype statsText; Ludique leaves « pertes » out)
+        m_OverlayManager.setDebugOneLine(true, theme != QStringLiteral("ludique"));
         if (theme == QStringLiteral("affiche")) {
             m_OverlayManager.setDebugBoxStyle(true, {0xFF, 0xD6, 0x0A, 0xFF}, {0x11, 0x11, 0x11, 0xFF}, 10);
         }
@@ -2874,6 +2876,11 @@ void Session::disconnectFromMenu()
     });
 }
 
+QString Session::hostName() const
+{
+    return m_Computer != nullptr ? m_Computer->name : QString();
+}
+
 void Session::showNotification(const QString& text)
 {
     if (text.isEmpty() || !isStreamLoopRunning()) {
@@ -3189,6 +3196,8 @@ void Session::exec()
     connect(m_ClipboardManager, &ClipboardManager::showToast, this, &Session::showNotification, Qt::UniqueConnection);
     // This PC's clipboard to the host, as Android does when the stream starts
     m_ClipboardManager->onStreamStarted();
+    // « Connecté à ATLAS-PC », « Session reprise »… (StreamSegue), once the stream is on screen
+    showNotification(m_StartToast);
 
     // Switch to async logging mode when we enter the SDL loop
     StreamUtils::enterAsyncLoggingMode();

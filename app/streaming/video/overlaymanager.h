@@ -74,6 +74,13 @@ public:
     // padding, no outline. Off = the outlined text of moonlight-qt. Set before the stream starts.
     void setDebugBoxStyle(bool on, SDL_Color text, SDL_Color background, int padding);
 
+    // The statistics on one line, as the prototype's « statsText » (« 1920 × 1080 · 120 fps · HEVC · 50 Mbit/s ·
+    // réseau 4 ms · décodage 3,1 ms · pertes 0,0 % »), instead of moonlight-qt's detailed rows; withLoss adds
+    // « pertes » (every theme but Ludique). Set before the stream starts; read by the decoder each second.
+    void setDebugOneLine(bool oneLine, bool withLoss);
+    bool debugOneLine();
+    bool debugOneLineWithLoss();
+
 private:
     SDL_Surface* renderBoxed(TTF_Font* font, const char* text, SDL_Color textColor, SDL_Color background, int padding, int wrapWidth);
     void run();
@@ -101,6 +108,7 @@ private:
     std::mutex m_RendererLock;
     bool m_HaveRenderer = false, m_Stopping = false, m_TtfInitialized = false;
     struct { bool on = false; SDL_Color text = {}; SDL_Color background = {}; int padding = 0; } m_DebugBox;
+    bool m_DebugOneLine = false, m_DebugOneLineWithLoss = true;
     std::thread m_Worker;
 };
 

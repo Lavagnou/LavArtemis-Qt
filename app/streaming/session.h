@@ -130,6 +130,12 @@ public:
     Q_INVOKABLE bool isRestartRequested() const;
     Q_INVOKABLE Session* createRestartSession();
     Q_PROPERTY(QStringList launchWarnings MEMBER m_LaunchWarnings NOTIFY launchWarningsChanged);
+    // The host's name, for the segue (« Lancement sur ATLAS-PC… »)
+    Q_PROPERTY(QString hostName READ hostName CONSTANT)
+    QString hostName() const;
+    // A toast shown over the stream as soon as it is on screen (prototype: « Connecté à ATLAS-PC »,
+    // « Session reprise », « Session rejointe »). Set by the segue before start().
+    Q_PROPERTY(QString startToast MEMBER m_StartToast)
 
     static
     void getDecoderInfo(SDL_Window* window,
@@ -435,6 +441,7 @@ private:
     int m_MouseEmulationRefCount;
     int m_FlushingWindowEventsRef;
     QStringList m_LaunchWarnings;
+    QString m_StartToast;
     bool m_ShouldExit;
     bool m_QuitHostApp;
 

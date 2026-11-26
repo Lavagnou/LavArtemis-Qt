@@ -71,6 +71,10 @@ private:
     bool finishRenderInitialization(PDECODER_PARAMETERS params);
 
     void stringifyVideoStats(VIDEO_STATS& stats, char* output, int length);
+    // The overlay's statistics on one line (prototype V8 statsText, OverlayManager::debugOneLine())
+    void stringifyVideoStatsLine(VIDEO_STATS& stats, bool withLoss, char* output, int length);
+    // « HEVC », « AV1 10-bit SDR »… of the stream's format
+    const char* videoCodecName();
 
     void logVideoStats(VIDEO_STATS& stats, const char* title);
 
