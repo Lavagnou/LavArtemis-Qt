@@ -180,18 +180,23 @@ void SdlGamepadKeyNavigation::onPollingTimerFired()
                     sendKey(type, Qt::Key_Return);
                 }
                 break;
+            // The prototype's gamepad (design-port-spec §1.5), as on Android: B and Start go
+            // back, Y opens the options of the focused item (the keyboard's Menu key), LB / RB
+            // are the shoulder buttons (the keyboard's Q / E, PageUp / PageDown): previous /
+            // next PC on the home, filter in the library, page in the settings. X does nothing.
+            // A held 500 ms also opens the options: the pages time the Return key themselves.
             case SDL_CONTROLLER_BUTTON_B:
+            case SDL_CONTROLLER_BUTTON_START:
                 sendKey(type, Qt::Key_Escape);
                 break;
-            case SDL_CONTROLLER_BUTTON_X:
+            case SDL_CONTROLLER_BUTTON_Y:
                 sendKey(type, Qt::Key_Menu);
                 break;
-            case SDL_CONTROLLER_BUTTON_Y:
-            case SDL_CONTROLLER_BUTTON_START:
-                // HACK: We use this keycode to inform main.qml
-                // to show the settings when Key_Menu is handled
-                // by the control in focus.
-                sendKey(type, Qt::Key_Hangup);
+            case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
+                sendKey(type, Qt::Key_PageUp);
+                break;
+            case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
+                sendKey(type, Qt::Key_PageDown);
                 break;
             default:
                 break;

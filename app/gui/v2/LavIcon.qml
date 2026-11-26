@@ -10,6 +10,9 @@ Item {
     property color color: "white"
     property real stroke: 2
     property int size: 20
+    // Any 24 x 24 SVG path (the prototype's own icons), instead of a named one
+    property string path: ""
+    property bool filled: false
 
     implicitWidth: size
     implicitHeight: size
@@ -53,10 +56,10 @@ Item {
         ShapePath {
             strokeColor: icon.color
             strokeWidth: icon.name === "dots" ? 3.2 : icon.stroke
-            fillColor: icon.name === "play" ? icon.color : "transparent"
+            fillColor: (icon.path === "" && icon.name === "play") || icon.filled ? icon.color : "transparent"
             capStyle: ShapePath.RoundCap
             joinStyle: ShapePath.RoundJoin
-            PathSvg { path: icon.paths[icon.name] || "" }
+            PathSvg { path: icon.path !== "" ? icon.path : (icon.paths[icon.name] || "") }
         }
     }
 }

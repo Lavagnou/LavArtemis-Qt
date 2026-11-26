@@ -1,51 +1,54 @@
 import QtQuick
 import QtQuick.Effects
 
-// The pulsing glow behind the running app or game (ember for Braise, hard yellow shadow for
-// Affiche, lime halo for Ludique). Place it under the card, same geometry.
+// Glow of the running app card / cover (prototype glowApp / glowCover), behind the item:
+// Braise `lavember` 2.6 s, orange drop shadow 10 <-> 26 px, alpha .45 <-> .95; Ludique `lavplum`
+// 2.4 s, purple #7B5CFF 6 <-> 20 px, .5 <-> 1 (both modes); Affiche `lavpop` 1.6 s, a hard yellow
+// shadow offset 10 <-> 5 px (covers; app cards draw their `lavbar` themselves). Prototype px x k.
 Item {
     id: halo
 
     property bool active: false
     property real radius: Theme.r
+    property real k: 1.25
+    // "app" or "cover": Affiche app cards have no halo (their bar is inside the card)
+    property string kind: "cover"
 
-    visible: active
-    // Under the card's background, which a Control stacks at z -1 too: at the same z, the halo could
-    // be drawn over the card (cover and title washed in the glow colour)
+    visible: active && !(Theme.affiche && kind === "app")
     z: -2
 
-    // Affiche: a hard offset block instead of a blur, blinking like a poster light.
-    Rectangle {
-        visible: Theme.id === "affiche"
-        x: 10; y: 10
-        width: parent.width; height: parent.height
-        color: Theme.live
-        SequentialAnimation on opacity {
-            running: halo.active && Theme.id === "affiche"
-            loops: Animation.Infinite
-            NumberAnimation { from: 1.0; to: 0.55; duration: 800; easing.type: Easing.InOutQuad }
-            NumberAnimation { from: 0.55; to: 1.0; duration: 800; easing.type: Easing.InOutQuad }
-        }
+    property real t: 0
+    SequentialAnimation on t {
+        running: halo.visible
+        loops: Animation.Infinite
+        NumberAnimation { from: 0; to: 1; duration: Theme.glowMs / 2; easing.type: Easing.InOutQuad }
+        NumberAnimation { from: 1; to: 0; duration: Theme.glowMs / 2; easing.type: Easing.InOutQuad }
     }
 
     Rectangle {
-        id: glow
-        visible: Theme.id !== "affiche"
+        visible: Theme.affiche
+        x: (10 - 5 * halo.t) * halo.k
+        y: x
+        width: parent.width; height: parent.height
+        color: "#FFD60A"
+    }
+
+    Rectangle {
+        id: source
+        visible: !Theme.affiche && Theme.effects
         anchors.fill: parent
-        anchors.margins: -6
-        radius: halo.radius + 6
-        color: Theme.live
-        layer.enabled: visible
+        radius: halo.radius
+        color: Theme.glowColor
+        layer.enabled: visible && Theme.effects
         layer.effect: MultiEffect {
-            blurEnabled: true
-            blur: 1.0
-            blurMax: 48
-        }
-        SequentialAnimation on opacity {
-            running: halo.active && Theme.id !== "affiche"
-            loops: Animation.Infinite
-            NumberAnimation { from: 0.35; to: 0.75; duration: 1300; easing.type: Easing.InOutSine }
-            NumberAnimation { from: 0.75; to: 0.35; duration: 1300; easing.type: Easing.InOutSine }
+            shadowEnabled: true
+            shadowColor: Theme.glowColor
+            shadowHorizontalOffset: 0
+            shadowVerticalOffset: 0
+            blurMax: 64
+            shadowBlur: (Theme.ludique ? 6 + 14 * halo.t : 10 + 16 * halo.t) * halo.k / 64 * 2
+            shadowOpacity: Theme.ludique ? 0.5 + 0.5 * halo.t : 0.45 + 0.5 * halo.t
+            shadowScale: 1.0
         }
     }
 }

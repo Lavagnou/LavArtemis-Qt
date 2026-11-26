@@ -107,6 +107,11 @@ QtObject {
 
     readonly property int animMs: 160
 
+    // Shader effects (MultiEffect: blur, masks, glow, dim) exist only with a GPU scene graph. The
+    // software one (offscreen captures of the testbench, `testbench.py shots`) draws nothing for an
+    // item with such an effect: the pages then draw without it (square corners, no blur, no glow).
+    property bool effects: true
+
     // A card or cover dimmed while another app runs (prototype dimOff / dimFocus, per theme and
     // mode): grayscale, then brightness, then opacity, applied to the whole tile -- its cover and
     // the name drawn in place of a missing cover alike. Brightness MULTIPLIES like CSS
@@ -131,6 +136,52 @@ QtObject {
     readonly property int hoverRingWidth: id === "braise" ? 2 : 3
     readonly property real hoverShadowOpacity: dark ? 0.55 : 0.22
     readonly property real focusScale: 1.04
+
+    // ---- prototype V8 tokens (design-port-spec §1.1) ------------------------------------------
+    // Values are prototype px; the pages multiply by 1.25 where they are laid out in 1600 units.
+    readonly property bool braise: id === "braise"
+    readonly property bool affiche: id === "affiche"
+    readonly property bool ludique: id === "ludique"
+    readonly property color switchKnobOn: braise ? (dark ? "#0E0D0C" : "#FFFFFF") : (affiche ? (dark ? "#111111" : "#ECECE8") : "#1B1530")
+    readonly property color switchKnobOff: braise ? (dark ? "#CFC6BC" : "#6B6158") : (affiche ? (dark ? "#EDEDE8" : "#111111") : (dark ? "#B3A9D6" : "#5A527A"))
+    readonly property color warnBg: braise ? (dark ? "#2A1A12" : "#FBE3D4") : (affiche ? (dark ? "#3B330F" : "#FFD60A") : (dark ? "#3A2430" : "#FFE1D8"))
+    readonly property color warnLine: braise ? accent : (affiche ? (dark ? "#FFD60A" : "#111111") : "#FF7A59")
+    // Secondary text on the Braise hero (#E7E0D8 / #3E3731), Braise accent text (#FF8A57 / #C9480F)
+    readonly property color text2: braise ? (dark ? "#E7E0D8" : "#3E3731") : muted
+    readonly property color accentText: braise ? (dark ? "#FF8A57" : "#C9480F") : (affiche ? fg : (dark ? "#C6F432" : "#3F5A00"))
+    // Focus ring (prototype `ring`): a gap in the background colour, then the ring. Braise 3 + 3 px
+    // accent; Ludique 4 + 5 px navy (light) or lime (dark); Affiche fills in yellow + 4 px outline.
+    readonly property real ringGap: ludique ? 4 : 3
+    readonly property real ringWidth: ludique ? 5 : 3
+    readonly property color ringColor: ludique ? (dark ? "#C6F432" : "#1B1530") : accent
+    readonly property bool ringFill: affiche
+    readonly property color ringFillColor: "#FFD60A"
+    readonly property color ringFillFg: "#111111"
+    readonly property color ring2Color: dark ? "#EDEDE8" : "#111111"
+    // Running glow (lavember / lavplum / lavbar + lavpop), period of one breath (ms)
+    readonly property color glowColor: ludique ? "#7B5CFF" : (affiche ? "#FFD60A" : "#FF6A2B")
+    readonly property int glowMs: braise ? 2600 : (ludique ? 2400 : 1600)
+    // Hover shadow (prototype ringMouse) per theme and mode
+    readonly property color hoverShadow: braise ? (dark ? Qt.rgba(0, 0, 0, 0.55) : Qt.rgba(60/255, 40/255, 20/255, 0.22))
+                                                : (dark ? Qt.rgba(0, 0, 0, 0.45) : Qt.rgba(27/255, 21/255, 48/255, 0.25))
+    readonly property int popR: affiche ? 0 : (ludique ? 24 : 16)
+    readonly property int popRow: affiche ? 0 : (ludique ? 16 : 10)
+    readonly property int thumbR: affiche ? 0 : (ludique ? 10 : 8)
+    // Inverse of the page (toasts, keycaps on Braise)
+    readonly property color inverse: fg
+    readonly property color inverseInk: bg
+
+    // The prototype's own icons (24 x 24 SVG paths, for LavIcon.path)
+    readonly property var icons: ({
+        moon: "M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z",
+        sun: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
+        multi: "M3.5 5h9a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-6A1.5 1.5 0 0 1 3.5 5zM11.5 9h9a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5h-9a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 11.5 9z",
+        screen: "M3 4h18v12H3zM8 20h8M12 16v4",
+        gear: "M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
+        update: "M20 11a8 8 0 1 0-1.7 5M20 5v6h-6",
+        play: "M8 5l11 7-11 7z",
+        grid: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"
+    })
 
     // Scale of the 1600-wide Stage of the visible page (set by Stage.qml). Popups live in the window
     // overlay, outside the scaled stage, and use it to keep the same proportions as the page.
