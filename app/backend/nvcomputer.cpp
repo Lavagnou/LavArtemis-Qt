@@ -283,6 +283,8 @@ NvComputer::NvComputer(NvHTTP& http, QString serverInfo)
     if (this->hostFormFactor != "tower" && this->hostFormFactor != "mini" && this->hostFormFactor != "laptop") {
         this->hostFormFactor.clear();
     }
+    // Stream sessions of other devices on the host: « Rejoindre » rather than « Reprendre » (choice 23)
+    this->otherClientsConnected = qMax(0, NvHTTP::getXmlString(serverInfo, "OtherClientsConnected").toInt());
     this->hostLink = NvHTTP::getXmlString(serverInfo, "HostLink");
     if (this->hostLink != "wired" && this->hostLink != "wifi") {
         this->hostLink.clear();
@@ -763,6 +765,7 @@ bool NvComputer::update(const NvComputer& that)
     }
     ASSIGN_IF_CHANGED(hostFormFactor);
     ASSIGN_IF_CHANGED(hostLink);
+    ASSIGN_IF_CHANGED(otherClientsConnected);
     // -1 from a poll that could not measure it: keep the last one. A jitter of a millisecond or a
     // quarter is not a change: every model of this host would refresh at every poll.
     if (that.latencyMs >= 0 &&

@@ -167,6 +167,9 @@ public:
     // client is "wired" or "wifi" (LavApollo HostFormFactor / HostLink). Empty = unknown.
     QString hostFormFactor;
     QString hostLink;
+    // How many other devices stream from the host right now (LavApollo OtherClientsConnected; 0 when
+    // unknown): the home says « Rejoindre » instead of « Reprendre » when it is not 0
+    int otherClientsConnected = 0;
     // Round trip to the host, ms: the TCP connect time of the latest poll (PcMonitorThread), at least
     // 1 when it answered. -1 = unknown (offline, never polled).
     int latencyMs = -1;

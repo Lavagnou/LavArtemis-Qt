@@ -92,6 +92,8 @@ QVariant ComputerModel::data(const QModelIndex& index, int role) const
         return computer->currentGameId != 0 ? computer->currentGameStartedAt : 0;
     case PlayniteGameStartedRole:
         return computer->playniteGameName.isEmpty() ? 0 : computer->playniteGameStartedAt;
+    case OtherClientsRole:
+        return computer->state == NvComputer::CS_ONLINE ? computer->otherClientsConnected : 0;
     default:
         return QVariant();
     }
@@ -130,6 +132,7 @@ QHash<int, QByteArray> ComputerModel::roleNames() const
     names[LatencyRole] = "latencyMs";
     names[SessionStartedRole] = "sessionStartedAt";
     names[PlayniteGameStartedRole] = "playniteGameStartedAt";
+    names[OtherClientsRole] = "otherClients";
 
     return names;
 }

@@ -35,7 +35,9 @@ class ComputerModel : public QAbstractListModel
         // When the running app and the game running in Playnite started, ms since the epoch on
         // this PC's clock (« depuis 42 min »), 0 when unknown or nothing runs
         SessionStartedRole,
-        PlayniteGameStartedRole
+        PlayniteGameStartedRole,
+        // Other devices streaming from this host now (« Rejoindre »), 0 when none or unknown
+        OtherClientsRole
     };
 
 public:

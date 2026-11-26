@@ -85,6 +85,12 @@ FocusScope {
         return visibleGames
     }
     readonly property int cols: Theme.affiche ? 1 : (Theme.ludique ? 8 : 6)
+    // Affiche at the gamepad / keyboard: a window of 8 rows around the focus (prototype listWindow), the
+    // mouse scrolls the whole list
+    readonly property bool windowed: Theme.affiche && (Theme.input === "pad" || Theme.input === "keys")
+    readonly property int winStart: windowed ? Math.max(0, Math.min(fi - 3, list.length - 8)) : 0
+    readonly property var shown: windowed ? list.slice(winStart, winStart + 8) : list
+    readonly property string totalUp: qsTr("%1 jeux").arg(visibleGames.length).toUpperCase()
     readonly property string countLine: list.length === 0 ? qsTr("%1 · aucun jeu").arg(hostName)
                                        : (list.length === all.length || filter === 0 ? qsTr("%1 · %2 jeux").arg(hostName).arg(list.length)
                                           : qsTr("%1 · %2 affichés sur %3").arg(hostName).arg(list.length).arg(visibleGames.length))
@@ -147,7 +153,7 @@ FocusScope {
             event.accepted = true
         }
     }
-    onFocusIdChanged: if (/^lg\d+$/.test(focusId)) grid.positionViewAtIndex(fi, GridView.Contain)
+    onFocusIdChanged: if (/^lg\d+$/.test(focusId)) grid.positionViewAtIndex(fi - winStart, GridView.Contain)
     StackView.onActivated: { lib.focus = false; lib.focus = true; forceActiveFocus() }
 
     // ---- view ---------------------------------------------------------------------------------------------
@@ -157,6 +163,10 @@ FocusScope {
                                      : Theme.input === "keys" ? qsTr("Se lance par Playnite sur %1. Entrée pour jouer tout de suite, touche Menu ou Entrée maintenue pour les options et les réglages.").arg(hostName)
                                      : Theme.input === "touch" ? qsTr("Se lance par Playnite sur %1. Touche pour jouer tout de suite, appui long ou ⋯ pour les options et les réglages.").arg(hostName)
                                      : qsTr("Se lance par Playnite sur %1. Clic pour jouer tout de suite, clic droit ou ⋯ pour les options et les réglages.").arg(hostName)
+    readonly property string pickHelpShort: Theme.input === "pad" ? qsTr("A : jouer tout de suite, par Playnite sur %1. Y ou A maintenu : options et réglages.").arg(hostName)
+                                     : Theme.input === "keys" ? qsTr("Entrée : jouer tout de suite, par Playnite sur %1. Touche Menu ou Entrée maintenue : options et réglages.").arg(hostName)
+                                     : Theme.input === "touch" ? qsTr("Touche : jouer tout de suite, par Playnite sur %1. Appui long ou ⋯ : options et réglages.").arg(hostName)
+                                     : qsTr("Clic : jouer tout de suite, par Playnite sur %1. Clic droit ou ⋯ : options et réglages.").arg(hostName)
 
     Rectangle { anchors.fill: parent; color: Theme.bg }
     Stage {
@@ -183,9 +193,80 @@ FocusScope {
             }
         }
 
+        // Affiche header: « ← PC · N JEUX », « Playnite » 54, the filters as underlined words
+        Item {
+            id: afficheHeader
+            visible: Theme.affiche
+            width: 780 * lib.k
+            height: afficheHead.height + (18 + 12) * lib.k
+            Column {
+                id: afficheHead
+                x: 32 * lib.k; y: 18 * lib.k
+                width: parent.width - 64 * lib.k
+                spacing: 6 * lib.k
+                HomeTile {
+                    id: afficheBack
+                    home: lib
+                    fid: "lback"
+                    k: lib.k
+                    holdable: false
+                    width: afficheBackText.implicitWidth
+                    height: afficheBackText.implicitHeight + 8 * lib.k
+                    Rectangle { anchors.fill: parent; anchors.margins: -4 * lib.k; color: afficheBack.ringFill ? Theme.ringFillColor : "transparent" }
+                    Text {
+                        id: afficheBackText
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "← " + lib.hostName + " · " + lib.totalUp
+                        color: afficheBack.ringFill ? Theme.ringFillFg : Theme.fg
+                        font.family: Theme.textFont; font.weight: Font.ExtraBold; font.pixelSize: 14 * lib.k
+                    }
+                }
+                Item {
+                    width: parent.width
+                    height: afficheTitle.implicitHeight
+                    Text {
+                        id: afficheTitle
+                        text: "Playnite"
+                        color: Theme.fg
+                        font.family: Theme.displayFont; font.weight: Font.Black; font.pixelSize: 54 * lib.k
+                        font.letterSpacing: -0.05 * 54 * lib.k
+                        lineHeight: 0.92
+                    }
+                    Row {
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 6 * lib.k
+                        spacing: 18 * lib.k
+                        Repeater {
+                            model: Theme.affiche ? lib.filters : []
+                            delegate: Item {
+                                required property string modelData
+                                required property int index
+                                readonly property bool on: index === lib.filter
+                                width: afText.implicitWidth
+                                height: afText.implicitHeight + 8 * lib.k
+                                Text {
+                                    id: afText
+                                    y: 2 * lib.k
+                                    text: parent.modelData
+                                    color: parent.on ? Theme.fg : Theme.muted
+                                    font.family: Theme.textFont; font.weight: parent.on ? Font.Black : Font.DemiBold
+                                    font.pixelSize: 16 * lib.k
+                                }
+                                Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 4 * lib.k; color: Theme.fg; visible: parent.on }
+                                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: lib.setFilter(parent.index) }
+                            }
+                        }
+                    }
+                }
+            }
+            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 3 * lib.k; color: Theme.fg }
+        }
+
         // header: back, title + count, filters
         Item {
-            x: (Theme.ludique ? 48 : (Theme.affiche ? 32 : 40)) * lib.k
+            visible: !Theme.affiche
+            x: (Theme.ludique ? 48 : 40) * lib.k
             y: (Theme.ludique ? 26 : 24) * lib.k
             width: parent.width - 2 * x
             height: (Theme.ludique ? 56 : 44) * lib.k
@@ -259,12 +340,13 @@ FocusScope {
         // games
         GridView {
             id: grid
-            x: (Theme.ludique ? 48 : (Theme.affiche ? 32 : 40)) * lib.k
-            y: (Theme.ludique ? 112 : 100) * lib.k
+            x: (Theme.ludique ? 48 : (Theme.affiche ? 0 : 40)) * lib.k
+            y: Theme.affiche ? afficheHeader.height : (Theme.ludique ? 112 : 100) * lib.k
             width: (Theme.ludique ? parent.width - 96 * lib.k : 780 * lib.k)
-            height: parent.height - y - (Theme.ludique ? 120 : 64) * lib.k
+            height: Theme.affiche ? Math.min(548 * lib.k, parent.height - y)
+                                  : parent.height - y - (Theme.ludique ? 120 : 64) * lib.k
             clip: true
-            model: lib.list
+            model: lib.shown
             boundsBehavior: Flickable.StopAtBounds
             readonly property real gap: (Theme.ludique ? 18 : (Theme.affiche ? 0 : 16)) * lib.k
             cellWidth: width / lib.cols
@@ -279,7 +361,7 @@ FocusScope {
                 HomeTile {
                     id: tile
                     home: lib
-                    fid: "lg" + cell.index
+                    fid: "lg" + (lib.winStart + cell.index)
                     k: lib.k
                     x: Theme.affiche ? 0 : grid.gap / 2
                     width: parent.width - (Theme.affiche ? 0 : grid.gap)
@@ -318,13 +400,39 @@ FocusScope {
                         anchors.fill: parent
                         Rectangle { anchors.fill: parent; color: tile.ringFill ? Theme.ringFillColor : "transparent" }
                         Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: lib.k; color: Theme.fg }
-                        Row {
+                        // baseline-aligned like the prototype's row (padding-top 12, gap 18), « ⋯ » at the right
+                        Text {
+                            id: numText
                             x: 32 * lib.k
+                            anchors.baseline: nameText.baseline
+                            width: 24 * lib.k
+                            text: String(lib.winStart + cell.index + 1).padStart(2, "0")
+                            color: tile.ringFill ? Theme.ringFillFg : Theme.fg; font.family: "Archivo"; font.weight: Font.ExtraBold; font.pixelSize: 13 * lib.k
+                        }
+                        Text {
+                            id: nameText
+                            x: numText.x + numText.width + 18 * lib.k
                             y: 12 * lib.k
-                            spacing: 12 * lib.k
-                            Text { width: 24 * lib.k; text: String(cell.index + 1).padStart(2, "0"); color: tile.ringFill ? Theme.ringFillFg : Theme.fg; font.family: "Archivo"; font.weight: Font.ExtraBold; font.pixelSize: 13 * lib.k }
-                            Text { width: grid.width - 200 * lib.k; elide: Text.ElideRight; text: cell.modelData.name; color: tile.ringFill ? Theme.ringFillFg : Theme.fg; font.family: "Archivo"; font.weight: Font.ExtraBold; font.pixelSize: 27 * lib.k; font.letterSpacing: -0.03 * 27 * lib.k }
-                            Text { text: cell.modelData.playtime > 0 ? qsTr("%1 h").arg(Math.max(1, Math.round(cell.modelData.playtime / 3600))) : "—"; color: tile.ringFill ? Theme.ringFillFg : Theme.fg; font.family: "Archivo"; font.weight: Font.DemiBold; font.pixelSize: 13 * lib.k }
+                            width: hoursText.x - x - 18 * lib.k
+                            elide: Text.ElideRight
+                            text: cell.modelData.name
+                            color: tile.ringFill ? Theme.ringFillFg : Theme.fg; font.family: "Archivo"; font.weight: Font.ExtraBold; font.pixelSize: 27 * lib.k; font.letterSpacing: -0.03 * 27 * lib.k
+                        }
+                        Text {
+                            id: hoursText
+                            x: parent.width - (32 + 32 + 18) * lib.k - width
+                            anchors.baseline: nameText.baseline
+                            text: cell.modelData.playtime > 0 ? qsTr("%1 h").arg(Math.max(1, Math.round(cell.modelData.playtime / 3600))) : "—"
+                            color: tile.ringFill ? Theme.ringFillFg : Theme.fg; font.family: "Archivo"; font.weight: Font.DemiBold; font.pixelSize: 13 * lib.k
+                        }
+                        Rectangle {
+                            // the « ⋯ » frame (the dots are the tile's own button)
+                            x: parent.width - (32 + 32) * lib.k
+                            y: (56 - 32) / 2 * lib.k
+                            width: 32 * lib.k; height: width
+                            color: "transparent"
+                            border.width: 2 * lib.k
+                            border.color: tile.ringFill ? Theme.ringFillFg : Theme.fg
                         }
                     }
                 }
@@ -376,16 +484,23 @@ FocusScope {
                     lineHeight: 1.1
                 }
                 Text {
-                    text: lib.pick && lib.home ? lib.home.hoursText(lib.pick) + (Theme.affiche ? " — " : " · ")
-                                                 + (lib.pick.installed ? (Theme.affiche ? qsTr("installé") : qsTr("Installé")) : (Theme.affiche ? qsTr("pas installé") : qsTr("Pas installé"))) : ""
-                    color: Theme.affiche ? "#BDBDB6" : Theme.muted
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    readonly property string sep: Theme.affiche ? " — " : " · "
+                    text: lib.pick && lib.home ? lib.home.hoursText(lib.pick) + sep
+                                                 + (lib.pick.installed ? (Theme.affiche ? qsTr("installé") : qsTr("Installé")) : (Theme.affiche ? qsTr("pas installé") : qsTr("Pas installé")))
+                                                 + (lib.pick.lastActivity > 0 ? sep + qsTr("joué %1").arg(lib.home.lastPlayedText(lib.pick.lastActivity)) : "") : ""
+                    color: Theme.affiche ? (lib.dark ? "#555550" : "#BDBDB6") : Theme.muted
                     font.family: Theme.textFont; font.pixelSize: 15 * lib.k
                 }
                 Text {
                     width: parent.width
                     wrapMode: Text.WordWrap
-                    text: lib.pickHelp
-                    color: Theme.affiche ? "#BDBDB6" : Theme.muted
+                    // Affiche: the short form of the help, under a rule (prototype pickHelpAf)
+                    topPadding: Theme.affiche ? 12 * lib.k : 0
+                    text: Theme.affiche ? lib.pickHelpShort : lib.pickHelp
+                    color: Theme.affiche ? (lib.dark ? "#555550" : "#BDBDB6") : Theme.muted
+                    Rectangle { visible: Theme.affiche; width: parent.width; height: lib.k; color: lib.dark ? "#B5B5AE" : "#55554F" }
                     lineHeight: 1.5
                     font.family: Theme.textFont; font.pixelSize: 14 * lib.k
                 }
@@ -410,7 +525,9 @@ FocusScope {
                     anchors.verticalCenter: parent.verticalCenter
                     Text { text: lib.pick ? lib.pick.name : ""; color: lib.dark ? "#221C3D" : "#FFFFFF"; font.family: Theme.textFont; font.weight: Font.ExtraBold; font.pixelSize: 19 * lib.k }
                     Text {
-                        text: lib.pick && lib.home ? qsTr("%1 · %2 · via Playnite").arg(lib.home.hoursText(lib.pick)).arg(lib.pick.installed ? qsTr("installé") : qsTr("pas installé")) : ""
+                        text: lib.pick && lib.home ? lib.home.hoursText(lib.pick) + " · " + (lib.pick.installed ? qsTr("installé") : qsTr("pas installé"))
+                                                     + (lib.pick.lastActivity > 0 ? " · " + qsTr("joué %1").arg(lib.home.lastPlayedText(lib.pick.lastActivity)) : "")
+                                                     + " · " + qsTr("via Playnite") : ""
                         color: lib.dark ? "#5A527A" : "#D9D2F5"
                         font.family: Theme.textFont; font.pixelSize: 13 * lib.k
                     }
@@ -419,7 +536,9 @@ FocusScope {
         }
         HintsBar {
             k: lib.k
-            hints: [{k: "A", l: qsTr("Jouer"), act: function() { lib.act(lib.focusId) }},
+            hints: lib.home && lib.home.optionsOpen ? [{k: "A", l: qsTr("Valider"), act: function() { lib.home.pickOptions() }},
+                    {k: "B", l: qsTr("Annuler"), act: function() { lib.home.closeOptions() }}]
+                 : [{k: "A", l: qsTr("Jouer"), act: function() { lib.act(lib.focusId) }},
                     {k: "Y", l: qsTr("Options"), act: function() { lib.options(lib.focusId, null, 0, 0) }},
                     {k: "LB RB", l: qsTr("Filtre"), act: function() { lib.setFilter(lib.filter + 1) }},
                     {k: "B", l: qsTr("Retour"), act: function() { lib.back() }}]

@@ -25,7 +25,7 @@ FocusScope {
     // ---- hosts ---------------------------------------------------------------------------
     property ComputerModel computerModel: createComputerModel()
     // [{name, online, paired, busy, uuid, wakeable, statusUnknown, serverSupported, serverVersion, thisPc,
-    //   sessionStartedAt}]
+    //   sessionStartedAt, otherClients}]
     // A snapshot, rebuilt 50 ms after the model changes: a host is always found again by its uuid
     property var hosts: []
     property int hostPos: 0          // position in `hosts` of the shown host
@@ -59,6 +59,7 @@ FocusScope {
             required property string serverVersion
             required property bool thisPc
             required property real sessionStartedAt
+            required property int otherClients
         }
         onObjectAdded: refreshHostsLater.restart()
         onObjectRemoved: refreshHostsLater.restart()
@@ -92,7 +93,7 @@ FocusScope {
                 list.push({name: o.name, online: o.online, paired: o.paired, busy: o.busy, uuid: o.uuid,
                            wakeable: o.wakeable, statusUnknown: o.statusUnknown,
                            serverSupported: o.serverSupported, serverVersion: o.serverVersion, thisPc: o.thisPc,
-                           sessionStartedAt: o.sessionStartedAt})
+                           sessionStartedAt: o.sessionStartedAt, otherClients: o.otherClients})
             }
         }
         // Online hosts first, keeping the model order otherwise
@@ -357,6 +358,21 @@ FocusScope {
         if (!g || !(g.playtime > 0)) return qsTr("Jamais lancé")
         return qsTr("%1 h jouées").arg(Math.max(1, Math.round(g.playtime / 3600)))
     }
+    // « joué il y a 3 jours » (prototype G[].last): lastActivity in ms on this PC's clock
+    function lastPlayedText(ms) {
+        var mins = (Date.now() - ms) / 60000
+        if (mins < 60) return qsTr("à l’instant")
+        var days = Math.floor(mins / 1440)
+        if (days < 1) return qsTr("aujourd’hui")
+        if (days < 2) return qsTr("hier")
+        if (days < 7) return qsTr("il y a %1 jours").arg(days)
+        if (days < 14) return qsTr("la semaine dernière")
+        if (days < 28) return qsTr("il y a %1 semaines").arg(Math.floor(days / 7))
+        if (days < 60) return qsTr("le mois dernier")
+        if (days < 365) return qsTr("il y a %1 mois").arg(Math.floor(days / 30))
+        if (days < 730) return qsTr("l’an dernier")
+        return qsTr("il y a %1 ans").arg(Math.floor(days / 365))
+    }
 
     // The running Playnite game, when there is one (inside Playnite Fullscreen or alone)
     readonly property var runningGame: {
@@ -370,8 +386,8 @@ FocusScope {
         return null
     }
     // Choice 23: « Reprendre » when no other device is connected to the host, « Rejoindre » when one
-    // is. LavApollo does not say yet whether another device streams (port-notes): always Reprendre.
-    readonly property bool otherDevice: false
+    // is (LavApollo OtherClientsConnected; a host that does not say it: Reprendre).
+    readonly property bool otherDevice: host !== null && host.otherClients > 0
     readonly property string resumeLabel: otherDevice ? qsTr("Rejoindre") : qsTr("Reprendre")
     function playLabel(isGame) { return isGame ? qsTr("Jouer") : qsTr("Lancer") }
 
@@ -817,7 +833,10 @@ FocusScope {
         Component { id: ludiqueLayout; HomeLudique { home: homeRef } }
         HintsBar {
             k: home.k
-            hints: home.homeCard ? [{k: "A", l: qsTr("Valider"), act: function() { home.act(home.focusId) }},
+            // a dialog open: its hints (prototype: « A Valider · B Annuler » over the dimmed page)
+            hints: home.optionsOpen ? [{k: "A", l: qsTr("Valider"), act: function() { home.pickOptions() }},
+                    {k: "B", l: qsTr("Annuler"), act: function() { home.closeOptions() }}]
+                 : home.homeCard ? [{k: "A", l: qsTr("Valider"), act: function() { home.act(home.focusId) }},
                                     {k: "LB RB", l: qsTr("Changer de PC"), act: function() { home.shoulder(1) }}]
                                  : [{k: "A", l: qsTr("Lancer"), act: function() { home.act(home.focusId) }},
                                     {k: "Y", l: qsTr("Options (ou maintenir A)"), act: function() { home.options(home.focusId, null, 0, 0) }},
@@ -826,6 +845,9 @@ FocusScope {
         LavToast { id: toast; k: home.k }
     }
 
+    readonly property bool optionsOpen: optionsMenu.opened
+    function pickOptions() { optionsMenu.pick(optionsMenu.focusIndex) }
+    function closeOptions() { optionsMenu.close() }
     LavOptions {
         id: optionsMenu
         onPicked: (a) => home.onOption(a)
