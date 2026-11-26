@@ -1,11 +1,14 @@
-import QtQuick 2.9
-import QtQuick.Controls 2.2
+import QtQuick
+import QtQuick.Controls
+import "v2"
 
 // One bindable control on the mapping diagram: click it, then operate the
 // matching control on the physical device.
 //
 // State is derived from the owning ControllerDiagram rather than pushed in,
 // so an instance is just its geometry and the elements it binds.
+// Looks of the prototype's mapper (V8-46, 47): not bound = surface with a 2 px dashed muted border; bound =
+// accent; waited on = warnBg with a 3 px warnLine border, 1.08 larger. Live input lights the control.
 Item {
     id: root
 
@@ -20,6 +23,8 @@ Item {
 
     // "circle" | "pill" | "wedge" | "bar" | "ring"
     property string shape: "circle"
+    // Corner of "bar" and "wedge" (prototype r)
+    property real corner: 8
 
     readonly property bool bound: diagram ? diagram.isBound(elements) : false
     readonly property bool selected: diagram ? diagram.isSelected(elements) : false
@@ -29,68 +34,64 @@ Item {
     readonly property real level: diagram ? diagram.levelFor(elements) : 0
     readonly property string sourceText: diagram ? diagram.sourceFor(elements) : ""
 
-    readonly property color idleColor: "#555555"
-    readonly property color boundColor: "#60c060"
-    readonly property color selectedColor: "#e0b040"
-    readonly property color activeColor: "#00cccc"
-
-    readonly property color stateColor: selected ? selectedColor
-                                                 : (bound ? boundColor : idleColor)
+    // Live input: the theme's « on » colour over the control
+    readonly property color activeColor: Theme.ludique ? "#C6F432" : "#00CCCC"
     readonly property real litness: shape === "bar" ? 0 : Math.min(1, Math.abs(level))
+    readonly property real cornerRadius: shape === "circle" || shape === "ring" ? width / 2
+                                       : shape === "pill" ? height / 2 : corner
+    readonly property color fill: selected ? Theme.warnBg : (bound ? Theme.accent : Theme.surface)
+    readonly property color ink: selected ? Theme.fg : (bound ? Theme.onAccent : Theme.fg)
 
-    // Pulses the outline while this control is the one being waited on.
-    property real pulse: 1
-    onSelectedChanged: if (!selected) pulse = 1
+    scale: selected ? 1.08 : 1
+    Behavior on scale { NumberAnimation { duration: 150 } }
 
-    SequentialAnimation on pulse {
-        running: root.selected
-        loops: Animation.Infinite
-        NumberAnimation { from: 1.0; to: 0.3; duration: 550; easing.type: Easing.InOutQuad }
-        NumberAnimation { from: 0.3; to: 1.0; duration: 550; easing.type: Easing.InOutQuad }
+    // Not bound: the dashed outline
+    DashedRect {
+        anchors.fill: parent
+        visible: !root.bound && !root.selected
+        radius: root.cornerRadius
+        borderWidth: 2
+        borderColor: Theme.muted
+        fillColor: Theme.surface
     }
-
-    function mixColor(from, to, t) {
-        return Qt.rgba(from.r + (to.r - from.r) * t,
-                       from.g + (to.g - from.g) * t,
-                       from.b + (to.b - from.b) * t,
-                       1.0)
-    }
-
     Rectangle {
         anchors.fill: parent
-        radius: {
-            if (root.shape === "circle" || root.shape === "ring") return width / 2
-            if (root.shape === "pill") return height / 2
-            return 6
-        }
-        color: root.shape === "ring"
-               ? "transparent"
-               : root.mixColor(Qt.darker(root.stateColor, 3.4), root.activeColor, root.litness)
-        border.color: Qt.rgba(root.stateColor.r, root.stateColor.g, root.stateColor.b, root.pulse)
-        border.width: root.selected ? 3 : 2
+        visible: root.bound || root.selected
+        radius: root.cornerRadius
+        color: root.fill
+        border.color: Theme.warnLine
+        border.width: root.selected ? 3 : 0
         antialiasing: true
-
-        // Trigger fill, anchored to the bottom so it reads like a gauge.
-        Rectangle {
-            visible: root.shape === "bar"
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.margins: 3
-            height: Math.max(0, Math.min(1, root.level)) * (parent.height - 6)
-            radius: 4
-            color: root.activeColor
-            opacity: 0.75
-        }
+    }
+    // Live input over the control
+    Rectangle {
+        anchors.fill: parent
+        radius: root.cornerRadius
+        color: root.activeColor
+        opacity: 0.85 * root.litness
+        visible: opacity > 0
+    }
+    // Trigger fill, anchored to the bottom so it reads like a gauge.
+    Rectangle {
+        visible: root.shape === "bar"
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 3
+        height: Math.max(0, Math.min(1, root.level)) * (parent.height - 6)
+        radius: Math.max(0, root.corner - 3)
+        color: root.activeColor
+        opacity: 0.75
     }
 
     Text {
         anchors.centerIn: parent
         visible: root.label !== "" && root.shape !== "ring"
         text: root.label
-        color: root.litness > 0.55 ? "#101010" : "#dddddd"
-        font.pointSize: 9
-        font.bold: true
+        color: root.litness > 0.55 ? "#101010" : root.ink
+        font.family: Theme.textFont
+        font.pixelSize: 12
+        font.weight: Font.ExtraBold
     }
 
     MouseArea {
@@ -115,9 +116,9 @@ Item {
         ToolTip.timeout: 5000
         ToolTip.visible: containsMouse
         ToolTip.text: root.bound
-                      ? qsTr("%1 — bound to %2. Click to remap, right-click to clear.")
+                      ? qsTr("%1 : assigné à %2. Clic pour le réassigner, clic droit pour l’effacer.")
                           .arg(root.label).arg(root.sourceText)
-                      : qsTr("%1 — not bound. Click it, then operate it on your controller.")
+                      : qsTr("%1 : pas assigné. Clique-le, puis actionne-le sur ta manette.")
                           .arg(root.label)
     }
 }

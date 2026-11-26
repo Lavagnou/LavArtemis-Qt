@@ -1,41 +1,103 @@
-import QtQuick 2.9
-import QtQuick.Controls 2.2
-import QtQuick.Layouts 1.2
+import QtQuick
+import QtQuick.Controls
 
-import QtQuick.Controls.Material
 import SdlGamepadMapper 1.0
-import "v2"
 import SdlGamepadKeyNavigation 1.0
+import "v2"
 
-Item {
+// « Configurer une manette » (Réglages › Manettes), laid out as the prototype's mapper (planches V8-46, 47):
+// the devices on the left (the picked one is being edited), on the right the prompt bar (« Clique un contrôle,
+// puis actionne-le sur ta manette. Clic droit : l’effacer. » / « Actionne … sur ta manette… » and « N à faire »),
+// the schematic (ControllerDiagram) and the actions. The first device is picked when the page opens: picking
+// loads its current layout, nothing is written before « Enregistrer ». Prototype px x k (1.25 on the stage).
+FocusScope {
     id: mapperPage
-    objectName: qsTr("Gamepad Mapping")
-
+    objectName: qsTr("Configurer une manette")
     focus: true
 
-    Material.theme: Theme.dark ? Material.Dark : Material.Light
-    Material.background: Theme.bg
-    Material.foreground: Theme.fg
-    Material.accent: Theme.accent
-    Material.primary: Theme.surface
-
-    Rectangle { anchors.fill: parent; color: Theme.bg }
-    PageHeader {
-        id: pageHeader
-        x: 24; y: 12
-        width: parent.width - 48
-        title: qsTr("Configurer une manette")
-        onBack: stackView.pop()
-    }
-
     property var devices: []
+    // The device being edited (index in `devices`), -1 when none
+    property int picked: -1
     // True while "map everything" is walking the whole controller, so that
     // finishing the queue can offer to save. A one-off click shouldn't.
     property bool walkthroughRunning: false
+    property string focusId: "md0"
+
+    readonly property real k: 1.25
+    readonly property bool waiting: SdlGamepadMapper.targetElement !== ""
+    readonly property color ink: Theme.ludique ? Theme.fg : Theme.accent
 
     function refreshDevices() {
         devices = SdlGamepadMapper.enumerateDevices()
+        if (picked >= devices.length) picked = -1
+        if (picked < 0 && devices.length > 0) pick(0)
     }
+    function pick(i) {
+        if (i < 0 || i >= devices.length) return
+        walkthroughRunning = false
+        SdlGamepadMapper.cancel()
+        picked = i
+        SdlGamepadMapper.startMapping(devices[i].index)
+    }
+    function stateText(d) {
+        return d.guessed ? qsTr("Disposition devinée — peut-être fausse")
+             : d.recognized ? qsTr("Reconnue") : qsTr("Non reconnue — inutilisable avant assignation")
+    }
+    function stateColor(d) { return d.guessed ? ink : (d.recognized ? Theme.muted : "#E5484D") }
+
+    // The three actions: while a control is waited on « Arrêter », « Passer », else « Tout assigner dans l’ordre »,
+    // « Tout effacer »; « Enregistrer » last
+    readonly property var actions: waiting
+        ? [{id: "ma0", l: qsTr("Arrêter")}, {id: "ma1", l: qsTr("Passer")}, {id: "ma2", l: qsTr("Enregistrer"), main: true}]
+        : [{id: "ma0", l: qsTr("Tout assigner dans l’ordre")}, {id: "ma1", l: qsTr("Tout effacer")}, {id: "ma2", l: qsTr("Enregistrer"), main: true}]
+    function actionEnabled(id) {
+        if (!SdlGamepadMapper.mapping) return false
+        if (id === "ma1" && !waiting) return SdlGamepadMapper.bindingCount > 0
+        // Saving a mapping with nothing bound would replace a working guess with an empty entry
+        if (id === "ma2") return SdlGamepadMapper.bindingCount > 0
+        return true
+    }
+    function save() {
+        if (SdlGamepadMapper.saveMapping()) {
+            toast.show(qsTr("Disposition enregistrée"))
+            var keep = picked
+            devices = SdlGamepadMapper.enumerateDevices()
+            picked = keep
+        }
+    }
+    function act(id) {
+        if (id === "back") return stackView.pop()
+        if (/^md\d+$/.test(id)) return pick(parseInt(id.substring(2)))
+        if (id === "mrefresh") {
+            refreshDevices()
+            return toast.show(devices.length === 1 ? qsTr("Manettes : 1 trouvée") : qsTr("Manettes : %1 trouvées").arg(devices.length))
+        }
+        if (!actionEnabled(id)) return
+        if (id === "ma0") {
+            if (waiting) { SdlGamepadMapper.cancelSelection(); walkthroughRunning = false }
+            else { walkthroughRunning = true; SdlGamepadMapper.mapEverything() }
+        } else if (id === "ma1") {
+            if (waiting) SdlGamepadMapper.skipTarget()
+            else SdlGamepadMapper.clearAll()
+        } else if (id === "ma2") {
+            save()
+        }
+    }
+    readonly property var grid: {
+        var rows = [["back"]]
+        for (var i = 0; i < devices.length; i++) rows.push(["md" + i])
+        rows.push(["mrefresh"], ["ma0", "ma1", "ma2"])
+        return rows
+    }
+    function move(dx, dy) {
+        var r = -1, c = 0
+        for (var i = 0; i < grid.length; i++) { var j = grid[i].indexOf(focusId); if (j >= 0) { r = i; c = j; break } }
+        if (r < 0) { focusId = devices.length > 0 ? "md0" : "mrefresh"; return }
+        if (dy !== 0) { r = Math.max(0, Math.min(grid.length - 1, r + dy)); c = Math.min(c, grid[r].length - 1) }
+        else c = Math.max(0, Math.min(grid[r].length - 1, c + dx))
+        focusId = grid[r][c]
+    }
+    function mouseAt(id) { Theme.input = "mouse"; focusId = id }
 
     // Gamepad UI navigation reads the very same buttons we're trying to
     // record. Left enabled, every press would move the focus instead of being
@@ -43,307 +105,36 @@ Item {
     StackView.onActivated: {
         SdlGamepadKeyNavigation.disable()
         refreshDevices()
+        forceActiveFocus()
     }
-
     StackView.onDeactivating: {
         SdlGamepadMapper.cancel()
         SdlGamepadKeyNavigation.enable()
     }
-
-    Component.onDestruction: {
-        SdlGamepadMapper.cancel()
-    }
+    Component.onDestruction: SdlGamepadMapper.cancel()
 
     // Escape means "stop waiting for a control" first and "leave the page"
     // second. Without consuming it, the StackView's own handler would pop the
     // view out from under a capture.
-    Keys.onEscapePressed: function(event) {
-        if (SdlGamepadMapper.targetElement !== "") {
-            SdlGamepadMapper.cancelSelection()
-            walkthroughRunning = false
+    Keys.onPressed: (event) => {
+        var key = event.key
+        if (key === Qt.Key_Escape || key === Qt.Key_Backspace) {
+            if (waiting) {
+                SdlGamepadMapper.cancelSelection()
+                walkthroughRunning = false
+            } else {
+                stackView.pop()
+            }
+            event.accepted = true
+        } else if (key === Qt.Key_Left || key === Qt.Key_Right || key === Qt.Key_Up || key === Qt.Key_Down) {
+            Theme.input = "keys"
+            move(key === Qt.Key_Left ? -1 : (key === Qt.Key_Right ? 1 : 0), key === Qt.Key_Up ? -1 : (key === Qt.Key_Down ? 1 : 0))
+            event.accepted = true
+        } else if (key === Qt.Key_Return || key === Qt.Key_Enter || key === Qt.Key_Space) {
+            Theme.input = "keys"
+            act(focusId)
             event.accepted = true
         }
-        else {
-            event.accepted = false
-        }
-    }
-
-    // ---- Device picker ----------------------------------------------------
-
-    ColumnLayout {
-        id: devicePicker
-        anchors.fill: parent
-        anchors.margins: 20
-        anchors.topMargin: pageHeader.y + pageHeader.height + 16
-        spacing: 12
-        visible: !SdlGamepadMapper.mapping
-
-        Label {
-            text: qsTr("Pick a device to teach LavArtemis its button layout. Controllers already recognized don't need this unless something is misplaced.")
-            font.pointSize: 10
-            color: "#aaaaaa"
-            wrapMode: Text.Wrap
-            Layout.fillWidth: true
-        }
-
-        Button {
-            text: qsTr("Refresh")
-            onClicked: refreshDevices()
-        }
-
-        ListView {
-            id: deviceList
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            model: mapperPage.devices
-            spacing: 4
-
-            delegate: ItemDelegate {
-                width: deviceList.width
-                height: 64
-
-                onClicked: SdlGamepadMapper.startMapping(modelData.index)
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 8
-                    spacing: 2
-
-                    Label {
-                        text: modelData.name
-                        font.pointSize: 12
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                    }
-
-                    Label {
-                        // The status is the whole reason this screen exists,
-                        // so it says which of the three states applies.
-                        text: {
-                            if (modelData.guessed) {
-                                return qsTr("Layout guessed — may be wrong")
-                            }
-                            else if (modelData.recognized) {
-                                return qsTr("Recognized")
-                            }
-                            else {
-                                return qsTr("Not recognized — unusable until mapped")
-                            }
-                        }
-                        color: modelData.guessed ? "#e0b040" : (modelData.recognized ? "#60c060" : "#e06060")
-                        font.pointSize: 9
-                        Layout.fillWidth: true
-                    }
-
-                    Label {
-                        text: qsTr("%1 axes, %2 buttons, %3 hats")
-                                .arg(modelData.numAxes).arg(modelData.numButtons).arg(modelData.numHats)
-                        color: "#888888"
-                        font.pointSize: 8
-                        Layout.fillWidth: true
-                    }
-                }
-            }
-        }
-
-        Label {
-            visible: mapperPage.devices.length === 0
-            text: qsTr("No game controllers or joysticks found.")
-            color: "#aaaaaa"
-            font.pointSize: 11
-            Layout.fillWidth: true
-        }
-    }
-
-    // ---- Mapping diagram --------------------------------------------------
-
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 20
-        anchors.topMargin: pageHeader.y + pageHeader.height + 16
-        spacing: 10
-        visible: SdlGamepadMapper.mapping
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 12
-
-            Label {
-                text: SdlGamepadMapper.deviceName
-                font.pointSize: 16
-                Layout.fillWidth: true
-                elide: Text.ElideRight
-            }
-
-            // Raw device activity, independent of any binding. If this stays
-            // empty while the controller is being operated, the problem is the
-            // device or the driver, not the mapping.
-            Label {
-                text: SdlGamepadMapper.rawActivity
-                color: "#00cccc"
-                font.pointSize: 10
-                font.family: "monospace"
-                horizontalAlignment: Text.AlignRight
-                Layout.minimumWidth: 160
-            }
-        }
-
-        // The instruction and the capture prompt share one fixed-height strip
-        // rather than the prompt overlaying the diagram: the triggers sit at
-        // the very top of the controller, and a banner would cover exactly the
-        // control being asked for. A fixed height also keeps the diagram from
-        // resizing under the user's cursor when a capture starts.
-        Rectangle {
-            id: promptStrip
-            readonly property bool listening: SdlGamepadMapper.targetElement !== ""
-
-            Layout.fillWidth: true
-            Layout.preferredHeight: 54
-            color: listening ? "#2d2d2d" : "transparent"
-            border.color: listening ? "#e0b040" : "transparent"
-            border.width: 2
-            radius: 6
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: 14
-
-                Label {
-                    Layout.fillWidth: true
-                    text: promptStrip.listening
-                          ? SdlGamepadMapper.targetPrompt
-                          : qsTr("Click a control, then operate it on your controller. Right-click a control to clear it.")
-                    color: promptStrip.listening ? "#ffffff" : "#aaaaaa"
-                    font.pointSize: promptStrip.listening ? 14 : 10
-                    font.bold: promptStrip.listening
-                    elide: Text.ElideRight
-                }
-
-                Label {
-                    visible: SdlGamepadMapper.queueRemaining > 0
-                    text: qsTr("%1 to go").arg(SdlGamepadMapper.queueRemaining)
-                    color: "#aaaaaa"
-                    font.pointSize: 10
-                }
-
-                Button {
-                    text: qsTr("Skip")
-                    flat: true
-                    visible: promptStrip.listening
-                    onClicked: SdlGamepadMapper.skipTarget()
-                }
-
-                Button {
-                    text: qsTr("Stop")
-                    flat: true
-                    visible: promptStrip.listening
-                    onClicked: {
-                        SdlGamepadMapper.cancelSelection()
-                        mapperPage.walkthroughRunning = false
-                    }
-                }
-            }
-        }
-
-        ControllerDiagram {
-            id: diagram
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-
-            bindings: SdlGamepadMapper.bindings
-            values: SdlGamepadMapper.elementValues
-            target: SdlGamepadMapper.targetElement
-
-            onSelectRequested: function(elements) {
-                // Picking a control by hand replaces the queue, so a
-                // walkthrough that was running is over -- otherwise finishing
-                // this one control would pop the "save?" prompt.
-                mapperPage.walkthroughRunning = false
-                SdlGamepadMapper.selectElements(elements)
-            }
-            onClearRequested: function(elements) {
-                for (var i = 0; i < elements.length; i++) {
-                    SdlGamepadMapper.clearElement(elements[i])
-                }
-            }
-        }
-
-        Label {
-            id: mappingPreview
-            text: SdlGamepadMapper.previewMapping()
-            color: "#777777"
-            font.pointSize: 8
-            font.family: "monospace"
-            wrapMode: Text.Wrap
-            Layout.fillWidth: true
-
-            // previewMapping() is a function call, so it would be evaluated
-            // once and never again without this.
-            Connections {
-                target: SdlGamepadMapper
-                function onBindingsChanged() {
-                    mappingPreview.text = SdlGamepadMapper.previewMapping()
-                }
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-
-            Button {
-                text: qsTr("Map everything in order")
-                onClicked: {
-                    mapperPage.walkthroughRunning = true
-                    SdlGamepadMapper.mapEverything()
-                }
-            }
-
-            Button {
-                text: qsTr("Clear all")
-                enabled: SdlGamepadMapper.bindingCount > 0
-                onClicked: SdlGamepadMapper.clearAll()
-            }
-
-            Label {
-                visible: savedNotice.running
-                text: qsTr("Mapping saved")
-                color: "#60c060"
-                font.pointSize: 10
-            }
-
-            Item { Layout.fillWidth: true }
-
-            Button {
-                text: qsTr("Back to device list")
-                onClicked: {
-                    SdlGamepadMapper.cancel()
-                    mapperPage.walkthroughRunning = false
-                    refreshDevices()
-                }
-            }
-
-            Button {
-                text: qsTr("Save")
-                // Saving a mapping with nothing bound would replace a working
-                // guess with an empty entry.
-                enabled: SdlGamepadMapper.bindingCount > 0
-                highlighted: true
-                onClicked: {
-                    if (SdlGamepadMapper.saveMapping()) {
-                        savedNotice.restart()
-                        refreshDevices()
-                    }
-                }
-            }
-        }
-    }
-
-    Timer {
-        id: savedNotice
-        interval: 3000
     }
 
     Connections {
@@ -351,20 +142,288 @@ Item {
         function onQueueFinished() {
             if (mapperPage.walkthroughRunning) {
                 mapperPage.walkthroughRunning = false
-                savePrompt.open()
+                savePrompt.showDialog({head: qsTr("Manette") + " · " + (mapperPage.picked >= 0 ? mapperPage.devices[mapperPage.picked].name : ""),
+                                       title: qsTr("Tout est assigné"), info: true,
+                                       note: qsTr("Tous les contrôles sont passés. Enregistrer cette disposition ?"),
+                                       entries: [{l: qsTr("Enregistrer"), a: "save", main: true}, {l: qsTr("Annuler"), a: "cancel"}]})
             }
         }
     }
 
-    NavigableMessageDialog {
-        id: savePrompt
-        standardButtons: Dialog.Save | Dialog.Cancel
-        text: qsTr("All controls have been visited. Save this mapping?")
-        onAccepted: {
-            if (SdlGamepadMapper.saveMapping()) {
-                savedNotice.restart()
-                refreshDevices()
+    // A pill button of the page (« Actualiser », the actions)
+    component Btn: Rectangle {
+        id: btn
+        property string fid: ""
+        property string label: ""
+        property bool main: false
+        property bool active: true
+        property real fontSize: 15
+        property real pad: 20 * mapperPage.k
+        readonly property bool focused: Theme.showFocus && mapperPage.focusId === fid
+        width: lbl.implicitWidth + 2 * pad
+        height: 46 * mapperPage.k
+        radius: Math.min(height / 2, Theme.pill * mapperPage.k)
+        enabled: active
+        opacity: active ? 1 : 0.45
+        color: focused && Theme.ringFill ? Theme.ringFillColor : (main ? Theme.accent : Theme.surface)
+        border.width: Theme.border * mapperPage.k
+        border.color: Theme.borderColor
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: { mapperPage.mouseAt(btn.fid); mapperPage.act(btn.fid) }
+            Text {
+                id: lbl
+                anchors.centerIn: parent
+                text: btn.label
+                color: btn.focused && Theme.ringFill ? Theme.ringFillFg : (btn.main ? Theme.onAccent : Theme.fg)
+                font.family: Theme.textFont
+                font.weight: Font.Bold
+                font.pixelSize: btn.fontSize * mapperPage.k
             }
         }
+        FocusRing { k: mapperPage.k; active: btn.focused && !Theme.ringFill; radius: btn.radius }
+    }
+
+    Rectangle { anchors.fill: parent; color: Theme.bg }
+    Stage {
+        id: stage
+        anchors.fill: parent
+        readonly property real w: width / stage.k
+        readonly property real h: height / stage.k
+
+        // ---- header ------------------------------------------------------------------------------
+        Item {
+            x: 40 * mapperPage.k; y: 24 * mapperPage.k
+            width: stage.w - 80 * mapperPage.k
+            height: 48 * mapperPage.k
+            Row {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 16 * mapperPage.k
+                Rectangle {
+                    id: backBtn
+                    width: 44 * mapperPage.k; height: width
+                    radius: Math.min(width / 2, Theme.pill * mapperPage.k)
+                    color: Theme.showFocus && mapperPage.focusId === "back" && Theme.ringFill ? Theme.ringFillColor : Theme.surface
+                    border.width: Theme.border * mapperPage.k
+                    border.color: Theme.borderColor
+                    anchors.verticalCenter: parent.verticalCenter
+                    LavIcon { anchors.centerIn: parent; name: "back"; size: 20 * mapperPage.k; color: Theme.fg }
+                    FocusRing { k: mapperPage.k; active: Theme.showFocus && mapperPage.focusId === "back" && !Theme.ringFill; radius: backBtn.radius }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: stackView.pop() }
+                }
+                Text {
+                    text: qsTr("Configurer une manette")
+                    color: Theme.fg
+                    font.family: Theme.displayFont
+                    font.weight: Theme.displayWeight
+                    font.pixelSize: 34 * mapperPage.k
+                    font.letterSpacing: Theme.tracking * 34 * mapperPage.k
+                    font.capitalization: Theme.upper ? Font.AllUppercase : Font.MixedCase
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+            Text {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                text: qsTr("Réglages › Manettes")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: 14 * mapperPage.k
+            }
+        }
+
+        // ---- devices -------------------------------------------------------------------------------
+        Column {
+            x: 40 * mapperPage.k; y: 96 * mapperPage.k
+            width: 330 * mapperPage.k
+            spacing: 10 * mapperPage.k
+            Text {
+                width: parent.width
+                bottomPadding: 4 * mapperPage.k
+                wrapMode: Text.WordWrap
+                lineHeight: 1.3
+                text: qsTr("Choisis une manette pour apprendre sa disposition à LavArtemis. Une manette déjà reconnue n’en a besoin que si un bouton est mal placé.")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: 14 * mapperPage.k
+            }
+            Text {
+                visible: mapperPage.devices.length === 0
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: qsTr("Aucune manette ni aucun joystick trouvé.")
+                color: Theme.fg
+                font.family: Theme.textFont
+                font.weight: Font.DemiBold
+                font.pixelSize: 14 * mapperPage.k
+            }
+            Repeater {
+                model: mapperPage.devices
+                delegate: Rectangle {
+                    id: card
+                    required property var modelData
+                    required property int index
+                    readonly property bool isPicked: index === mapperPage.picked
+                    readonly property bool focused: Theme.showFocus && mapperPage.focusId === "md" + index
+                    readonly property color fgc: focused && Theme.ringFill ? Theme.ringFillFg : Theme.fg
+                    width: parent.width
+                    height: Math.max(74 * mapperPage.k, cardCol.implicitHeight + 20 * mapperPage.k)
+                    radius: Theme.rs * mapperPage.k
+                    color: focused && Theme.ringFill ? Theme.ringFillColor : (isPicked ? Theme.surface2 : Theme.surface)
+                    border.width: isPicked ? 2 * mapperPage.k : Theme.border * mapperPage.k
+                    border.color: isPicked ? mapperPage.ink : Theme.borderColor
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: { mapperPage.mouseAt("md" + card.index); mapperPage.pick(card.index) }
+                        Column {
+                            id: cardCol
+                            x: 14 * mapperPage.k
+                            width: parent.width - 28 * mapperPage.k
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 3 * mapperPage.k
+                            Text {
+                                width: parent.width
+                                elide: Text.ElideRight
+                                text: card.modelData.name
+                                color: card.fgc
+                                font.family: Theme.textFont
+                                font.weight: Font.Bold
+                                font.pixelSize: 15 * mapperPage.k
+                            }
+                            Text {
+                                width: parent.width
+                                wrapMode: Text.WordWrap
+                                text: mapperPage.stateText(card.modelData)
+                                color: card.focused && Theme.ringFill ? Theme.ringFillFg : mapperPage.stateColor(card.modelData)
+                                font.family: Theme.textFont
+                                font.weight: Font.DemiBold
+                                font.pixelSize: 12.5 * mapperPage.k
+                            }
+                            Text {
+                                width: parent.width
+                                elide: Text.ElideRight
+                                text: qsTr("%1 axes, %2 boutons, %3 croix").arg(card.modelData.numAxes).arg(card.modelData.numButtons).arg(card.modelData.numHats)
+                                color: card.fgc
+                                opacity: 0.75
+                                font.family: Theme.textFont
+                                font.pixelSize: 12 * mapperPage.k
+                            }
+                            // Raw device activity, independent of any binding: if this stays empty while the
+                            // controller is operated, the problem is the device or the driver, not the mapping
+                            Text {
+                                visible: card.isPicked && SdlGamepadMapper.rawActivity !== ""
+                                width: parent.width
+                                elide: Text.ElideRight
+                                text: SdlGamepadMapper.rawActivity
+                                color: card.fgc
+                                opacity: 0.75
+                                font.family: "Consolas"
+                                font.pixelSize: 11 * mapperPage.k
+                            }
+                        }
+                    }
+                    FocusRing { k: mapperPage.k; active: card.focused && !Theme.ringFill; radius: card.radius }
+                }
+            }
+            Btn { fid: "mrefresh"; label: qsTr("Actualiser"); fontSize: 13; height: 36 * mapperPage.k; pad: 16 * mapperPage.k }
+        }
+
+        // ---- the schematic -------------------------------------------------------------------------
+        Item {
+            id: section
+            x: 410 * mapperPage.k; y: 96 * mapperPage.k
+            width: stage.w - x - 40 * mapperPage.k
+            height: stage.h - y - 60 * mapperPage.k
+
+            Rectangle {
+                id: prompt
+                width: parent.width
+                height: Math.max(44 * mapperPage.k, promptText.implicitHeight + 16 * mapperPage.k)
+                radius: Theme.rs * mapperPage.k
+                color: mapperPage.waiting ? Theme.warnBg : Theme.surface
+                Row {
+                    x: 16 * mapperPage.k
+                    width: parent.width - 32 * mapperPage.k
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 12 * mapperPage.k
+                    LiveDot { visible: mapperPage.waiting; k: mapperPage.k; color: mapperPage.ink; anchors.verticalCenter: parent.verticalCenter }
+                    Text {
+                        id: promptText
+                        width: parent.width - leftText.width - (mapperPage.waiting ? 20 * mapperPage.k : 0) - 12 * mapperPage.k
+                        wrapMode: Text.WordWrap
+                        text: mapperPage.waiting ? SdlGamepadMapper.targetPrompt
+                              : (SdlGamepadMapper.mapping ? qsTr("Clique un contrôle, puis actionne-le sur ta manette. Clic droit : l’effacer.")
+                                                          : qsTr("Choisis une manette à gauche."))
+                        color: Theme.fg
+                        font.family: Theme.textFont
+                        font.weight: Font.DemiBold
+                        font.pixelSize: 14 * mapperPage.k
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        id: leftText
+                        visible: SdlGamepadMapper.queueRemaining > 0
+                        text: qsTr("%1 à faire").arg(SdlGamepadMapper.queueRemaining)
+                        color: Theme.muted
+                        font.family: Theme.textFont
+                        font.pixelSize: 13 * mapperPage.k
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+            }
+
+            ControllerDiagram {
+                id: diagram
+                y: prompt.height + 12 * mapperPage.k
+                width: parent.width
+                height: actionsRow.y - y - 12 * mapperPage.k
+                opacity: SdlGamepadMapper.mapping ? 1 : 0.5
+                enabled: SdlGamepadMapper.mapping
+                bindings: SdlGamepadMapper.bindings
+                values: SdlGamepadMapper.elementValues
+                target: SdlGamepadMapper.targetElement
+                onSelectRequested: function(elements) {
+                    // Picking a control by hand replaces the queue, so a walkthrough that was running is
+                    // over -- otherwise finishing this one control would pop the "save?" prompt.
+                    mapperPage.walkthroughRunning = false
+                    SdlGamepadMapper.selectElements(elements)
+                }
+                onClearRequested: function(elements) {
+                    for (var i = 0; i < elements.length; i++) SdlGamepadMapper.clearElement(elements[i])
+                }
+            }
+
+            Row {
+                id: actionsRow
+                anchors.bottom: parent.bottom
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 10 * mapperPage.k
+                Repeater {
+                    model: mapperPage.actions
+                    delegate: Btn {
+                        required property var modelData
+                        fid: modelData.id
+                        label: modelData.l
+                        main: !!modelData.main
+                        active: mapperPage.actionEnabled(modelData.id)
+                    }
+                }
+            }
+        }
+
+        HintsBar {
+            k: mapperPage.k
+            hints: [{k: "A", l: qsTr("Valider"), act: function() { mapperPage.act(mapperPage.focusId) }},
+                    {k: "B", l: qsTr("Retour"), act: function() { stackView.pop() }}]
+        }
+        LavToast { id: toast; k: mapperPage.k }
+    }
+
+    LavOptions {
+        id: savePrompt
+        onPicked: (a) => { if (a === "save") mapperPage.save() }
+        onClosed: mapperPage.forceActiveFocus()
     }
 }
