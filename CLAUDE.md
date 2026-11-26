@@ -1001,7 +1001,8 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   les features propres à une plateforme diffèrent). État et écarts restants :
   `docs/superpowers/specs/2026-11-24-pc-android-parity.md` du dépôt LavArtemis. Un changement d'un texte ou
   d'un menu commun se fait des deux côtés.
-- **Menu en jeu (`QuickMenu.qml`)** : construit à chaque ouverture (`rebuildMainMenu()`), entrées communes
+- **Menu en jeu (`QuickMenu.qml`)** (avant le portage V8 ; en tuiles depuis, voir « Portage du prototype V8 ») :
+  construit à chaque ouverture (`rebuildMainMenu()`), entrées communes
   **dans l'ordre et avec les libellés d'Android** (Quitter <jeu Playnite>, Déconnecter, Quitter la session
   — confirmée par une sous-page « Tu veux vraiment quitter ? », textes d'Android —, Commandes du PC hôte,
   Envoyer des touches, presse-papiers, Statistiques, micro seulement s'il est envoyé et libellé selon son
@@ -1094,7 +1095,8 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
   (`holdTimer`, le relâché n'active pas) ; Menu / Y : options ; Q / E, PageUp / PageDown, LB / RB : PC précédent /
   suivant. La souris déplace le focus (survol), **seulement si elle a vraiment bougé** (`mouseMovedAt`,
   `MouseMoves`) : Qt envoie aussi un survol quand un élément bouge sous un pointeur immobile.
-- **Manette (`SdlGamepadKeyNavigation`)** : B et Start = Échap, **Y = Menu** (options), **LB / RB = PageUp /
+- **Manette (`SdlGamepadKeyNavigation`)** : le stick répète comme le prototype, un pas tout de suite, le suivant après
+  380 ms, puis toutes les 110 ms (`m_AxisRepeats`, remis à 0 au repos). B et Start = Échap, **Y = Menu** (options), **LB / RB = PageUp /
   PageDown**, X ne fait plus rien (il envoyait Menu ; Y et Start envoyaient `Key_Hangup`, que rien ne lisait).
 - **Pages poussées comme composant** (`stackView.push(Qt.createComponent(...), props)`) : un objet fait par
   `createObject()` n'est pas détruit au retour et gardait le focus clavier (Mes PC, Réglages, benchmark, mapper).
@@ -1104,6 +1106,41 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
   `layer.effect` / `MultiEffect` y est conditionné, sinon l'élément n'est pas dessiné du tout.
 - Bibliothèque (`LibraryView`, filtres Tous / Récents / Installés / Masqués, LB / RB) et écran de détails
   (`DetailsView`) : nouveaux ; leurs rangées changent les vrais réglages (pas de réglages « de ce lancement »).
+- **Écran de détails : une mise en page par thème** (`DetailsView`) : Braise (image + voile, panneau flottant),
+  Affiche (bandeau image 250 + colonne de 760, panneau noir « RÉGLAGES DE CE LANCEMENT » à droite, bouton jaune en
+  bas), Ludique (grande carte 1184 × 590, image à gauche, « Comment tu veux jouer ? », bouton violet avec la pastille
+  « A »). Composants internes `TargetPicture` et `RowArrow`.
+- **Bibliothèque Affiche** : en-tête « ← PC · N JEUX », « Playnite » 54, filtres en mots soulignés ; à la manette et
+  au clavier, **fenêtre de 8 lignes** autour du focus (`windowed`, `winStart` : les `fid` restent les index de la
+  liste entière) ; à la souris la liste défile. Fiche : « joué il y a … » (`HomeView.lastPlayedText()`).
+- **« Reprendre » / « Rejoindre » (choix 23)** : `OtherClientsConnected` du `serverinfo` de LavApollo (sessions de
+  stream d'**autres** clients appairés) → `NvComputer::otherClientsConnected` → rôle `otherClients` de
+  `ComputerModel` (ajouté à la fin de l'enum) → `HomeView.otherDevice`. Un hôte qui ne le dit pas = 0 = « Reprendre ».
+- **Menu en jeu en tuiles** (`QuickMenu.qml`, planches V8-26/28/30/31/35/61/63/66) : 11 tuiles (Reprendre, Envoyer
+  des touches, Presse-papiers, Commandes du PC hôte, Statistiques, Micro, Zoom, Libérer, Plus, Déconnecter,
+  Quitter {jeu}), Braise grille de 3, Affiche panneau noir à droite, Ludique dock. **La fenêtre du menu couvre toute
+  la fenêtre du stream** (`QuickMenuManager::placeQuickView()`, `SizeRootObjectToView`, fond transparent) : voile et
+  tuiles dessinés par-dessus l'image. Sous-dialogues = `LavOptions` (touches + « Mes macros… », presse-papiers,
+  commandes, Plus = Capturer le clavier / Plein écran · valeur / Passer en trackpad / Quitter la session,
+  confirmation « Quitter {app} ? »). Micro non envoyé : tuile grisée, un toast dit où l'activer. « Quitter {jeu} »
+  d'un jeu Playnite : sous-titre « Retour à Playnite, le stream continue ». Zoom 100 % ↔ 200 %
+  (`QuickMenuManager::toggleZoom()`, `PanZoom`). Titre et « PC · via » : `QuickMenuManager::setStreamInfo()` (posé
+  par `Session`). **Statistiques à l'écran dans la boîte du thème** : `OverlayManager::setDebugBoxStyle()` (texte sur
+  fond plein avec marge, sans contour), posé par `Session` d'après `ArtemisSettings.uiTheme` / `uiThemeMode`.
+  - ⚠️ **Racine du menu : `width: Window.width` / `height: Window.height`.** Sans ça, sur la plateforme
+    `offscreen` (captures), la racine restait à 0 × 0 et la `Stage` (clip) coupait tout : fenêtre vide.
+- **Mes PC** : icône par type (`formFactor`), ligne « Tour · réseau filaire · 4 ms » avec l'icône du lien, ligne
+  d'aide du prototype par entrée, anneau `FocusRing`, cartes 500 de haut. Menu d'un PC, « Ajouter un PC », adresse,
+  appairage (code en grand), renommer, oublier, erreurs : **`LavOptions`** (popover à la souris, centré sinon).
+  `LavOptions.extra` montre l'élément de l'appelant (caché sinon) et donne les touches à son `focusTarget`.
+  « Annuler » de l'appairage ferme seulement le dialogue (l'appairage continue, comme « C'est fait »).
+- **Réglages** : « ● » après le libellé des lignes enregistrées dans le profil (`SettingRow.followsProfile` : la
+  page dit `profileRows`, une ligne propre au PC dit `appWide`) ; pastille EXPERT du prototype ; « N réglages
+  avancés masqués · activer le mode expert » en bas de la page (`hiddenCount()`) ; « Thème X · LavArtemis version »
+  dans l'en-tête.
+- ⚠️ **`font.pixelSize` est un entier** : un littéral `12.5` fait refuser le composant entier (« le type int est
+  attendu », puis « Le type SettingRow n'est pas disponible » et Réglages ne s'ouvre plus). Une expression
+  (`12.5 * k`) est arrondie sans erreur.
 - Ce qui reste et les écarts : `port-notes.md`, section PC.
 
 ## 🇫🇷 Langue
