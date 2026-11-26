@@ -158,7 +158,7 @@ l'accueil n'a pas d'événement de navigation sur lequel sauvegarder.
 
 | Feature | Où | Note |
 |---|---|---|
-| **Profils de réglages** | `settings/profilemanager.{h,cpp}` | `profiles.json` dans `AppConfigLocation`. Un profil est un **snapshot complet**, pas un patch épars ; un **nouveau profil part du profil en cours** (`createProfile()` copie ses options, comme Android ; créé sans profil actif, il part des réglages globaux). Avant le 2026-11-25 il partait toujours des globaux : créé sous « Maison », il en perdait les valeurs. `language`, `defaultver` et les clés propres à la machine (`mdns`, `detectnetblocking`, `uidisplaymode`, `tracevrrframes`) **bypassent** les profils (`isGlobalKey()`). |
+| **Profils de réglages** | `settings/profilemanager.{h,cpp}` | `profiles.json` dans `AppConfigLocation`. Un profil est un **snapshot complet**, pas un patch épars ; un **nouveau profil est un instantané complet de ce qui est en vigueur** (`createProfile()`, comme `SettingsStore.snapshot()` d'Android) : chaque clé que `value()`/`setValue()` ont vue (`m_KnownKeys`, toutes lues par `StreamingPreferences::reload()` au démarrage), avec sa valeur actuelle, défaut compris, qu'un profil soit actif ou non. Avant le 2026-11-26, créé sans profil actif il était **vide** (et partiel sous un profil épars) : ce qu'il ne portait pas suivait les globaux. Test : `tests/profiles`. `language`, `defaultver` et les clés propres à la machine (`mdns`, `detectnetblocking`, `uidisplaymode`, `tracevrrframes`) **bypassent** les profils (`isGlobalKey()`). |
 | **Send keys + macros** | `backend/keymacromanager.{h,cpp}` | 15 presets (mêmes que l'Android Dev ; le raccourci HDR Win+Alt+B est retiré des deux) + `keyboard-macros.json`. **Même format et mêmes noms `VK_` que l'Android** → un fichier marche sur les deux. Table des 174 noms extraite de `KeyMapper.java`, pas retapée. |
 | **Liens `art://` + `.art`** | `cli/artlink.{h,cpp}` | `rewriteArguments()` **traduit le lien en ligne de commande existante** au lieu d'ajouter un chemin de lancement parallèle → hérite du host seeking, du wake-on-LAN et de l'UI de segue. Export via `AppModel::exportArtFile()`. **Seul `argv[1]`** peut être un lien ou un fichier `.art` (c'est là que le gestionnaire de liens et le double-clic les mettent) : plus loin, c'est un argument ordinaire (`stream PC "Mon jeu.art"`). Testé par `tests/artlink`. |
 | **Pan & zoom** | `streaming/panzoom.{h,cpp}` | Combos Ctrl+Alt+Shift (`+`/`-`/`0`, flèches). |
@@ -704,6 +704,7 @@ session, réglages).
 | `commands` | — | `commands:[…]` |
 | `joystick` | `{attach:true, kind:"generic", axes?(4), buttons?(8), hats?(1)}` ; `{detach:true}` | `{name, guid, instance, gameController}` : un joystick HID générique (« LavArtemis Test Joystick », type inconnu, sans VID/PID) que SDL ne connaît pas, **hors stream aussi** (mapper, avertissement de lancement) ; jamais ouvert par le stream ; retiré à `quit` |
 | `appasset` | `host` (nom), `appId`, `kind:"cover"` (défaut) / `"background"` | `{width, height}` : l'image telle que le client la reçoit (`NvHTTP::getBoxArt` / `getBackground`), `0 × 0` quand l'hôte n'en a pas (404) |
+| `hoststore` | `action:"list"` (défaut) / `"keep"` + `uuid` / `"restore"` | `list` → `{hosts:[{uuid, name}]}` : la liste des PC **enregistrée** (QSettings `hosts`) ; `keep` garde l'entrée enregistrée d'un PC, `restore` la remet dans la liste enregistrée comme le ferait la sauvegarde d'un **autre processus** LavArtemis (le banc n'en lance qu'un) |
 | `clipboard` | `action:"get"` (défaut) / `"set"`, `text` | `{text}` : le presse-papiers de **ce PC** vu par le client, un texte en mémoire (`ClipboardManager::testClipboardText`), **jamais** celui du système ; `set` = une copie faite ici (la synchro réagit) |
 
 - **`tree`** : visibles seulement (`isVisible`, opacité effective > 0, partie visible non vide, coupée par la fenêtre et
@@ -914,9 +915,12 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
     pendant que l'appli tourne). Le flush (`DelayedFlushThread`) relit d'abord la liste enregistrée
     (`mergeStoredHosts`) : un PC inconnu ici et jamais vu par ce processus est gardé et adopté
     (`adoptStoredHosts`), un certificat enregistré par un autre processus depuis notre dernière écriture est
-    repris ; un PC oublié ici (`m_ForgottenUuids`) ne revient pas. Avant, l'appli ouverte réécrivait la liste et
-    effaçait l'appairage fait par le lien. Le banc de test ne lance jamais deux clients : vérifié par lecture
-    seulement.
+    repris ; un PC oublié ici (`m_ForgottenUuids`) ne revient pas **jusqu'au flush qui l'a retiré de la liste
+    enregistrée** : ses uuid sont alors effacés, et un PC qu'un autre processus enregistre ensuite (réappairé par
+    un lien) est adopté. Gardés pour tout le processus (jusqu'au 2026-11-26), ils étaient retirés de la liste à
+    chaque flush : l'appairage de l'autre processus était perdu. Avant, l'appli ouverte réécrivait la liste et
+    effaçait l'appairage fait par le lien. Le banc ne lance jamais deux clients : le canal `hoststore` joue
+    l'autre processus (scénario 9, `test_forgotten_pc_stored_again_by_another_process`).
 - Les jeux **masqués** (« Masquer ») se réaffichent depuis l'accueil (bouton sous la bibliothèque) et se
   démasquent depuis leur menu. **« Masquer » ne s'offre que pour les jeux Playnite**, comme sur Android
   (`openMenu(…, isGame)` → `AppMenu.canHide`) ; une carte Bureau / Playnite masquée par une version
@@ -1355,7 +1359,20 @@ par `tests/hostdisplay`.
 - **Textes** : étapes de connexion traduites (`stageLabel`, = `utils/StreamStages` d'Android, « Démarrage : négociation
   RTSP », « Échec au démarrage : … (erreur n) »), messages de connexion et de souris à la manette, statistiques à
   l'écran (contexte `VideoStats`, formulations des `perf_overlay_*` d'Android ; la trace VRR avancée,
-  `MOONLIGHT_VRR_DEEP_TRACE`, reste en anglais). Un quit refusé par l'hôte est dit (message de `PendingQuitTask`).
+  `MOONLIGHT_VRR_DEEP_TRACE`, reste en anglais). Un quit refusé par l'hôte est dit (message de `PendingQuitTask`) ;
+  un quit en erreur aussi, en français, comme Android : « Impossible de quitter %1 sur le PC (erreur 500). »
+  (`ComputerManager::quitErrorText()`, accueil et fin de session). Le motif court (« erreur 403 », « connexion
+  refusée »…) vient de `ComputerManager::hostErrorDetail()` (= `utils/HostErrorText` d'Android ; une réponse HTTP
+  donne son statut, `QtNetworkReplyException::getHttpStatus()`), aussi pour le presse-papiers : jamais
+  `e.toQString()` à l'écran.
+- ⚠️ **Tâches de fond : jamais un `NvComputer*` lu sur un autre thread.** Un PC oublié pendant la requête est
+  détruit : `PendingQuitTask`, `DeferredWakeHostTask` (une copie du PC), `BenchmarkRunner::quitHostApp`,
+  `DeferredSessionCleanupTask` prennent ce qu'il leur faut sur le thread de l'appelant (`NvHttpTarget::of()`,
+  uuid, nom de l'appli) ; un résultat qui change le PC revient au thread GUI et le retrouve **par uuid**
+  (`ComputerManager::handleQuitAppFailed` pour `pendingQuit`).
+- ⚠️ **Journal : aucun secret d'appairage.** Les arguments d'une requête `pair` (sel, `otpauth`, défis, secret)
+  donneraient le PIN, et une phrase de passe courte, hors ligne : `NvHTTP::openConnection` n'en écrit que les noms
+  (`loggableArguments`), et retire la requête du texte d'erreur de Qt (qui cite l'URL). Scénario 1.
 
 ## ⚠️ Pièges / Gotchas
 
