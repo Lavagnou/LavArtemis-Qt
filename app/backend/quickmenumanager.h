@@ -31,6 +31,11 @@ class QuickMenuManager : public QObject
     // LavApollo Link: the game running inside the host's Playnite (empty if none), refreshed
     // each time the menu opens; it offers "Quitter <jeu>", back to Playnite.
     Q_PROPERTY(QString playniteGameName READ playniteGameName NOTIFY playniteGameChanged)
+    // The menu's head line (prototype V8: « ATLAS-PC · dans Playnite Fullscreen »): the host's name and
+    // the streamed app as the home names it (« Bureau », « Playnite Fullscreen », a game)
+    Q_PROPERTY(QString hostName READ hostName NOTIFY streamInfoChanged)
+    Q_PROPERTY(QString appTitle READ appTitle NOTIFY streamInfoChanged)
+    Q_PROPERTY(QString appKind READ appKind NOTIFY streamInfoChanged)
     QML_ELEMENT
 
 public:
@@ -72,6 +77,14 @@ public:
     Q_INVOKABLE bool trackpadTouchMode() const;
     // « Retenir le mode tactile choisi en jeu »: the switch is kept for the next streams
     Q_INVOKABLE bool rememberTouchMode() const;
+    // « Zoom » of the menu: 100 % <-> 200 % (PanZoom, the Ctrl+Alt+Shift + / - / 0 shortcuts)
+    Q_INVOKABLE void toggleZoom();
+    Q_INVOKABLE int zoomPercent() const;
+    Q_INVOKABLE bool streamFullScreen() const;
+    QString hostName() const { return m_hostName; }
+    QString appTitle() const { return m_appTitle; }
+    QString appKind() const { return m_appKind; }
+    void setStreamInfo(const QString& hostName, const QString& appTitle, const QString& appKind);
     QString playniteGameName() const { return m_playniteGameName; }
     void setComputer(NvComputer *computer) { m_computer = computer; }
 
@@ -94,6 +107,7 @@ signals:
     void keyboardCaptureChanged();
     void statsVisibilityChanged();
     void playniteGameChanged();
+    void streamInfoChanged();
 
     // Action signals
     void disconnectRequested();
@@ -120,6 +134,9 @@ private:
 
     NvComputer *m_computer = nullptr;
     QString m_playniteGameName;
+    QString m_hostName;
+    QString m_appTitle;
+    QString m_appKind;
 
     bool m_isVisible;
     QWindow *m_window;

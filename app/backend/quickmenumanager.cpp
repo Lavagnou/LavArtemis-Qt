@@ -3,6 +3,8 @@
 #include "clipboardmanager.h"
 #include "../streaming/session.h"
 #include "settings/streamingpreferences.h"
+#include "../streaming/panzoom.h"
+#include "../streaming/input/input.h"
 
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -57,6 +59,10 @@ bool QuickMenuManager::isKeyboardCaptured() const
 
 bool QuickMenuManager::isStatsVisible() const
 {
+    // Read from the overlay: the Ctrl+Alt+Shift+S shortcut toggles it without the menu
+    if (Session::get()) {
+        return Session::get()->getOverlayManager().isOverlayEnabled(Overlay::OverlayDebug);
+    }
     return m_isStatsVisible;
 }
 
@@ -313,6 +319,35 @@ bool QuickMenuManager::rememberTouchMode() const
     return StreamingPreferences::get()->rememberTouchMode;
 }
 
+void QuickMenuManager::setStreamInfo(const QString& hostName, const QString& appTitle, const QString& appKind)
+{
+    m_hostName = hostName;
+    m_appTitle = appTitle;
+    m_appKind = appKind;
+    emit streamInfoChanged();
+}
+
+void QuickMenuManager::toggleZoom()
+{
+    // The menu runs on the main thread, like the SDL loop that reads PanZoom
+    if (PanZoom::isActive()) {
+        PanZoom::reset();
+    }
+    else {
+        PanZoom::zoomBy(2.0f);
+    }
+}
+
+bool QuickMenuManager::streamFullScreen() const
+{
+    return Session::get() && Session::get()->isStreamWindowFullScreen();
+}
+
+int QuickMenuManager::zoomPercent() const
+{
+    return qRound(PanZoom::scale() * 100.0f);
+}
+
 bool QuickMenuManager::trackpadTouchMode() const
 {
     return Session::get() && Session::get()->getInputHandler() &&
@@ -350,14 +385,15 @@ void QuickMenuManager::setStreamWindowRect(const QRect& rect)
 
 void QuickMenuManager::placeQuickView()
 {
-    // Centred over the stream window, in Qt's logical coordinates (Session converts the SDL
-    // window's rectangle: SDL counts physical pixels on Windows)
-    const QSize size(500, 400);
+    // Over the whole stream window (prototype V8: the menu is an overlay of the stream, its scrim and
+    // tiles drawn over the picture), in Qt's logical coordinates (Session converts the SDL window's
+    // rectangle: SDL counts physical pixels on Windows). A transparent window: the stream shows
+    // through the scrim.
     if (m_streamWindowRect.isValid()) {
-        m_quickView->setGeometry(QRect(m_streamWindowRect.center() - QPoint(size.width() / 2, size.height() / 2), size));
+        m_quickView->setGeometry(m_streamWindowRect);
     }
     else {
-        m_quickView->setGeometry(QRect(QPoint(400, 300), size));
+        m_quickView->setGeometry(QRect(QPoint(100, 100), QSize(1280, 720)));
     }
 }
 
@@ -393,7 +429,7 @@ void QuickMenuManager::createQuickView()
     if (!m_quickView) {
         qDebug() << "Creating new QQuickView";
         m_quickView = new QQuickView();
-        m_quickView->setResizeMode(QQuickView::SizeViewToRootObject);
+        m_quickView->setResizeMode(QQuickView::SizeRootObjectToView);
         
         // Set up the QML context
         QQmlContext *context = m_quickView->rootContext();

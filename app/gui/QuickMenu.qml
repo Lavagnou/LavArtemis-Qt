@@ -1,471 +1,583 @@
-import QtQuick 2.9
-import QtQuick.Controls 2.2
-import QtQuick.Layouts 1.2
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Effects
+import QtQuick.Window
 import KeyMacroManager 1.0
 import SystemProperties 1.0
-import ArtemisSettings 1.0
 import "v2"
 
-Rectangle {
-    id: quickMenu
-    // Fixed size for the menu - small and centered
-    width: 500
-    height: 400
-    // Don't use anchors with SizeViewToRootObject - position manually
-    // The theme's colours and fonts (gui/v2/Theme.qml)
-    readonly property color fgColor: Theme.fg
-    readonly property color mutedColor: Theme.muted
-    readonly property color accentColor: Theme.accent
+// The in-game menu (prototype V8 « ingame », planches 26, 28, 30, 31, 35, 61, 63, 66): an overlay of
+// the stream window (QuickMenuManager covers it with this transparent window), 11 tiles = Reprendre,
+// the 9 most useful entries and « Plus », in the theme's layout:
+//  - Braise: a scrim, the title and « PC · via » above a grid of 3 columns of tiles (icon, label, value);
+//  - Affiche: a black panel on the right, one row per entry, no icons;
+//  - Ludique: a dock of 11 round tiles at the bottom (chip, short label, value), the PC pill at the top.
+// Keys, clipboard, host commands, « Plus » and the quit confirmation open the prototype's dialog
+// (LavOptions). Prototype px x k (the Stage composes on a 1280 x 720 prototype scene x 1.25).
+FocusScope {
+    id: menu
+    focus: true
+    // The whole stream window (QuickMenuManager: SizeRootObjectToView); said again here, the view may not have
+    // resized its root yet when it is first shown
+    width: Window.width
+    height: Window.height
 
-    color: Theme.surface
-    radius: Theme.rs
-    border.color: Theme.borderColor
-    border.width: 1
-    visible: true  // Always visible when created
-    opacity: 1.0
-    
-    // Menu state management
-    property string currentMenu: "main"  // "main", "server_commands" or "send_keys"
-    
-    // Toast notification system
-    property string toastMessage: ""
-    property bool showToast: false
+    readonly property real k: 1.25
+    property int rev: 0   // bumped at each opening and after an action: the values are read again
+    property string focusId: "m0"
 
-    // Server command data model
-    ListModel {        id: serverCommandsModel    }
-
-    // Keyboard shortcuts and macros, rebuilt from KeyMacroManager on open
-    ListModel {        id: sendKeysModel    }
-    
-    // Animation for smooth show/hide
-    Behavior on opacity {
-        NumberAnimation { duration: 200 }
+    // ---- entries ------------------------------------------------------------------------------------
+    readonly property var ids: ["resume", "keys", "clip", "cmds", "stats", "mic", "zoom", "release", "more", "disconnect", "quit"]
+    readonly property var icons: ({
+        resume: "M8 5l11 7-11 7z", keys: "M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M8 14h8", clip: "M9 3h6v4H9zM7 5H5v16h14V5h-2",
+        cmds: "M4 5h16v14H4zM8 10l3 2-3 2M13 14h3", zoom: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4M11 8v6M8 11h6",
+        mic: "M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM5 11a7 7 0 0 0 14 0M12 18v3", stats: "M5 20v-9M12 20V5M19 20v-6",
+        more: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8v8M8 12h8", disconnect: "M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10",
+        quit: "M12 3v8M6.3 7.3a8 8 0 1 0 11.4 0", release: "M5 3l5.5 15 2.2-6.3L19 9.5zM13 13l5 5"
+    })
+    readonly property bool quitsGame: quickMenuManager.playniteGameName !== ""
+    readonly property string playingTitle: quitsGame ? quickMenuManager.playniteGameName : quickMenuManager.appTitle
+    readonly property string via: {
+        var kind = quickMenuManager.appKind
+        var v = kind === "game" ? qsTr("Jeu Playnite")
+              : kind === "playnite" ? (quitsGame ? qsTr("dans Playnite Fullscreen") : "Playnite Fullscreen")
+              : kind === "desktop" ? qsTr("Bureau Windows") : ""
+        return Theme.affiche ? v.toUpperCase() : v
     }
-    
-    // Handle keyboard input for navigation
-    Keys.onPressed: function(event) {
-        if (event.key === Qt.Key_Escape) {
+    readonly property string sep: Theme.affiche ? " — " : " · "
+    readonly property string headLine: quickMenuManager.hostName + (via.length ? sep + via : "")
+
+    // [label, short (Ludique), value, sub]
+    function entry(id) {
+        var micSent = quickMenuManager.microphoneActive()
+        switch (id) {
+        case "resume": return [qsTr("Reprendre"), qsTr("Reprendre"), "", ""]
+        case "keys": return [qsTr("Envoyer des touches"), qsTr("Touches"), "›", ""]
+        case "clip": return [qsTr("Presse-papiers"), qsTr("Copier"), "›", ""]
+        case "cmds": return [qsTr("Commandes du PC hôte"), qsTr("Commandes"), "›", ""]
+        case "stats": return [qsTr("Statistiques de performance"), qsTr("Stats"), quickMenuManager.isStatsVisible ? qsTr("Affichées") : qsTr("Masquées"), ""]
+        case "mic": return micSent ? [qsTr("Micro"), qsTr("Micro"), quickMenuManager.microphoneMuted() ? qsTr("Coupé") : qsTr("Activé"), ""]
+                                   : [qsTr("Micro non envoyé"), qsTr("Micro"), qsTr("Non envoyé"), ""]
+        case "zoom": return [qsTr("Zoom"), qsTr("Zoom"), qsTr("%1 %").arg(quickMenuManager.zoomPercent()), ""]
+        case "release": return [qsTr("Libérer la souris et le clavier"), qsTr("Libérer"), "", ""]
+        case "more": return [qsTr("Plus"), qsTr("Plus"), "›", ""]
+        case "disconnect": return [qsTr("Déconnecter"), qsTr("Déconnecter"), "", ""]
+        case "quit": return quitsGame ? [qsTr("Quitter %1").arg(playingTitle), qsTr("Quitter"), qsTr("Retour à Playnite"), qsTr("Retour à Playnite, le stream continue")]
+                                      : [qsTr("Quitter %1").arg(playingTitle), qsTr("Quitter"), "", ""]
+        }
+        return [id, id, "", ""]
+    }
+    readonly property var entries: {
+        rev
+        var micSent = quickMenuManager.microphoneActive()
+        var lu = Theme.ludique
+        var out = []
+        for (var i = 0; i < ids.length; i++) {
+            var e = entry(ids[i])
+            // Full labels already say « Micro non envoyé » and carry the Playnite subtitle on their own line
+            var plain = !lu && ((ids[i] === "mic" && !micSent) || e[3] !== "")
+            out.push({id: ids[i], label: lu ? e[1] : e[0], value: plain ? "" : e[2], sub: lu ? "" : e[3],
+                      icon: icons[ids[i]] || "", dim: ids[i] === "mic" && !micSent})
+        }
+        return out
+    }
+    readonly property int cols: Theme.affiche ? 1 : (Theme.ludique ? 11 : 3)
+    // Braise: the height each tile needs, so that a row of the grid is as tall as its tallest tile
+    property var needs: ({})
+    property int needsRev: 0
+    function setNeed(i, h) { if (needs[i] !== h) { needs[i] = h; needsRev++ } }
+    function rowHeight(r) {
+        needsRev
+        var h = 96 * k
+        for (var i = r * 3; i < r * 3 + 3; i++) if (needs[i] !== undefined) h = Math.max(h, needs[i])
+        return h
+    }
+
+    // ---- focus (the prototype's grid) ---------------------------------------------------------------
+    function isFocused(id) { return focusId === id && Theme.input !== "touch" }
+    MouseMoves { id: mouseMoves }
+    function hover(id) { if (!mouseMoves.recent()) return; Theme.input = "mouse"; focusId = id }
+    function move(dx, dy) {
+        var i = parseInt(focusId.substring(1)), n = ids.length
+        if (cols === 1) i += dy !== 0 ? dy : dx
+        else if (dy !== 0) { var j = i + dy * cols; if (j >= 0 && j < n) i = j; else if (dy > 0 && Math.floor(i / cols) < Math.floor((n - 1) / cols)) i = n - 1 }
+        else { var c = i % cols + dx; if (c >= 0 && c < cols && i + dx < n) i += dx }
+        focusId = "m" + Math.max(0, Math.min(n - 1, i))
+    }
+    function act(fid) { doEntry(ids[parseInt(fid.substring(1))]) }
+    function options() { return false }
+
+    Keys.onPressed: (event) => {
+        Theme.input = "keys"
+        if (event.key === Qt.Key_Left) move(-1, 0)
+        else if (event.key === Qt.Key_Right) move(1, 0)
+        else if (event.key === Qt.Key_Up) move(0, -1)
+        else if (event.key === Qt.Key_Down) move(0, 1)
+        else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) { if (!event.isAutoRepeat) act(focusId) }
+        else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Backspace) closeMenu()
+        else return
+        event.accepted = true
+    }
+
+    // ---- actions ------------------------------------------------------------------------------------
+    function closeMenu() { quickMenuManager.hide() }
+    // Said over the stream once the menu is closed (Session::showNotification)
+    function closeAndSay(text) { closeMenu(); if (text) quickMenuManager.showToast(text) }
+
+    function doEntry(id) {
+        switch (id) {
+        case "resume": closeMenu(); return
+        case "keys": openKeys(); return
+        case "clip":
+            openDialog({title: qsTr("Presse-papiers"), note: qsTr("Copier-coller entre ce PC et %1.").arg(quickMenuManager.hostName),
+                        entries: [{l: qsTr("Envoyer au PC ce que j’ai copié"), a: "clipboard_upload"},
+                                  {l: qsTr("Récupérer ce qui est copié sur le PC"), a: "clipboard_fetch"}, cancelEntry]})
+            return
+        case "cmds": openCommands(); return
+        case "stats": quickMenuManager.executeAction("toggle_stats"); closeMenu(); return
+        case "mic":
+            if (!quickMenuManager.microphoneActive()) {
+                closeAndSay(qsTr("Le micro n’est pas envoyé : active « Envoyer mon micro au PC distant » dans Réglages › Audio"))
+                return
+            }
+            quickMenuManager.executeAction("toggle_microphone"); closeMenu(); return
+        case "zoom":
+            quickMenuManager.toggleZoom()
+            closeAndSay(qsTr("Zoom : %1 %").arg(quickMenuManager.zoomPercent()))
+            return
+        case "release":
+            quickMenuManager.executeAction("toggle_mouse")
+            closeAndSay(qsTr("Souris et clavier libérés : Ctrl+Alt+Maj+Z pour les reprendre"))
+            return
+        case "more": openMore(); return
+        case "disconnect": closeMenu(); quickMenuManager.executeAction("disconnect"); return
+        case "quit":
+            if (quitsGame) { closeMenu(); quickMenuManager.quitPlayniteGame(); return }
+            openQuitSession()
+            return
+        case "capture":
+            quickMenuManager.executeAction("toggle_keyboard")
+            closeAndSay(qsTr("Clavier capturé : les raccourcis système partent au PC distant"))
+            return
+        case "fullscreen":
+            var wasFull = quickMenuManager.streamFullScreen()
             closeMenu()
-        } else if (event.key === Qt.Key_Up) {
-            menuListView.decrementCurrentIndex()
-        } else if (event.key === Qt.Key_Down) {
-            menuListView.incrementCurrentIndex()
-        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-            executeCurrentItem()
-        }
-    }
-    
-    // Menu content (no longer nested in another rectangle)
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 20
-        spacing: 15
-
-        // Title
-        Text {
-            text: {
-                if (currentMenu === "server_commands") return qsTr("Server Commands")
-                if (currentMenu === "send_keys") return qsTr("Send Keys")
-                if (currentMenu === "confirm_quit") return qsTr("Are you sure you want to quit?")
-                return qsTr("Quick Menu")
-            }
-            font.pointSize: 24
-            font.bold: true
-            font.family: Theme.displayFont
-            color: quickMenu.accentColor
-            Layout.alignment: Qt.AlignHCenter
-        }
-
-        // Menu items
-        ListView {
-            id: menuListView
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            focus: true
-            // The list scrolls in its own box: without this, the rows past its bottom were drawn
-            // over the footer button (« Fermer (Échap) » / « ← Retour ») below it
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            ScrollIndicator.vertical: ScrollIndicator { }
-
-            model: {
-                if (currentMenu === "server_commands") return serverCommandsModel
-                if (currentMenu === "send_keys") return sendKeysModel
-                if (currentMenu === "confirm_quit") return confirmQuitModel
-                return mainMenuModel
-            }
-            
-            delegate: Button {
-                width: menuListView.width
-                // A row grows for a description on two lines (« Aucune commande de serveur » explains why)
-                height: Math.max(60, contentItem.implicitHeight + 20)
-                flat: true
-
-                background: Rectangle {
-                    color: parent.down || parent.hovered ? Theme.sel : "transparent"
-                    border.color: parent.hovered ? quickMenu.accentColor : "transparent"
-                    border.width: 2
-                    radius: 5
-                }
-
-                onClicked: {
-                    executeAction(model.action)
-                }
-
-                contentItem: RowLayout {
-                    anchors.fill: parent
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.margins: 15
-                    spacing: 15
-
-                    Text {
-                        text: model.icon
-                        font.pointSize: 20
-                        color: quickMenu.fgColor
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                        Layout.preferredWidth: 40
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignVCenter
-                        spacing: 2
-
-                        Text {
-                            text: model.text
-                            font.pointSize: 14
-                            font.bold: true
-                            font.family: Theme.textFont
-                            color: quickMenu.fgColor
-                        }
-
-                        Text {
-                            text: model.description
-                            font.pointSize: 10
-                            font.family: Theme.textFont
-                            color: quickMenu.mutedColor
-                            Layout.fillWidth: true
-                            wrapMode: Text.WordWrap
-                            maximumLineCount: 2
-                            elide: Text.ElideRight
-                        }
-                    }
-                }
-            }
-        }
-
-        // Back/Close button
-        Button {
-            text: currentMenu === "main" ? qsTr("Close (Esc)") : qsTr("← Back")
-            Layout.alignment: Qt.AlignHCenter
-            onClicked: {
-                if (currentMenu === "main") {
-                    closeMenu()
-                } else {
-                    currentMenu = "main"
-                }
-            }
-        }
-    }
-    
-    // Toast notification overlay
-    Rectangle {
-        id: toastNotification
-        anchors.bottom: parent.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottomMargin: 20
-        width: Math.min(parent.width - 40, toastText.implicitWidth + 20)
-        height: 40
-        radius: 20
-        color: "#333"
-        border.color: "#666"
-        border.width: 1
-        visible: showToast
-        opacity: showToast ? 1.0 : 0.0
-        
-        Behavior on opacity {
-            NumberAnimation { duration: 200 }
-        }
-        
-        Text {
-            id: toastText
-            text: toastMessage
-            color: "white"
-            font.pointSize: 12
-            anchors.centerIn: parent
-        }
-    }
-    
-    // Timer for auto-hiding toast
-    Timer {
-        id: toastTimer
-        interval: 2000
-        onTriggered: {
-            showToast = false
-        }
-    }
-    
-    // Timer for delayed close
-    Timer {
-        id: closeTimer
-        interval: 1000
-        onTriggered: {
-            closeMenu()
+            quickMenuManager.executeAction("toggle_fullscreen")
+            quickMenuManager.showToast(wasFull ? qsTr("Stream en fenêtre") : qsTr("Stream en plein écran"))
+            return
+        case "touch":
+            var trackpad = quickMenuManager.trackpadTouchMode()
+            quickMenuManager.executeAction("toggle_touch_mode")
+            closeAndSay(trackpad ? qsTr("Mode multitouch") : qsTr("Mode trackpad"))
+            return
+        case "quitSession": openQuitSession(); return
         }
     }
 
-    // The menu is rebuilt each time it opens and when the host reports a Playnite game: the
-    // microphone and touch-mode entries depend on the session's state.
+    // ---- dialogs (LavOptions) ---------------------------------------------------------------------------
+    // As the prototype's isMain(): lists (keys, clipboard, commands, « Plus ») have no main entry, a
+    // confirmation or a message has its first one
+    readonly property var cancelEntry: ({l: qsTr("Annuler"), a: "cancel"})
+    function dialogHead() {
+        var kind = qsTr("Menu du stream")
+        return Theme.affiche ? (kind + sep + quickMenuManager.hostName).toUpperCase() : kind + sep + quickMenuManager.hostName
+    }
+    function openDialog(cfg) {
+        cfg.head = dialogHead()
+        if (!cfg.warn) cfg.info = true
+        dialog.showDialog(cfg)
+    }
+    function openKeys() {
+        var e = [], macros = KeyMacroManager.macros
+        for (var i = 0; i < macros.length; i++) {
+            if (macros[i].builtIn) e.push({l: macros[i].name, a: "macro:" + macros[i].id})
+        }
+        e.push({l: qsTr("Mes macros…"), a: "macros"})
+        e.push(cancelEntry)
+        openDialog({title: qsTr("Envoyer des touches"), note: qsTr("Envoyées au PC comme si tu les tapais là-bas."), entries: e})
+    }
+    function openMacros() {
+        var e = [], macros = KeyMacroManager.macros
+        for (var i = 0; i < macros.length; i++) {
+            if (!macros[i].builtIn) e.push({l: macros[i].name, a: "macro:" + macros[i].id})
+        }
+        if (e.length === 0) {
+            openDialog({title: qsTr("Mes macros"), note: qsTr("Aucune macro pour l’instant."),
+                        entries: [{l: qsTr("OK"), a: "cancel", main: true}]})
+            return
+        }
+        e.push(cancelEntry)
+        openDialog({title: qsTr("Mes macros"), note: qsTr("Envoyées au PC comme si tu les tapais là-bas."), entries: e})
+    }
+    function openCommands() {
+        var names = quickMenuManager.serverCommandManager ? quickMenuManager.serverCommandManager.getAvailableCommands() : []
+        if (names.length === 0) {
+            openDialog({title: qsTr("Aucune commande de serveur"),
+                        note: qsTr("Vérifie que le PC hôte lance Apollo ou LavApollo, et que cet appareil a la permission « Commande de serveur »."),
+                        entries: [{l: qsTr("OK"), a: "cancel", main: true}]})
+            return
+        }
+        var e = []
+        for (var i = 0; i < names.length; i++) e.push({l: names[i], a: "server_cmd:" + names[i]})
+        e.push(cancelEntry)
+        openDialog({title: qsTr("Commandes du PC hôte"), note: qsTr("Accéder aux commandes de contrôle du PC hôte"), entries: e})
+    }
+    function openMore() {
+        var e = [{l: qsTr("Capturer le clavier"), a: "do:capture"},
+                 {l: qsTr("Plein écran / fenêtre") + " · " + (quickMenuManager.streamFullScreen() ? qsTr("Plein écran") : qsTr("Fenêtre")), a: "do:fullscreen"}]
+        if (SystemProperties.hasTouchScreen) {
+            e.push({l: quickMenuManager.trackpadTouchMode() ? qsTr("Passer en multitouch") : qsTr("Passer en trackpad"), a: "do:touch"})
+        }
+        if (quitsGame) e.push({l: qsTr("Quitter la session"), a: "do:quitSession"})
+        e.push(cancelEntry)
+        openDialog({title: qsTr("Plus"), note: playingTitle + (via.length ? sep + via : ""), entries: e})
+    }
+    function openQuitSession() {
+        openDialog({title: qsTr("Quitter %1 ?").arg(quitsGame ? quickMenuManager.appTitle : playingTitle), warn: true,
+                    note: qsTr("Assure-toi d’avoir sauvegardé : quitter la session ferme l’appli qui tourne sur le PC."),
+                    entries: [{l: qsTr("Quitter la session"), a: "quit", main: true}, cancelEntry]})
+    }
+    function onPicked(a) {
+        if (a === "cancel") return
+        if (a === "macros") { openMacros(); return }
+        if (a.indexOf("do:") === 0) { doEntry(a.substring(3)); return }
+        if (a.indexOf("macro:") === 0) { closeMenu(); KeyMacroManager.sendMacro(a.substring(6)); return }
+        if (a.indexOf("server_cmd:") === 0) { closeMenu(); quickMenuManager.serverCommandManager.executeCommand(a.substring(11)); return }
+        if (a === "clipboard_upload" || a === "clipboard_fetch") { closeMenu(); quickMenuManager.executeAction(a); return }
+        if (a === "quit") { closeMenu(); quickMenuManager.executeAction("quit"); return }
+    }
+
     Connections {
         target: quickMenuManager
-        function onPlayniteGameChanged() { rebuildMainMenu() }
+        function onPlayniteGameChanged() { menu.rev++ }
+        function onStatsVisibilityChanged() { menu.rev++ }
         function onVisibilityChanged() {
             if (quickMenuManager.isVisible) {
-                currentMenu = "main"
-                rebuildMainMenu()
+                menu.focusId = "m0"
+                menu.rev++
+                if (dialog.opened) dialog.close()
+                menu.forceActiveFocus()
             }
         }
     }
-
     Connections {
         target: quickMenuManager.serverCommandManager
-        // The host's commands, as it listed them (Android: GameMenu.showServerCmd)
-        function onCommandsRefreshed() {
-            serverCommandsModel.clear();
-            var names = quickMenuManager.serverCommandManager.getAvailableCommands();
-            for (var i = 0; i < names.length; i++) {
-                serverCommandsModel.append({
-                    icon: "⚙",
-                    text: names[i],
-                    // Prefixed: a command may bear the name of one of the menu's own actions
-                    action: "server_cmd:" + names[i],
-                    description: qsTr("Command of the host PC")
-                });
-            }
-            if (serverCommandsModel.count === 0) {
-                // As on Android: say why the list is empty instead of showing nothing
-                serverCommandsModel.append({
-                    icon: "ℹ",
-                    text: qsTr("No server commands"),
-                    action: "no_server_command",
-                    description: qsTr("Make sure the host runs Apollo / LavApollo and this client has the \"Server Command\" permission.")
-                });
-            }
-        }
-        // Said over the stream: the menu closes right after
-        function onCommandExecuted(commandName) {
-            quickMenuManager.showToast(qsTr("Command \"%1\" sent").arg(commandName))
-        }
-        function onCommandFailed(commandName, error) {
-            quickMenuManager.showToast(qsTr("Command \"%1\" failed: %2").arg(commandName).arg(error))
-        }
+        ignoreUnknownSignals: true
+        // Said over the stream: the menu is closed by then
+        function onCommandExecuted(commandName) { quickMenuManager.showToast(qsTr("Commande « %1 » envoyée").arg(commandName)) }
+        function onCommandFailed(commandName, error) { quickMenuManager.showToast(qsTr("La commande « %1 » a échoué : %2").arg(commandName).arg(error)) }
     }
-    
-    // Main menu, in the order shared with Android's in-game menu (common entries first, then what
-    // only this PC has). Rebuilt on open: see rebuildMainMenu().
-    ListModel {
-        id: mainMenuModel
-    }
-
-    // Confirmation of « Quitter la session », with the texts of Android's confirmation
-    ListModel {
-        id: confirmQuitModel
-        ListElement {
-            text: qsTr("Quit Session")
-            icon: "❌"
-            action: "quit"
-            description: qsTr("Make sure your progress is saved: quitting the session closes the app running on the PC.")
-        }
-    }
-
-    function rebuildMainMenu() {
-        mainMenuModel.clear()
-        if (quickMenuManager.playniteGameName !== "") {
-            // LavApollo Link: a game runs inside the host's Playnite -> "Quitter <jeu>", first entry
-            mainMenuModel.append({icon: "⏏", text: qsTr("Quitter %1").arg(quickMenuManager.playniteGameName),
-                                  action: "quit_playnite_game", description: qsTr("Retour à Playnite, le stream continue")})
-        }
-        mainMenuModel.append({icon: "⏹", text: qsTr("Disconnect"), action: "disconnect",
-                              description: qsTr("Disconnect from server")})
-        mainMenuModel.append({icon: "❌", text: qsTr("Quit Session"), action: "confirm_quit",
-                              description: qsTr("Quit streaming session")})
-        mainMenuModel.append({icon: "⚙", text: qsTr("Server Commands"), action: "server_commands",
-                              description: qsTr("Access server control commands")})
-        mainMenuModel.append({icon: "⌨", text: qsTr("Send Keys"), action: "send_keys",
-                              description: qsTr("Send a shortcut the local OS would otherwise intercept")})
-        mainMenuModel.append({icon: "📋", text: qsTr("Clipboard Upload"), action: "clipboard_upload",
-                              description: qsTr("Upload clipboard to server")})
-        mainMenuModel.append({icon: "📥", text: qsTr("Fetch Clipboard"), action: "clipboard_fetch",
-                              description: qsTr("Fetch clipboard from server")})
-        mainMenuModel.append({icon: "📊", text: qsTr("Toggle Performance Stats"), action: "toggle_stats",
-                              description: qsTr("Show/hide performance statistics")})
-        // Only while the microphone is sent, with the label of what it will do (as on Android)
-        if (quickMenuManager.microphoneActive()) {
-            mainMenuModel.append({icon: "🎤",
-                                  text: quickMenuManager.microphoneMuted() ? qsTr("Unmute Microphone") : qsTr("Mute Microphone"),
-                                  action: "toggle_microphone",
-                                  description: qsTr("Stop or resume sending your microphone (Ctrl+Alt+Shift+U)")})
-        }
-        // Touchscreen PCs: switch Multitouch <-> Trackpad for this stream (Android: Menu avancé)
-        if (SystemProperties.hasTouchScreen) {
-            var trackpad = quickMenuManager.trackpadTouchMode()
-            mainMenuModel.append({icon: "👆",
-                                  text: trackpad ? qsTr("Switch to Multitouch") : qsTr("Switch to Trackpad"),
-                                  action: "toggle_touch_mode",
-                                  description: quickMenuManager.rememberTouchMode() ? qsTr("Kept for the next streams")
-                                                                                     : qsTr("For this stream only")})
-        }
-        // This PC only: the actions of the Ctrl+Alt+Shift shortcuts Z, K and X
-        mainMenuModel.append({icon: "🖱", text: qsTr("Release Mouse and Keyboard"), action: "toggle_mouse",
-                              description: qsTr("Gives the pointer back to your PC.")})
-        mainMenuModel.append({icon: "⌨", text: qsTr("Capture Keyboard"), action: "toggle_keyboard",
-                              description: qsTr("Sends the system shortcuts to the host PC, or not.")})
-        mainMenuModel.append({icon: "🖥", text: qsTr("Full Screen / Window"), action: "toggle_fullscreen",
-                              description: qsTr("Switches how the stream is displayed.")})
-    }
-
-    function closeMenuDelayed() {
-        closeTimer.restart();
-    }
-
-    // Functions
-    function closeMenu() {
-        // Only call backend hide - don't set QML invisible
-            if (typeof quickMenuManager !== 'undefined') {
-            quickMenuManager.hide();
-        }
-    }
-    
-    function populateSendKeys() {
-        sendKeysModel.clear()
-
-        var macros = KeyMacroManager.macros
-        for (var i = 0; i < macros.length; i++) {
-            sendKeysModel.append({
-                icon: macros[i].builtIn ? "⌨" : "★",
-                text: macros[i].name,
-                // Prefixed so executeAction() can tell these apart from the
-                // server command ids it also matches against.
-                action: "macro:" + macros[i].id,
-                description: macros[i].builtIn ? qsTr("Built-in shortcut")
-                                               : qsTr("Custom macro")
-            })
-        }
-    }
-
-    function executeCurrentItem() {
-        var currentItem = menuListView.model.get(menuListView.currentIndex)
-        if (currentItem) {
-            executeAction(currentItem.action)
-        }
-    }
-    
-    function executeAction(action) {
-        console.log("Executing action:", action)
-        
-        // Handle navigation actions
-        if (action === "confirm_quit") {
-            currentMenu = "confirm_quit";
-            return;
-        } else if (action === "no_server_command") {
-            return;
-        } else if (action === "server_commands") {
-            // Always open, as on Android: an empty list says why
-            currentMenu = "server_commands";
-            return;
-        } else if (action === "quit_playnite_game") {
-            quickMenuManager.quitPlayniteGame();
-            closeMenuDelayed();
-            return;
-        } else if (action === "send_keys") {
-            populateSendKeys();
-            currentMenu = "send_keys";
-            return;
-        } else if (action.indexOf("macro:") === 0) {
-            KeyMacroManager.sendMacro(action.substring(6));
-            closeMenuDelayed();
-            return;
-        } else if (action.indexOf("server_cmd:") === 0) {
-            quickMenuManager.serverCommandManager.executeCommand(action.substring(11));
-            closeMenuDelayed();
-            return;
-        }
-        
-        // Show action feedback
-        showActionFeedback(action)
-        
-        // Call the backend manager to execute the action
-        if (typeof quickMenuManager !== 'undefined') {
-            quickMenuManager.executeAction(action)
-        }
-        
-        // Close menu after action (except for navigation)
-        closeMenuDelayed();
-    }
-    
-    function showActionFeedback(action) {
-        var message = ""
-        switch(action) {
-            case "disconnect":
-                message = qsTr("Disconnecting from server...")
-                break
-            case "quit":
-                message = qsTr("Quitting session...")
-                break
-            case "clipboard_upload":
-                message = qsTr("Uploading clipboard to server...")
-                break
-            case "clipboard_fetch":
-                message = qsTr("Fetching clipboard from server...")
-                break
-            case "toggle_stats":
-                message = qsTr("Toggling performance stats...")
-                break
-            case "toggle_mouse":
-                message = qsTr("Toggling mouse capture...")
-                break
-            case "toggle_keyboard":
-                message = qsTr("Toggling keyboard capture...")
-                break
-            case "toggle_fullscreen":
-                message = qsTr("Toggling fullscreen...")
-                break
-            case "toggle_microphone":
-                message = qsTr("Toggling microphone...")
-                break
-            case "toggle_touch_mode":
-                // The mode it switches to (the menu was built with the old one)
-                message = quickMenuManager.trackpadTouchMode()
-                        ? qsTr("Multitouch mode")
-                        : qsTr("Trackpad mode: long press to drag, two-finger tap for right click, two fingers to scroll")
-                break
-            default:
-                message = qsTr("Executing action...")
-        }
-        
-        showMessage(message)
-    }
-
-    function showMessage(message) {
-        if (message) {
-            toastMessage = message
-            showToast = true
-            toastTimer.restart()
-        }
-    }
-    
-    // Make menu focusable and reset state
     Component.onCompleted: {
-        focus = true
-        currentMenu = "main"  // Always start with main menu
-        rebuildMainMenu()
+        forceActiveFocus()
+        if (quickMenuManager.serverCommandManager) quickMenuManager.serverCommandManager.refreshCommands()
+    }
 
-        if (quickMenuManager.serverCommandManager) {
-            console.log("QuickMenu: Refreshing server commands on open");
-            quickMenuManager.serverCommandManager.refreshCommands();
+    // ---- view ---------------------------------------------------------------------------------------------
+    readonly property bool dark: Theme.dark
+    function lit(light, darkColor) { return menu.dark ? darkColor : light }
+
+    Stage {
+        anchors.fill: parent
+
+        // A click outside the menu closes it, as « Reprendre »
+        MouseArea { anchors.fill: parent; onClicked: menu.closeMenu() }
+
+        // ===== Braise: scrim, title, a grid of 3 columns ==============================================
+        Rectangle {
+            anchors.fill: parent
+            visible: Theme.braise
+            color: Qt.rgba(8 / 255, 7 / 255, 6 / 255, 0.62)
         }
+        Column {
+            id: braiseMenu
+            visible: Theme.braise
+            width: 740 * menu.k
+            x: (parent.width - width) / 2
+            y: (parent.height - height) / 2 - 0.04 * height
+            spacing: 16 * menu.k
+            Item {
+                width: parent.width
+                height: braiseTitle.implicitHeight
+                Text {
+                    id: braiseTitle
+                    text: menu.playingTitle
+                    color: "#F3EEE8"
+                    font.family: "Space Grotesk"; font.weight: Font.Bold; font.pixelSize: 26 * menu.k
+                }
+                Text {
+                    anchors.right: parent.right
+                    anchors.baseline: braiseTitle.baseline
+                    text: menu.headLine
+                    color: "#CFC6BC"
+                    font.family: Theme.textFont; font.pixelSize: 14 * menu.k
+                }
+            }
+            Grid {
+                columns: 3
+                columnSpacing: 12 * menu.k
+                rowSpacing: 12 * menu.k
+                Repeater {
+                    model: Theme.braise ? menu.entries : []
+                    delegate: HomeTile {
+                        id: bt
+                        required property var modelData
+                        required property int index
+                        home: menu
+                        fid: "m" + index
+                        k: menu.k
+                        holdable: false
+                        width: (740 - 24) / 3 * menu.k
+                        // the prototype's grid: every tile of a row as tall as the tallest one (min 96)
+                        readonly property real need: Math.max(96 * menu.k, 24 * menu.k + 10 * menu.k + bLow.height + 32 * menu.k)
+                        onNeedChanged: menu.setNeed(index, need)
+                        Component.onCompleted: menu.setNeed(index, need)
+                        height: menu.rowHeight(Math.floor(index / 3))
+                        radius: 18 * menu.k
+                        opacity: bt.modelData.dim ? 0.45 : 1
+                        Rectangle { anchors.fill: parent; radius: parent.radius; color: menu.dark ? Qt.rgba(26 / 255, 24 / 255, 22 / 255, 0.95) : Qt.rgba(1, 1, 1, 0.95) }
+                        // icon at the top, the label block at the bottom (justify-content: space-between)
+                        LavIcon {
+                            x: 18 * menu.k; y: 16 * menu.k
+                            path: bt.modelData.icon; size: 24 * menu.k; stroke: 1.8
+                            color: bt.modelData.dim ? menu.lit("#6B6158", "#CFC6BC") : menu.lit("#C9480F", "#FF8A57")
+                        }
+                        Item {
+                            id: bLow
+                            x: 18 * menu.k
+                            width: parent.width - 36 * menu.k
+                            height: Math.max(bLabels.implicitHeight, bValue.implicitHeight)
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: 16 * menu.k
+                            Column {
+                                id: bLabels
+                                width: parent.width - (bValue.implicitWidth > 0 ? bValue.implicitWidth + 8 * menu.k : 0)
+                                spacing: 3 * menu.k
+                                Text {
+                                    width: parent.width
+                                    wrapMode: Text.WordWrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                    text: bt.modelData.label
+                                    color: menu.lit("#1E1A16", "#F3EEE8")
+                                    font.family: Theme.textFont; font.weight: Font.DemiBold; font.pixelSize: 16 * menu.k
+                                }
+                                Text {
+                                    visible: bt.modelData.sub !== ""
+                                    width: parent.width
+                                    wrapMode: Text.WordWrap
+                                    text: bt.modelData.sub
+                                    color: menu.lit("#6B6158", "#CFC6BC")
+                                    font.family: Theme.textFont; font.pixelSize: 12 * menu.k
+                                }
+                            }
+                            Text {
+                                id: bValue
+                                anchors.right: parent.right
+                                anchors.bottom: bLabels.verticalCenter
+                                anchors.bottomMargin: -implicitHeight / 2
+                                text: bt.modelData.value
+                                color: menu.lit("#6B6158", "#CFC6BC")
+                                font.family: Theme.textFont; font.pixelSize: 13 * menu.k
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ===== Affiche: a black panel on the right ========================================================
+        Rectangle {
+            id: affichePanel
+            visible: Theme.affiche
+            anchors.right: parent.right
+            width: 420 * menu.k
+            height: parent.height
+            color: menu.lit("#111111", "#EDEDE8")
+            readonly property color fg: menu.lit("#ECECE8", "#141414")
+            MouseArea { anchors.fill: parent }  // a click on the panel does not close the menu
+            Column {
+                width: parent.width
+                Item {
+                    width: parent.width
+                    height: afHead.implicitHeight + (24 + 16 + 3) * menu.k
+                    Column {
+                        id: afHead
+                        x: 28 * menu.k; y: 24 * menu.k
+                        width: parent.width - 56 * menu.k
+                        spacing: 4 * menu.k
+                        Text {
+                            width: parent.width
+                            elide: Text.ElideRight
+                            text: menu.headLine
+                            color: menu.lit("#FFD60A", "#7A6000")
+                            font.family: Theme.textFont; font.weight: Font.ExtraBold; font.pixelSize: 13 * menu.k
+                        }
+                        Text {
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                            text: menu.playingTitle
+                            color: affichePanel.fg
+                            lineHeight: 1.0
+                            font.family: Theme.displayFont; font.weight: Font.Black; font.pixelSize: 30 * menu.k
+                            font.letterSpacing: -0.035 * 30 * menu.k
+                        }
+                    }
+                    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 3 * menu.k; color: "#FFD60A" }
+                }
+                Repeater {
+                    model: Theme.affiche ? menu.entries : []
+                    delegate: HomeTile {
+                        id: at
+                        required property var modelData
+                        required property int index
+                        home: menu
+                        fid: "m" + index
+                        k: menu.k
+                        holdable: false
+                        width: affichePanel.width
+                        height: Math.max(54 * menu.k, aLabels.implicitHeight + 12 * menu.k)
+                        opacity: at.modelData.dim ? 0.45 : 1
+                        readonly property color fg: at.ringFill ? "#111111" : affichePanel.fg
+                        Rectangle { anchors.fill: parent; color: at.ringFill ? "#FFD60A" : "transparent" }
+                        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: menu.k; color: menu.lit("#333330", "#CFCFC9") }
+                        Column {
+                            id: aLabels
+                            x: 28 * menu.k
+                            width: parent.width - 64 * menu.k - aValue.implicitWidth
+                            anchors.verticalCenter: parent.verticalCenter
+                            Text {
+                                width: parent.width
+                                elide: Text.ElideRight
+                                text: at.modelData.label
+                                color: at.fg
+                                font.family: Theme.textFont; font.weight: Font.ExtraBold; font.pixelSize: 20 * menu.k
+                                font.letterSpacing: -0.02 * 20 * menu.k
+                            }
+                            Text {
+                                visible: at.modelData.sub !== ""
+                                text: at.modelData.sub
+                                color: at.ringFill ? "#111111" : menu.lit("#A3A39C", "#555550")
+                                font.family: Theme.textFont; font.weight: Font.DemiBold; font.pixelSize: 13 * menu.k
+                            }
+                        }
+                        Text {
+                            id: aValue
+                            anchors.right: parent.right; anchors.rightMargin: 28 * menu.k
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: at.modelData.value
+                            color: at.fg
+                            font.family: Theme.textFont; font.weight: Font.DemiBold; font.pixelSize: 14 * menu.k
+                        }
+                    }
+                }
+            }
+        }
+
+        // ===== Ludique: gradient, the PC pill at the top, a dock of round tiles ===========================
+        Rectangle {
+            anchors.fill: parent
+            visible: Theme.ludique
+            gradient: Gradient {
+                GradientStop { position: 0.45; color: menu.dark ? Qt.rgba(0, 0, 0, 0) : Qt.rgba(27 / 255, 21 / 255, 48 / 255, 0) }
+                GradientStop { position: 1.0; color: menu.dark ? Qt.rgba(0, 0, 0, 0.75) : Qt.rgba(27 / 255, 21 / 255, 48 / 255, 0.75) }
+            }
+        }
+        Rectangle {
+            visible: Theme.ludique
+            x: 48 * menu.k; y: 36 * menu.k
+            height: 52 * menu.k
+            width: luHead.width + 30 * menu.k
+            radius: height / 2
+            color: menu.lit("#FFFFFF", "#221C3D")
+            Row {
+                id: luHead
+                x: 8 * menu.k
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 12 * menu.k
+                Rectangle {
+                    height: 36 * menu.k
+                    width: luHost.implicitWidth + 28 * menu.k
+                    radius: height / 2
+                    color: menu.lit("#5B3DF5", "#8C77FF")
+                    Text { id: luHost; anchors.centerIn: parent; text: quickMenuManager.hostName; color: menu.lit("#FFFFFF", "#221C3D"); font.family: Theme.textFont; font.weight: Font.ExtraBold; font.pixelSize: 13 * menu.k }
+                }
+                Text { anchors.verticalCenter: parent.verticalCenter; text: menu.playingTitle; color: Theme.fg; font.family: Theme.textFont; font.weight: Font.ExtraBold; font.pixelSize: 17 * menu.k }
+                Text { anchors.verticalCenter: parent.verticalCenter; text: menu.via; color: menu.lit("#5A527A", "#B3A9D6"); font.family: Theme.textFont; font.weight: Font.DemiBold; font.pixelSize: 14 * menu.k }
+            }
+        }
+        Rectangle {
+            visible: Theme.ludique
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 76 * menu.k
+            width: luDock.width + 32 * menu.k
+            height: luDock.height + 28 * menu.k
+            radius: 40 * menu.k
+            color: menu.lit("#F3EEFF", "#15112A")
+            MouseArea { anchors.fill: parent }
+            Row {
+                id: luDock
+                anchors.centerIn: parent
+                spacing: 8 * menu.k
+                Repeater {
+                    model: Theme.ludique ? menu.entries : []
+                    delegate: HomeTile {
+                        id: lt
+                        required property var modelData
+                        required property int index
+                        home: menu
+                        fid: "m" + index
+                        k: menu.k
+                        holdable: false
+                        width: 96 * menu.k
+                        height: 108 * menu.k
+                        radius: 30 * menu.k
+                        opacity: lt.modelData.dim ? 0.45 : 1
+                        // CHIPS / CHIPS_DARK of the prototype: Reprendre lime, Déconnecter pink, Quitter coral
+                        readonly property color chip: lt.modelData.id === "resume" ? "#C6F432"
+                                                    : lt.modelData.id === "quit" ? "#FF7A59"
+                                                    : lt.modelData.id === "disconnect" ? menu.lit("#FFE1D8", "#3A2430")
+                                                    : menu.lit("#E4DEFF", "#2E2650")
+                        readonly property color chipFg: lt.modelData.id === "resume" || lt.modelData.id === "quit" ? "#1B1530" : Theme.fg
+                        Rectangle { anchors.fill: parent; radius: parent.radius; color: menu.lit("#FFFFFF", "#221C3D") }
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 6 * menu.k
+                            Rectangle {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: 44 * menu.k; height: width; radius: width / 2
+                                color: lt.chip
+                                LavIcon { anchors.centerIn: parent; path: lt.modelData.icon; size: 22 * menu.k; stroke: 2; color: lt.chipFg }
+                            }
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: lt.modelData.label
+                                color: Theme.fg
+                                font.family: Theme.textFont; font.weight: Font.ExtraBold; font.pixelSize: 13 * menu.k
+                            }
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                height: 13 * menu.k
+                                text: lt.modelData.value
+                                color: menu.lit("#5A527A", "#B3A9D6")
+                                font.family: Theme.textFont; font.weight: Font.DemiBold; font.pixelSize: 11 * menu.k
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        HintsBar {
+            k: menu.k
+            hints: [{k: "A", l: qsTr("Valider"), act: function() { menu.act(menu.focusId) }},
+                    {k: "B", l: qsTr("Fermer le menu"), act: function() { menu.closeMenu() }}]
+        }
+    }
+
+    LavOptions {
+        id: dialog
+        onPicked: (a) => menu.onPicked(a)
+        onClosed: menu.forceActiveFocus()
     }
 }
-

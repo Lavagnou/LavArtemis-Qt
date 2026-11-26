@@ -70,7 +70,12 @@ public:
 
     void setOverlayRenderer(IOverlayRenderer* renderer);
 
+    // The statistics in the theme's box (prototype V8 « statsText »): text colour on a filled background with
+    // padding, no outline. Off = the outlined text of moonlight-qt. Set before the stream starts.
+    void setDebugBoxStyle(bool on, SDL_Color text, SDL_Color background, int padding);
+
 private:
+    SDL_Surface* renderBoxed(TTF_Font* font, const char* text, SDL_Color textColor, SDL_Color background, int padding, int wrapWidth);
     void run();
     SDL_Surface* RenderTextOutlinedWrapped(TTF_Font* font, const char* text, SDL_Color textColor, SDL_Color outlineColor, int outlineWidth, int wrapWidth);
 
@@ -95,6 +100,7 @@ private:
     // wait for rasterization, texture upload or renderer destruction.
     std::mutex m_RendererLock;
     bool m_HaveRenderer = false, m_Stopping = false, m_TtfInitialized = false;
+    struct { bool on = false; SDL_Color text = {}; SDL_Color background = {}; int padding = 0; } m_DebugBox;
     std::thread m_Worker;
 };
 

@@ -215,8 +215,20 @@ void OverlayManager::run()
                 overlay.font = TTF_OpenFontRW(SDL_RWFromConstMem(m_FontData.constData(), m_FontData.size()),
                                               1, overlay.fontSize);
             }
-            if (overlay.font) surface = RenderTextOutlinedWrapped(overlay.font, text, overlay.color,
-                                                                  {0, 0, 0, 255}, 4, 1024);
+            if (overlay.font) {
+                bool boxed;
+                SDL_Color fg, bg;
+                int padding;
+                {
+                    std::lock_guard<std::mutex> lock(m_StateLock);
+                    boxed = type == OverlayType::OverlayDebug && m_DebugBox.on;
+                    fg = m_DebugBox.text;
+                    bg = m_DebugBox.background;
+                    padding = m_DebugBox.padding;
+                }
+                surface = boxed ? renderBoxed(overlay.font, text, fg, bg, padding, 1024)
+                                : RenderTextOutlinedWrapped(overlay.font, text, overlay.color, {0, 0, 0, 255}, 4, 1024);
+            }
             if (!surface) continue; // Keep the last successful overlay on failure.
         }
         const auto rasterized = Clock::now();
@@ -235,6 +247,46 @@ void OverlayManager::run()
                                             ns(rasterized - started), ns(Clock::now() - dispatch)});
         }
     }
+}
+
+void OverlayManager::setDebugBoxStyle(bool on, SDL_Color text, SDL_Color background, int padding)
+{
+    {
+        std::lock_guard<std::mutex> lock(m_StateLock);
+        m_DebugBox.on = on;
+        m_DebugBox.text = text;
+        m_DebugBox.background = background;
+        m_DebugBox.padding = padding;
+        auto& overlay = m_Overlays[OverlayType::OverlayDebug];
+        ++overlay.revision;
+        overlay.dirty = m_HaveRenderer && overlay.enabled;
+        overlay.queued = std::chrono::steady_clock::now();
+    }
+    m_WorkReady.notify_one();
+}
+
+SDL_Surface* OverlayManager::renderBoxed(TTF_Font* font, const char* text, SDL_Color textColor, SDL_Color background, int padding, int wrapWidth)
+{
+    if (text == nullptr || text[0] == '\0') {
+        return nullptr;
+    }
+    TTF_SetFontOutline(font, 0);
+    SDL_Surface* textSurface = TTF_RenderUTF8_Blended_Wrapped(font, text, textColor, wrapWidth);
+    if (textSurface == nullptr) {
+        return nullptr;
+    }
+    SDL_Surface* box = SDL_CreateRGBSurfaceWithFormat(0, textSurface->w + 2 * padding, textSurface->h + 2 * padding,
+                                                      32, SDL_PIXELFORMAT_ARGB8888);
+    if (box == nullptr) {
+        return textSurface;
+    }
+    SDL_FillRect(box, nullptr, SDL_MapRGBA(box->format, background.r, background.g, background.b, background.a));
+    // Blend the text over the filled box (the surface's alpha is the box's)
+    SDL_SetSurfaceBlendMode(textSurface, SDL_BLENDMODE_BLEND);
+    SDL_Rect dst = {padding, padding, textSurface->w, textSurface->h};
+    SDL_BlitSurface(textSurface, nullptr, box, &dst);
+    SDL_FreeSurface(textSurface);
+    return box;
 }
 
 SDL_Surface* OverlayManager::RenderTextOutlinedWrapped(TTF_Font* font, const char* text, SDL_Color textColor, SDL_Color outlineColor, int outlineWidth, int wrapWidth) {

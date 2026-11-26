@@ -224,6 +224,9 @@ public:
     QString failedStageName() const { return m_FailedStageName; }
     int terminationErrorCode() const { return m_TerminationErrorCode; }
 
+    // The in-game menu's « Plein écran / fenêtre » value. Main thread, while the stream loop runs.
+    bool isStreamWindowFullScreen() const { return m_Window != nullptr && (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_FULLSCREEN) != 0; }
+
 #ifdef LAV_TEST_BUILD
     // Test build (app/testctl): the stream window while exec()'s SDL loop runs, nullptr before
     // and after (m_Window outlives SDL_DestroyWindow). Main thread.

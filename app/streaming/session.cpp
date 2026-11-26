@@ -14,6 +14,7 @@
 #include "backend/richpresencemanager.h"
 #include "backend/networkbuffers.h"
 #include "backend/quickmenumanager.h"
+#include "gui/appmodel.h"
 #include "backend/servercommandmanager.h"
 #include "backend/clipboardmanager.h"
 #include "backend/computermanager.h"
@@ -59,6 +60,7 @@
 #include <QPainter>
 #include <QImage>
 #include <QGuiApplication>
+#include <QStyleHints>
 #include <QCursor>
 #include <QScreen>
 #include <QPointer>
@@ -1679,10 +1681,35 @@ bool Session::initialize(QQuickWindow* qtWindow)
     // now surfaces warnings through the launchWarnings Q_PROPERTY + launchWarningsChanged
     // signal, which QML renders; the old displayLaunchWarning signal no longer exists.
 
+    // Statistics on the stream in the theme's box (prototype V8: Braise a dark translucent box, Affiche black with
+    // yellow text, Ludique a plum box with white text)
+    {
+        const QString theme = ArtemisSettings::instance()->uiTheme();
+        const int mode = ArtemisSettings::instance()->uiThemeMode();
+        const bool dark = mode == 2 || (mode == 0 && QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark);
+        if (theme == QStringLiteral("affiche")) {
+            m_OverlayManager.setDebugBoxStyle(true, {0xFF, 0xD6, 0x0A, 0xFF}, {0x11, 0x11, 0x11, 0xFF}, 10);
+        }
+        else if (theme == QStringLiteral("ludique")) {
+            m_OverlayManager.setDebugBoxStyle(true, {0xFF, 0xFF, 0xFF, 0xFF},
+                                              {0x1B, 0x15, 0x30, (Uint8)(dark ? 0xE6 : 0xD9)}, 14);
+        }
+        else {
+            m_OverlayManager.setDebugBoxStyle(true, {0xF3, 0xEE, 0xE8, 0xFF}, {0x00, 0x00, 0x00, 0xA6}, 10);
+        }
+    }
+
     // The in-game menu's helpers; they start working with the stream (exec())
     m_QuickMenuManager->setServerCommandManager(m_ServerCommandManager);
     m_QuickMenuManager->setComputer(m_Computer);
     m_QuickMenuManager->setClipboardManager(m_ClipboardManager);
+    {
+        // The menu's head line: the app as the home names its cards
+        const QString kind = AppModel::kindOf(m_App);
+        const QString title = kind == QStringLiteral("desktop") ? tr("Bureau")
+                            : kind == QStringLiteral("playnite") ? QStringLiteral("Playnite Fullscreen") : m_App.name;
+        m_QuickMenuManager->setStreamInfo(m_Computer->name, title, kind);
+    }
 
     return true;
 }
