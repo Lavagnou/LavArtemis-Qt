@@ -335,16 +335,23 @@ FocusScope {
         onObjectRemoved: home.rev++
     }
 
+    // In the model's order, read from each delegate's `index`: a moved row (a game played on the host
+    // goes to the front) bumps `rev` from onRowsMoved before the Instantiator has reordered its objects,
+    // and a snapshot by objectAt(i) then kept the old order for good. Reading `index` also re-evaluates
+    // this binding when the indexes change.
     readonly property var apps: {
         rev
-        var list = []
+        var objs = []
         for (var i = 0; i < appReader.count; i++) {
             var o = appReader.objectAt(i)
-            if (o) list.push({name: o.name, running: o.running, cover: o.boxart, hidden: o.hidden, appid: o.appid,
-                              kind: o.kind, installed: o.installed, lastActivity: o.lastActivity,
-                              playtime: o.playtime, bg: o.background})
+            if (o) objs.push(o)
         }
-        return list
+        objs.sort(function(a, b) { return a.index - b.index })
+        return objs.map(function(o) {
+            return {name: o.name, running: o.running, cover: o.boxart, hidden: o.hidden, appid: o.appid,
+                    kind: o.kind, installed: o.installed, lastActivity: o.lastActivity,
+                    playtime: o.playtime, bg: o.background}
+        })
     }
     function appOfKind(kind) {
         for (var i = 0; i < apps.length; i++) if (apps[i].kind === kind && !apps[i].hidden) return apps[i]
