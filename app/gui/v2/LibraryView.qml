@@ -357,16 +357,30 @@ FocusScope {
         // games
         GridView {
             id: grid
-            x: (Theme.ludique ? 48 : (Theme.affiche ? 0 : 40)) * lib.k
-            y: Theme.affiche ? afficheHeader.height : (Theme.ludique ? 112 : 100) * lib.k
-            width: (Theme.ludique ? parent.width - 96 * lib.k : 780 * lib.k)
-            height: Theme.affiche ? Math.min(548 * lib.k, parent.height - y)
-                                  : parent.height - y - (Theme.ludique ? 120 : 64) * lib.k
+            // The box the games show in (the prototype's grid)...
+            readonly property real baseX: (Theme.ludique ? 48 : (Theme.affiche ? 0 : 40)) * lib.k
+            readonly property real baseY: Theme.affiche ? afficheHeader.height : (Theme.ludique ? 112 : 100) * lib.k
+            readonly property real baseW: (Theme.ludique ? parent.width - 96 * lib.k : 780 * lib.k)
+            readonly property real baseH: Theme.affiche ? Math.min(548 * lib.k, parent.height - baseY)
+                                                        : parent.height - baseY - (Theme.ludique ? 120 : 64) * lib.k
+            // ... and room around it for the focus ring (Ludique 4 + 5 px and x1.04, Affiche's ring2 8 px away): the
+            // view clips, a ring must never be cut (user's rule, 2026-11-26). Same cells, same place; Affiche's rows
+            // start at the window's left edge, where FocusRing keeps its ring2 inside the window.
+            readonly property real ringRoom: 16 * lib.k
+            readonly property real roomL: Theme.affiche ? 0 : ringRoom
+            x: baseX - roomL
+            y: baseY - ringRoom
+            width: baseW + roomL + ringRoom
+            height: baseH + 2 * ringRoom
+            leftMargin: roomL
+            rightMargin: ringRoom
+            topMargin: ringRoom
+            bottomMargin: ringRoom
             clip: true
             model: lib.shown
             boundsBehavior: Flickable.StopAtBounds
             readonly property real gap: (Theme.ludique ? 18 : (Theme.affiche ? 0 : 16)) * lib.k
-            cellWidth: width / lib.cols
+            cellWidth: baseW / lib.cols
             cellHeight: Theme.affiche ? 56 * lib.k : (Theme.ludique ? 196 : 174) * lib.k + gap
             ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
             delegate: Item {
@@ -457,9 +471,9 @@ FocusScope {
         }
         Text {
             visible: lib.list.length === 0 && lib.appModel !== null
-            x: grid.x
-            y: grid.y + 40 * lib.k
-            width: grid.width
+            x: grid.baseX
+            y: grid.baseY + 40 * lib.k
+            width: grid.baseW
             wrapMode: Text.WordWrap
             text: lib.all.length === 0 ? qsTr("Aucun jeu Playnite sur ce PC. Installe l’extension LavApollo Link dans Playnite pour voir ta bibliothèque ici.")
                                        : qsTr("Aucun jeu dans ce filtre.")

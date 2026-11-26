@@ -775,7 +775,10 @@ FocusScope {
             // ---- rows ----
             Flickable {
                 id: rowsFlick
-                x: navFlick.x + navFlick.width + 30
+                // 14 px more on the left than the rows need, the rows 14 px further in: the same place on screen,
+                // and room for a row's focus ring (Ludique 4 + 5 px x 1.25, Affiche's ring2 8 px away), which the
+                // list's clip cut by a pixel or two (user's rule, 2026-11-26: a ring is never cut)
+                x: navFlick.x + navFlick.width + 16
                 y: navFlick.y
                 width: parent.width - x - 40
                 height: parent.height - y - 20
@@ -786,9 +789,9 @@ FocusScope {
 
                 Column {
                     id: rowsColumn
-                    x: 8
+                    x: 22
                     y: 6
-                    width: rowsFlick.width - 30
+                    width: rowsFlick.width - 44
                     spacing: 18
 
                     Text {
