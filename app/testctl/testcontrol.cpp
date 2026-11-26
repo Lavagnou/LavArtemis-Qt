@@ -361,6 +361,27 @@ void TestControl::registerCommands()
     m_Dispatcher.add("joystick", bind(&TestControl::cmdJoystick));
     m_Dispatcher.add("screenshot", bind(&TestControl::cmdScreenshot));
     m_Dispatcher.add("windows", bind(&TestControl::cmdWindows));
+    // The focus rings on screen and what cuts them (UiProbe::focusRings): {rings: [...]}; "window" limits it
+    m_Dispatcher.add("focusrings", [this](const QJsonObject& args, QJsonObject& result, QString& error) {
+        QList<QQuickWindow*> windows = UiProbe::windows(mainWindow());
+        if (args.contains("window")) {
+            QQuickWindow* window = qtWindowArg(args, error);
+            if (window == nullptr) {
+                return false;
+            }
+            const int index = windows.indexOf(window);
+            QJsonArray rings = UiProbe::focusRings({window});
+            for (int i = 0; i < rings.size(); i++) {
+                QJsonObject ring = rings[i].toObject();
+                ring["window"] = index;
+                rings[i] = ring;
+            }
+            result["rings"] = rings;
+            return true;
+        }
+        result["rings"] = UiProbe::focusRings(windows);
+        return true;
+    });
     m_Dispatcher.add("state", bind(&TestControl::cmdState));
     m_Dispatcher.add("setting", bind(&TestControl::cmdSetting));
     m_Dispatcher.add("reset", bind(&TestControl::cmdReset));

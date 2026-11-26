@@ -100,4 +100,11 @@ void wheel(QQuickWindow* window, const QPointF& pos, const QPoint& angleDelta);
 // whether the StackView is still animating a push/pop (the old page may still be on screen).
 QString currentPage(QQuickWindow* window, QString* title = nullptr, bool* busy = nullptr);
 
+// Every focus ring on screen (a visible FocusRing item: v2/FocusRing.qml), its drawn box in scene
+// coordinates (the ring's rectangles reach past the item; the item's scale counts), and what cuts it:
+// the first ancestor that clips its children (clip: true, or layer.enabled: a layer renders its own
+// box only) and does not hold the whole ring, or the window. {window, x, y, w, h, owner (type and
+// objectName of the decorated item), cutBy: null or {type, objectName, x, y, w, h}}.
+QJsonArray focusRings(const QList<QQuickWindow*>& windows);
+
 }

@@ -518,4 +518,98 @@ QString currentPage(QQuickWindow* window, QString* title, bool* busy)
     return typeName(page);
 }
 
+namespace {
+
+QJsonObject rectJson(const QRectF& r)
+{
+    return QJsonObject{{"x", qRound(r.x())}, {"y", qRound(r.y())}, {"w", qRound(r.width())}, {"h", qRound(r.height())}};
+}
+
+bool clipsChildren(QQuickItem* item)
+{
+    if (item->clip()) {
+        return true;
+    }
+    // A layer renders the item's own box into a texture: whatever its children draw outside is lost
+    QObject* layer = qvariant_cast<QObject*>(item->property("layer"));
+    return layer != nullptr && layer->property("enabled").toBool();
+}
+
+bool holds(const QRectF& outer, const QRectF& inner)
+{
+    // half a pixel of slack for rounding
+    return inner.left() >= outer.left() - 0.5 && inner.top() >= outer.top() - 0.5 &&
+           inner.right() <= outer.right() + 0.5 && inner.bottom() <= outer.bottom() + 0.5;
+}
+
+void findRings(QQuickItem* item, QList<QQuickItem*>& out)
+{
+    if (!item->isVisible() || item->opacity() <= 0) {
+        return;
+    }
+    if (typeName(item) == QLatin1String("FocusRing")) {
+        out.append(item);
+        return;
+    }
+    const QList<QQuickItem*> children = item->childItems();
+    for (QQuickItem* child : children) {
+        findRings(child, out);
+    }
+}
+
+}
+
+QJsonArray focusRings(const QList<QQuickWindow*>& windows)
+{
+    QJsonArray list;
+    for (int w = 0; w < windows.size(); w++) {
+        QQuickWindow* window = windows[w];
+        QList<QQuickItem*> rings;
+        findRings(window->contentItem(), rings);
+        for (QQuickItem* ring : rings) {
+            QRectF box;
+            const QList<QQuickItem*> parts = ring->childItems();
+            for (QQuickItem* part : parts) {
+                if (part->isVisible() && part->opacity() > 0) {
+                    box = box.united(part->mapRectToScene(QRectF(0, 0, part->width(), part->height())));
+                }
+            }
+            if (box.isEmpty()) {
+                continue;
+            }
+            QJsonObject entry = rectJson(box);
+            entry["window"] = w;
+            QQuickItem* owner = ring->parentItem();
+            entry["owner"] = owner != nullptr ? typeName(owner) +
+                    (owner->objectName().isEmpty() ? QString() : " (" + owner->objectName() + ")") : QString();
+            QJsonValue cut = QJsonValue::Null;
+            for (QQuickItem* up = owner; up != nullptr; up = up->parentItem()) {
+                if (up == window->contentItem()) {
+                    break;
+                }
+                if (!clipsChildren(up)) {
+                    continue;
+                }
+                const QRectF bounds = up->mapRectToScene(QRectF(0, 0, up->width(), up->height()));
+                if (!holds(bounds, box)) {
+                    QJsonObject c = rectJson(bounds);
+                    c["type"] = typeName(up);
+                    c["objectName"] = up->objectName();
+                    cut = c;
+                    break;
+                }
+            }
+            if (cut.isNull() && !holds(QRectF(0, 0, window->width(), window->height()), box)) {
+                QJsonObject c = rectJson(QRectF(0, 0, window->width(), window->height()));
+                c["type"] = QStringLiteral("window");
+                c["objectName"] = QString();
+                cut = c;
+            }
+            entry["cutBy"] = cut;
+            list.append(entry);
+        }
+    }
+    return list;
+}
+
 }
