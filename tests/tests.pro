@@ -4,7 +4,7 @@ TEMPLATE = subdirs
 CONFIG += ordered
 
 contains(CONFIG, tests) {
-    SUBDIRS += vrr benchmark hostdisplay testguard updater artlink mapping profiles playtime
+    SUBDIRS += vrr benchmark hostdisplay testguard updater artlink mapping profiles playtime librarycount
 } else {
     message(Tests are disabled; rerun qmake with CONFIG+=tests)
 }

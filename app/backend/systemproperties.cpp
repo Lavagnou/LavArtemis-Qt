@@ -1,6 +1,7 @@
 #include "systemproperties.h"
 #include "utils.h"
 #include "playtimetext.h"
+#include "librarycounttext.h"
 
 #include <QGuiApplication>
 #include <QInputDevice>
@@ -298,6 +299,11 @@ QString SystemProperties::playtimeText(double seconds) const
 QString SystemProperties::playtimeShort(double seconds) const
 {
     return PlaytimeText::shortForm(static_cast<qint64>(seconds));
+}
+
+QString SystemProperties::libraryCountText(const QString& hostName, int shown, int visible, bool allFilter) const
+{
+    return LibraryCountText::line(hostName, shown, visible, allFilter);
 }
 
 void SystemProperties::startAsyncLoad()

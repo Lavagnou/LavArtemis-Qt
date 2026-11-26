@@ -224,6 +224,7 @@ SOURCES += \
     backend/quickmenumanager.cpp \
     backend/hostdisplayfit.cpp \
     backend/playtimetext.cpp \
+    backend/librarycounttext.cpp \
     backend/keymacromanager.cpp \
     backend/benchmark/benchmarktypes.cpp \
     backend/benchmark/benchmarkscoring.cpp \
@@ -296,6 +297,7 @@ HEADERS += \
     backend/quickmenumanager.h \
     backend/hostdisplayfit.h \
     backend/playtimetext.h \
+    backend/librarycounttext.h \
     backend/keymacromanager.h \
     backend/benchmark/presenthistogram.h \
     backend/benchmark/benchmarktypes.h \
