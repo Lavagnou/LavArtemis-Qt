@@ -34,6 +34,12 @@ int main()
     expect(LibraryCountText::line(pc, 12, 265, false), "ATLAS-PC · 12 affichés sur 265", "partOfTheGames");
     expect(LibraryCountText::line(pc, 1, 265, false), "ATLAS-PC · 1 affiché sur 265", "oneOfTheGames");
 
+    // « Masqués »: the hidden games it lists, never « N affichés sur M » (M counts no hidden game)
+    expect(LibraryCountText::line(pc, 1, 3, false, true), "ATLAS-PC · 1 jeu masqué", "hiddenOne");
+    expect(LibraryCountText::line(pc, 3, 265, false, true), "ATLAS-PC · 3 jeux masqués", "hiddenSeveral");
+    expect(LibraryCountText::line(pc, 3, 3, false, true), "ATLAS-PC · 3 jeux masqués", "hiddenAsManyAsVisible");
+    expect(LibraryCountText::line(pc, 0, 265, false, true), "ATLAS-PC · aucun jeu masqué", "hiddenNone");
+
     if (failures == 0) {
         std::printf("tst_librarycount: all passed\n");
     }

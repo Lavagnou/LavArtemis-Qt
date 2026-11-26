@@ -91,9 +91,10 @@ FocusScope {
     readonly property bool windowed: Theme.affiche && (Theme.input === "pad" || Theme.input === "keys")
     readonly property int winStart: windowed ? Math.max(0, Math.min(fi - 3, list.length - 8)) : 0
     readonly property var shown: windowed ? list.slice(winStart, winStart + 8) : list
-    // Hidden games never count: a filter that lists every visible game says « N jeux »
-    // (backend/librarycounttext, tests/librarycount). Affiche's header shows the same line in capitals.
-    readonly property string countLine: SystemProperties.libraryCountText(hostName, list.length, visibleGames.length, filter === 0)
+    // Hidden games never count: a filter that lists every visible game says « N jeux »; « Masqués » says
+    // « N jeux masqués » (backend/librarycounttext, tests/librarycount). Affiche's header shows the same line
+    // in capitals.
+    readonly property string countLine: SystemProperties.libraryCountText(hostName, list.length, visibleGames.length, filter === 0, filter === 3)
 
     // ---- focus ---------------------------------------------------------------------------------------
     property string focusId: "lg0"

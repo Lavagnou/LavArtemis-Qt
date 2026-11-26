@@ -51,9 +51,10 @@ public:
     // (backend/playtimetext, tests/playtime)
     Q_INVOKABLE QString playtimeText(double seconds) const;
     Q_INVOKABLE QString playtimeShort(double seconds) const;
-    // The library's count: « ATLAS-PC · 265 jeux » / « 12 affichés sur 265 » / « aucun jeu »
-    // (backend/librarycounttext, tests/librarycount)
-    Q_INVOKABLE QString libraryCountText(const QString& hostName, int shown, int visible, bool allFilter) const;
+    // The library's count: « ATLAS-PC · 265 jeux » / « 12 affichés sur 265 » / « aucun jeu », and on
+    // « Masqués »: « 3 jeux masqués » (backend/librarycounttext, tests/librarycount)
+    Q_INVOKABLE QString libraryCountText(const QString& hostName, int shown, int visible, bool allFilter,
+                                         bool hiddenFilter = false) const;
 
     Q_INVOKABLE void startAsyncLoad();
     Q_INVOKABLE void waitForAsyncLoad();

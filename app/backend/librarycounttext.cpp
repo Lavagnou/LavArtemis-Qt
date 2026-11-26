@@ -4,8 +4,15 @@
 
 namespace LibraryCountText {
 
-QString line(const QString& hostName, int shown, int visible, bool allFilter)
+QString line(const QString& hostName, int shown, int visible, bool allFilter, bool hiddenFilter)
 {
+    if (hiddenFilter) {
+        if (shown <= 0) {
+            return QCoreApplication::translate("LibraryCountText", "%1 · aucun jeu masqué").arg(hostName);
+        }
+        return shown == 1 ? QCoreApplication::translate("LibraryCountText", "%1 · 1 jeu masqué").arg(hostName)
+                          : QCoreApplication::translate("LibraryCountText", "%1 · %2 jeux masqués").arg(hostName).arg(shown);
+    }
     if (shown <= 0) {
         return QCoreApplication::translate("LibraryCountText", "%1 · aucun jeu").arg(hostName);
     }

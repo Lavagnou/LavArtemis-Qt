@@ -301,9 +301,10 @@ QString SystemProperties::playtimeShort(double seconds) const
     return PlaytimeText::shortForm(static_cast<qint64>(seconds));
 }
 
-QString SystemProperties::libraryCountText(const QString& hostName, int shown, int visible, bool allFilter) const
+QString SystemProperties::libraryCountText(const QString& hostName, int shown, int visible, bool allFilter,
+                                           bool hiddenFilter) const
 {
-    return LibraryCountText::line(hostName, shown, visible, allFilter);
+    return LibraryCountText::line(hostName, shown, visible, allFilter, hiddenFilter);
 }
 
 void SystemProperties::startAsyncLoad()
