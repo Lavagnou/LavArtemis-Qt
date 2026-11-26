@@ -7,6 +7,10 @@ class ComputerModel : public QAbstractListModel
 {
     Q_OBJECT
 
+    // Mes PC (prototype V8-36): the PCs that answer first, then the others, each group by name.
+    // Off (the home page's PC switcher): by name only.
+    Q_PROPERTY(bool onlineFirst READ onlineFirst WRITE setOnlineFirst)
+
     enum Roles
     {
         NameRole = Qt::UserRole,
@@ -37,7 +41,10 @@ class ComputerModel : public QAbstractListModel
         SessionStartedRole,
         PlayniteGameStartedRole,
         // Other devices streaming from this host now (« Rejoindre »), 0 when none or unknown
-        OtherClientsRole
+        OtherClientsRole,
+        // The mode of the display the host shows (serverinfo CurrentDisplayWidth/Height/RefreshRate,
+        // LavApollo): « 2560 × 1600 · 120 Hz », "" when unknown or offline (details, « Écran du PC »)
+        HostDisplayRole
     };
 
 public:
@@ -64,6 +71,9 @@ public:
 
     Q_INVOKABLE void renameComputer(int computerIndex, QString name);
 
+    bool onlineFirst() const { return m_OnlineFirst; }
+    void setOnlineFirst(bool onlineFirst);
+
 
 signals:
     // uuid of the host that was paired (or not); error undefined on success
@@ -79,6 +89,10 @@ private slots:
     void handlePairingCompleted(NvComputer* computer, QString error);
 
 private:
+    // ComputerManager's list (by name), online PCs first when onlineFirst
+    QVector<NvComputer*> orderedComputers() const;
+
     QVector<NvComputer*> m_Computers;
-    ComputerManager* m_ComputerManager;
+    ComputerManager* m_ComputerManager = nullptr;
+    bool m_OnlineFirst = false;
 };

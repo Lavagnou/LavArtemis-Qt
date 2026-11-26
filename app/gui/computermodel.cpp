@@ -7,6 +7,8 @@
 #include <QPointer>
 #include <QCoreApplication>
 
+#include <algorithm>
+
 ComputerModel::ComputerModel(QObject* object)
     : QAbstractListModel(object) {}
 
@@ -20,7 +22,43 @@ void ComputerModel::initialize(ComputerManager* computerManager)
     connect(m_ComputerManager, &ComputerManager::computerRemoved,
             this, &ComputerModel::handleComputerRemoved);
 
-    m_Computers = m_ComputerManager->getComputers();
+    m_Computers = orderedComputers();
+}
+
+QVector<NvComputer*> ComputerModel::orderedComputers() const
+{
+    QVector<NvComputer*> computers = m_ComputerManager->getComputers();
+    if (!m_OnlineFirst) {
+        return computers;
+    }
+
+    // Read each state once (under its lock), then a stable sort keeps the name order in a group
+    QVector<QPair<bool, NvComputer*>> states;
+    for (NvComputer* computer : computers) {
+        QReadLocker lock(&computer->lock);
+        states.append({computer->state == NvComputer::CS_ONLINE, computer});
+    }
+    std::stable_sort(states.begin(), states.end(), [](const QPair<bool, NvComputer*>& a, const QPair<bool, NvComputer*>& b) {
+        return a.first && !b.first;
+    });
+    computers.clear();
+    for (const auto& state : states) {
+        computers.append(state.second);
+    }
+    return computers;
+}
+
+void ComputerModel::setOnlineFirst(bool onlineFirst)
+{
+    if (m_OnlineFirst == onlineFirst) {
+        return;
+    }
+    m_OnlineFirst = onlineFirst;
+    if (m_ComputerManager != nullptr) {
+        beginResetModel();
+        m_Computers = orderedComputers();
+        endResetModel();
+    }
 }
 
 QVariant ComputerModel::data(const QModelIndex& index, int role) const
@@ -94,6 +132,14 @@ QVariant ComputerModel::data(const QModelIndex& index, int role) const
         return computer->playniteGameName.isEmpty() ? 0 : computer->playniteGameStartedAt;
     case OtherClientsRole:
         return computer->state == NvComputer::CS_ONLINE ? computer->otherClientsConnected : 0;
+    case HostDisplayRole:
+        if (computer->state != NvComputer::CS_ONLINE || computer->currentDisplayWidth <= 0 || computer->currentDisplayHeight <= 0) {
+            return QString();
+        }
+        return computer->currentDisplayRefreshRate > 0
+                ? QString::fromUtf8("%1 × %2 · %3 Hz").arg(computer->currentDisplayWidth).arg(computer->currentDisplayHeight)
+                                                      .arg(computer->currentDisplayRefreshRate)
+                : QString::fromUtf8("%1 × %2").arg(computer->currentDisplayWidth).arg(computer->currentDisplayHeight);
     default:
         return QVariant();
     }
@@ -133,6 +179,7 @@ QHash<int, QByteArray> ComputerModel::roleNames() const
     names[SessionStartedRole] = "sessionStartedAt";
     names[PlayniteGameStartedRole] = "playniteGameStartedAt";
     names[OtherClientsRole] = "otherClients";
+    names[HostDisplayRole] = "hostDisplay";
 
     return names;
 }
@@ -230,7 +277,7 @@ void ComputerModel::handlePairingCompleted(NvComputer* computer, QString error)
 
 void ComputerModel::handleComputerStateChanged(NvComputer* computer)
 {
-    QVector<NvComputer*> newComputerList = m_ComputerManager->getComputers();
+    QVector<NvComputer*> newComputerList = orderedComputers();
 
     // Reset the model if the structural layout of the list has changed
     if (m_Computers != newComputerList) {

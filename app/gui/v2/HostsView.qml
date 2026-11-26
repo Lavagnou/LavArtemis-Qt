@@ -33,6 +33,8 @@ FocusScope {
 
     function createModel() {
         var model = Qt.createQmlObject('import ComputerModel 1.0; ComputerModel {}', hostsPage, '')
+        // The prototype's order: the PCs that answer first (a card moves when its PC comes online)
+        model.onlineFirst = true
         model.initialize(ComputerManager)
         model.pairingCompleted.connect(pairingComplete)
         model.wakeCompleted.connect(wakeComplete)
