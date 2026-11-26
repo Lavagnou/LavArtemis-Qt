@@ -10,6 +10,8 @@ Item {
     property real radius: 0
     property color bg: Theme.surface
     property real k: 1.25
+    // The prototype's BLUR (blur 28 px, saturate 1.2): a cover standing in for a background
+    property bool blurred: false
 
     readonly property bool hasCover: img.status === Image.Ready && String(source).indexOf("no_app_image") < 0
 
@@ -21,8 +23,15 @@ Item {
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
         visible: face.hasCover
-        layer.enabled: face.radius > 0 && visible && Theme.effects
-        layer.effect: MultiEffect { maskEnabled: true; maskSource: mask }
+        layer.enabled: (face.radius > 0 || face.blurred) && visible && Theme.effects
+        layer.effect: MultiEffect {
+            maskEnabled: face.radius > 0
+            maskSource: mask
+            blurEnabled: face.blurred
+            blurMax: 64
+            blur: face.blurred ? 1.0 : 0
+            saturation: face.blurred ? 0.2 : 0
+        }
     }
     Rectangle { id: mask; anchors.fill: parent; radius: face.radius; visible: false; layer.enabled: true }
     Text {

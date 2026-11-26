@@ -40,7 +40,6 @@ Item {
                 Row {
                     spacing: 8 * lay.k
                     Text { text: qsTr("Salut !"); color: lay.mutedc; font.family: "Bricolage Grotesque"; font.weight: Font.DemiBold; font.pixelSize: 16 * lay.k; anchors.verticalCenter: parent.verticalCenter }
-                    DevChip { k: lay.k; anchors.verticalCenter: parent.verticalCenter }
                     UpdateButton { k: lay.k; anchors.verticalCenter: parent.verticalCenter }
                 }
                 Text {

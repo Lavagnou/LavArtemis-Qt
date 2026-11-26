@@ -137,7 +137,7 @@ FocusScope {
         case "stats": quickMenuManager.executeAction("toggle_stats"); closeMenu(); return
         case "mic":
             if (!quickMenuManager.microphoneActive()) {
-                closeAndSay(qsTr("Le micro n’est pas envoyé : active « Envoyer mon micro au PC distant » dans Réglages › Audio"))
+                closeAndSay(qsTr("Le micro n’est pas envoyé : active « Envoyer mon micro au PC hôte » dans Réglages › Audio"))
                 return
             }
             quickMenuManager.executeAction("toggle_microphone"); closeMenu(); return

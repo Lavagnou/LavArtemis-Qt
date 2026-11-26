@@ -1,6 +1,5 @@
 singleton Theme 1.0 Theme.qml
 AppCard 1.0 AppCard.qml
-AppMenu 1.0 AppMenu.qml
 CoverTile 1.0 CoverTile.qml
 HomeView 1.0 HomeView.qml
 HostsView 1.0 HostsView.qml
@@ -34,7 +33,6 @@ HomeTile 1.0 HomeTile.qml
 HeaderButton 1.0 HeaderButton.qml
 HomeHeaderButtons 1.0 HomeHeaderButtons.qml
 ThemeLogo 1.0 ThemeLogo.qml
-DevChip 1.0 DevChip.qml
 DashedRect 1.0 DashedRect.qml
 CoverFace 1.0 CoverFace.qml
 UpdateButton 1.0 UpdateButton.qml
@@ -45,3 +43,4 @@ HomeLudique 1.0 HomeLudique.qml
 DetailsView 1.0 DetailsView.qml
 LibraryView 1.0 LibraryView.qml
 MouseMoves 1.0 MouseMoves.qml
+SegueScreen 1.0 SegueScreen.qml

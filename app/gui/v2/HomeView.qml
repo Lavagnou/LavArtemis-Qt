@@ -25,7 +25,7 @@ FocusScope {
     // ---- hosts ---------------------------------------------------------------------------
     property ComputerModel computerModel: createComputerModel()
     // [{name, online, paired, busy, uuid, wakeable, statusUnknown, serverSupported, serverVersion, thisPc,
-    //   sessionStartedAt, otherClients}]
+    //   sessionStartedAt, otherClients, hostDisplay}]
     // A snapshot, rebuilt 50 ms after the model changes: a host is always found again by its uuid
     property var hosts: []
     property int hostPos: 0          // position in `hosts` of the shown host
@@ -60,6 +60,7 @@ FocusScope {
             required property bool thisPc
             required property real sessionStartedAt
             required property int otherClients
+            required property string hostDisplay
         }
         onObjectAdded: refreshHostsLater.restart()
         onObjectRemoved: refreshHostsLater.restart()
@@ -93,7 +94,7 @@ FocusScope {
                 list.push({name: o.name, online: o.online, paired: o.paired, busy: o.busy, uuid: o.uuid,
                            wakeable: o.wakeable, statusUnknown: o.statusUnknown,
                            serverSupported: o.serverSupported, serverVersion: o.serverVersion, thisPc: o.thisPc,
-                           sessionStartedAt: o.sessionStartedAt, otherClients: o.otherClients})
+                           sessionStartedAt: o.sessionStartedAt, otherClients: o.otherClients, hostDisplay: o.hostDisplay})
             }
         }
         // Online hosts first, keeping the model order otherwise
@@ -355,8 +356,8 @@ FocusScope {
     readonly property string libTotal: games.length === 1 ? qsTr("1 jeu") : qsTr("%1 jeux").arg(games.length)
 
     function hoursText(g) {
-        if (!g || !(g.playtime > 0)) return qsTr("Jamais lancé")
-        return qsTr("%1 h jouées").arg(Math.max(1, Math.round(g.playtime / 3600)))
+        // « 25 min jouées » under an hour (decision of 2026-11-26), « 3 h jouées », « Jamais lancé »
+        return SystemProperties.playtimeText(g ? g.playtime : 0)
     }
     // « joué il y a 3 jours » (prototype G[].last): lastActivity in ms on this PC's clock
     function lastPlayedText(ms) {
@@ -544,7 +545,9 @@ FocusScope {
     function act(id) {
         if (id === "nh") return openHosts()
         if (id === "ns") return openSettings()
-        if (id === "resume") return launchTarget({appid: runningId, title: runningTitle, isGame: false})
+        // The segue shows what plays (prototype « playing »): the game inside Playnite, its cover and background
+        if (id === "resume") return launchTarget({appid: runningId, title: stageTitle, isGame: false,
+                                                  cover: runningGame ? runningGame.cover : "", bg: runningGame ? runningGame.bg : ""})
         if (id === "squit") return askQuitApp()
         if (id === "wake") return cardAct()
         if (id === "lib") return openLibrary()
@@ -668,7 +671,7 @@ FocusScope {
         if (a === "launch") return launchTarget(t)
         if (a === "askRelaunch") return askRelaunch(t)
         if (a === "askQuit") return askQuitApp()
-        if (a === "relaunch") return quitRunning(t.appid, t.title)
+        if (a === "relaunch") return quitRunning(t.appid, t.title, t, qsTr("Session relancée : %1").arg(screensText()))
         if (a === "quitApp") return quitRunning()
         if (a === "details") return openDetails(t)
         if (a === "export") {
@@ -699,29 +702,46 @@ FocusScope {
         // What runs already (Bureau after « Déconnecter », the game inside Playnite) is resumed:
         // same app id, or the running Playnite game picked from its cover
         var resumes = isRunningTarget(t) || inside
-        if (sessionRunning && !resumes) return quitRunning(appid, t.title)
+        if (sessionRunning && !resumes) return quitRunning(appid, t.title, t)
         if (isRunningTarget(t) && t.isGame && runningKind === "playnite") appid = runningId
         // By id, hidden apps included: Reprendre on a hidden running game works too
         var session = appModel.createSessionForApp(appid)
         if (!session) return showError(qsTr("%1 n'est plus dans la liste des applis de %2.").arg(t.title).arg(host.name))
         var component = Qt.createComponent("../StreamSegue.qml")
-        stackView.push(component.createObject(stackView, {
-            "appName": t.title,
-            "session": session,
-            "isResume": resumes
-        }))
+        var props = segueProps(t, isRunningTarget(t)
+                               ? (otherDevice ? qsTr("Session rejointe") : qsTr("Session reprise"))
+                               : inside ? qsTr("%1 lancé dans Playnite : le stream continue").arg(t.title)
+                               : qsTr("Connecté à %1").arg(host.name))
+        props.appName = t.title
+        props.session = session
+        // The prototype's segue: « Reprise sur » / « Connexion à la session de » for what runs,
+        // « Lancement sur » for the rest (a game started inside Playnite included)
+        props.isResume = isRunningTarget(t)
+        stackView.push(component.createObject(stackView, props))
+    }
+    // The segue's picture and host, the toast said once the stream is on screen, and the way home
+    function segueProps(t, toast) {
+        return {"hostName": host ? host.name : "", "coverSource": t && t.cover ? t.cover : "",
+                "bgSource": t && t.bg ? t.bg : "", "joining": otherDevice, "startToast": toast, "home": home}
     }
     // kept for HostsView / CliPair callers
     function launch(row, name, appid) { launchTarget({appid: appid, title: name, isGame: false}) }
 
-    function quitRunning(thenAppId, thenName) {
+    // thenTarget: what starts once the running app is closed (« Fermer X et lancer », relaunch)
+    function quitRunning(thenAppId, thenName, thenTarget, thenToast) {
         if (!appModel) return
         var model = appModel
         var component = Qt.createComponent("../QuitSegue.qml")
-        var params = {"appName": runningTitle, "quitRunningAppFn": function() { model.quitRunningApp() }}
+        var params = {"appName": stageTitle, "quitRunningAppFn": function() { model.quitRunningApp() },
+                      "hostName": host ? host.name : "", "home": home,
+                      "coverSource": runningGame && runningGame.cover ? runningGame.cover : "",
+                      "bgSource": runningGame && runningGame.bg ? runningGame.bg : ""}
         var nextSession = thenAppId ? appModel.createSessionForApp(thenAppId) : null
         params.nextAppName = nextSession ? thenName : null
         params.nextSession = nextSession
+        if (nextSession) {
+            params.nextSegueProps = segueProps(thenTarget || null, thenToast || qsTr("Connecté à %1").arg(host ? host.name : ""))
+        }
         stackView.push(component.createObject(stackView, params))
     }
 

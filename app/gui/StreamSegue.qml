@@ -6,10 +6,23 @@ import BenchmarkRunner 1.0
 import SdlGamepadKeyNavigation 1.0
 import Session 1.0
 import SystemProperties 1.0
+import "v2"
 
 Item {
     property Session session
     property string appName
+    // The prototype's segue (v2/SegueScreen): the picture, « Lancement sur ATLAS-PC… », the tip
+    property string hostName: session ? session.hostName : ""
+    property url coverSource: ""
+    property url bgSource: ""
+    // Another device streams from this host (« Rejoindre »): « Connexion à la session de … »
+    property bool joining: false
+    // Said over the stream once it is on screen (« Connecté à ATLAS-PC », « Session reprise »…)
+    property string startToast: ""
+    // The home page (HomeView): the stream ends there, as the prototype (ingame → home), with
+    // « Session terminée » or « Déconnecté : la session continue sur le PC »
+    property var home: null
+    property bool quitting: false
     property string stageText : isRestart ? qsTr("Host display changed: reconnecting…") :
                                 isResume ? qsTr("Resuming %1...").arg(appName) :
                                            qsTr("Starting %1...").arg(appName)
@@ -44,9 +57,7 @@ Item {
     {
         // Hide the UI contents so the user doesn't
         // see them briefly when we pop off the StackView
-        stageSpinner.visible = false
-        stageLabel.visible = false
-        hintText.visible = false
+        segueScreen.visible = false
 
         // Hide the window now that streaming has begun
         window.visible = false
@@ -61,9 +72,12 @@ Item {
 
     function quitStarting()
     {
+        quitting = true
         // Avoid the push transition animation
         var component = Qt.createComponent("QuitSegue.qml")
-        stackView.replace(stackView.currentItem, component.createObject(stackView, {"appName": appName}), StackView.Immediate)
+        stackView.replace(stackView.currentItem, component.createObject(stackView, {"appName": appName, "hostName": hostName,
+                                                                                    "coverSource": coverSource, "bgSource": bgSource}),
+                          StackView.Immediate)
 
         // Show the Qt window again to show quit segue
         window.visible = true
@@ -80,6 +94,10 @@ Item {
                                                    "session": session.createRestartSession(),
                                                    "isResume": true,
                                                    "isRestart": true,
+                                                   "hostName": hostName,
+                                                   "coverSource": coverSource,
+                                                   "bgSource": bgSource,
+                                                   "home": home,
                                                    "quitAfter": quitAfter,
                                                    "benchmarkMode": benchmarkMode
                                                })
@@ -96,9 +114,17 @@ Item {
         // Re-enable GUI gamepad usage now
         SdlGamepadKeyNavigation.enable()
 
-        // Pop the StreamSegue off the stack if this is a GUI-based app launch
+        // Pop the StreamSegue off the stack if this is a GUI-based app launch: back to the home page
+        // when it launched the stream (from the library or the details too, as the prototype)
         if (!quitAfter) {
-            stackView.pop()
+            if (home && stackView.find(function(item) { return item === home }) !== null) {
+                stackView.pop(home)
+                if (!streamSegueErrorDialog.text && !benchmarkMode) {
+                    home.say(quitting ? qsTr("Session terminée") : qsTr("Déconnecté : la session continue sur le PC"))
+                }
+            } else {
+                stackView.pop()
+            }
         }
 
         if (quitAfter && !streamSegueErrorDialog.text) {
@@ -147,21 +173,8 @@ Item {
         // since it may currently be using the SDL video subsystem
         SystemProperties.waitForAsyncLoad()
 
-        // Kick off the stream
-        spinnerTimer.start()
+        // Kick off the stream (the segue screen shows from the start: no spinner to delay)
         streamLoader.active = true
-    }
-
-    Timer {
-        id: spinnerTimer
-
-        // Display the spinner appearance a bit to allow us to reach
-        // the code in Session.exec() that pumps the event loop.
-        // If we display it immediately, it will briefly hang in the
-        // middle of the animation on Windows, which looks very
-        // obviously broken.
-        interval: 100
-        onTriggered: stageSpinner.visible = true
     }
 
     Timer {
@@ -187,8 +200,12 @@ Item {
             // in the hintText control itself to synchronize
             // with Session.exec() which requires no concurrent
             // gamepad usage.
-            hintText.text = qsTr("Tip:") + " " + qsTr("Press %1 to disconnect your session").arg(SdlGamepadKeyNavigation.getConnectedGamepads() > 0 ?
-                                                  qsTr("Start+Select+L1+R1") : qsTr("Ctrl+Alt+Shift+Q"))
+            segueScreen.tip = Theme.input === "pad" || SdlGamepadKeyNavigation.getConnectedGamepads() > 0
+                    ? qsTr("Astuce : Start + Select + LB + RB te déconnecte pendant le stream")
+                    : qsTr("Astuce : Ctrl + Alt + Maj + Q te déconnecte pendant le stream")
+            if (!benchmarkMode && !isRestart) {
+                session.startToast = startToast
+            }
 
             // Stop GUI gamepad usage now
             SdlGamepadKeyNavigation.disable()
@@ -235,35 +252,15 @@ Item {
         sourceComponent: Item {}
     }
 
-    Row {
-        anchors.centerIn: parent
-        spacing: 5
-
-        BusyIndicator {
-            id: stageSpinner
-            running: visible
-            visible: false
-        }
-
-        Label {
-            id: stageLabel
-            height: stageSpinner.height
-            text: stageText
-            font.pointSize: 20
-            verticalAlignment: Text.AlignVCenter
-
-            wrapMode: Text.Wrap
-        }
-    }
-
-    Label {
-        id: hintText
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 50
-        anchors.horizontalCenter: parent.horizontalCenter
-        font.pointSize: 18
-        verticalAlignment: Text.AlignVCenter
-
-        wrapMode: Text.Wrap
+    SegueScreen {
+        id: segueScreen
+        anchors.fill: parent
+        title: appName
+        cover: coverSource
+        background: bgSource
+        line: isRestart ? stageText
+            : isResume && joining ? qsTr("Connexion à la session de %1…").arg(hostName)
+            : isResume ? qsTr("Reprise sur %1…").arg(hostName)
+            : qsTr("Lancement sur %1…").arg(hostName)
     }
 }

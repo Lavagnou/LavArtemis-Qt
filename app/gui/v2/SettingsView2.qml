@@ -390,10 +390,10 @@ FocusScope {
         for (var i = 0; i < 16; i++) {
             var screen = SystemProperties.getNativeResolution(i)
             if (screen.width === 0) break
-            res.push({text: qsTr("Natif"), w: screen.width, h: screen.height})
+            res.push({text: qsTr("Native"), w: screen.width, h: screen.height})
             // The notch is a macOS thing: elsewhere the safe area is the whole screen
             var safe = SystemProperties.getSafeAreaResolution(i)
-            if (Qt.platform.os === "osx" && safe.width > 0) res.push({text: qsTr("Natif sans encoche"), w: safe.width, h: safe.height})
+            if (Qt.platform.os === "osx" && safe.width > 0) res.push({text: qsTr("Native sans encoche"), w: safe.width, h: safe.height})
         }
         for (var j = 0; j < 16; j++) {
             var rate = SystemProperties.getRefreshRate(j)
@@ -415,7 +415,7 @@ FocusScope {
         }
         for (var n = 0; n < nativeResolutions.length; n++) {
             var r = nativeResolutions[n]
-            if (!has(r.w, r.h)) list.push({text: r.text + " (" + r.w + " × " + r.h + ")", w: r.w, h: r.h})
+            if (!has(r.w, r.h)) list.push({text: r.text + " · " + r.w + " × " + r.h, w: r.w, h: r.h})
         }
         // Resolutions over the decoder's maximum are not offered
         var maxPixels = SystemProperties.maximumResolution.width * SystemProperties.maximumResolution.height
@@ -468,7 +468,7 @@ FocusScope {
     }
 
     readonly property var languageOptions: [
-        {text: qsTr("Automatique"), value: StreamingPreferences.LANG_AUTO},
+        {text: qsTr("Automatique (français)"), value: StreamingPreferences.LANG_AUTO},
         {text: "Deutsch", value: StreamingPreferences.LANG_DE},
         {text: "English", value: StreamingPreferences.LANG_EN},
         {text: "Français", value: StreamingPreferences.LANG_FR},
@@ -536,7 +536,7 @@ FocusScope {
         function onNoUpdateAvailable(currentVersion) {
             if (!settingsPage.updateChecking) return
             settingsPage.updateChecking = false
-            settingsPage.updateStatus = qsTr("LavArtemis %1 est à jour.").arg(currentVersion)
+            settingsPage.updateStatus = qsTr("LavArtemis est à jour (%1).").arg(currentVersion)
         }
         function onUpdateCheckFailed(error) {
             if (!settingsPage.updateChecking) return
@@ -811,7 +811,7 @@ FocusScope {
                             objectName: "set:activeProfile"
                             label: qsTr("Profil actif")
                             // What stays common: ArtemisSettings, plus ProfileManager::isGlobalKey()
-                            description: qsTr("Un jeu de réglages de stream par usage, par exemple à la maison et à distance. Ce qui tient à ce PC reste commun : langue, apparence, micro et tampon audio, presse-papiers, recherche des PC, mises à jour.")
+                            description: qsTr("Un jeu de réglages de stream par usage, par exemple à la maison et à distance. Ce qui tient à cet appareil reste commun : langue, apparence, micro, mises à jour.")
                             descriptionLines: 3
                             dropdown: true
                             options: settingsPage.profileOptions
@@ -877,7 +877,7 @@ FocusScope {
                         SettingChoice {
                             objectName: "set:resolution"
                             label: qsTr("Résolution")
-                            description: qsTr("Plus haute, l'image est plus nette, mais le PC distant et le réseau travaillent plus.")
+                            description: qsTr("Taille de l’image demandée au PC. Avec l’écran virtuel, le PC crée un écran à cette taille.")
                             dropdown: true
                             options: settingsPage.resolutionOptions
                             value: StreamingPreferences.width + "x" + StreamingPreferences.height
@@ -894,7 +894,7 @@ FocusScope {
                         SettingChoice {
                             objectName: "set:fps"
                             label: qsTr("Images par seconde")
-                            description: qsTr("Idéalement la fréquence de ton écran.")
+                            description: qsTr("Nombre d’images envoyées chaque seconde.")
                             segmentMax: 6
                             options: settingsPage.fpsOptions
                             value: settingsPage.fractionalRate ? "current" : StreamingPreferences.fps
@@ -911,7 +911,7 @@ FocusScope {
                             enabled: !SystemProperties.rendererAlwaysFullScreen && !settingsPage.vrrForced
                             description: settingsPage.vrrForced
                                          ? qsTr("La VRR impose « Sans bordure » ; ton choix revient pour les sessions sans VRR.")
-                                         : qsTr("Recommandé ici : %1. « Sans bordure » facilite Alt+Tab et les captures d'écran.")
+                                         : qsTr("La fenêtre sans bordure garde Alt+Tab instantané.")
                                            .arg(settingsPage.windowModeName(StreamingPreferences.recommendedFullScreenMode))
                             options: [
                                 {text: qsTr("Plein écran"), value: StreamingPreferences.WM_FULLSCREEN},
@@ -926,7 +926,7 @@ FocusScope {
 
                         SettingToggle {
                             objectName: "set:enableVsync"
-                            label: qsTr("Synchronisation verticale (V-Sync)")
+                            label: qsTr("Synchronisation verticale")
                             description: qsTr("Évite les déchirures d'image ; la couper réduit un peu la latence.")
                             checked: StreamingPreferences.enableVsync
                             onToggled: (v) => { StreamingPreferences.enableVsync = v; settingsPage.persist() }
@@ -934,7 +934,7 @@ FocusScope {
 
                         SettingToggle {
                             objectName: "set:framePacing"
-                            label: qsTr("Régularité des images (frame pacing)")
+                            label: qsTr("Frame Pacing")
                             description: StreamingPreferences.enableVsync
                                          ? qsTr("Retient les images arrivées trop tôt pour éviter les micro-saccades.")
                                          : qsTr("Nécessite la V-Sync.")
@@ -1034,7 +1034,7 @@ FocusScope {
                         SettingSlider {
                             objectName: "set:bitrateKbps"
                             label: qsTr("Débit vidéo")
-                            description: qsTr("Baisse-le si le réseau est lent, monte-le pour une image plus nette.")
+                            description: qsTr("Suit la résolution et les images/s tant que tu ne le changes pas.")
                             from: settingsPage.bitrateMin
                             to: settingsPage.bitrateMax
                             stepSize: 500
@@ -1042,6 +1042,7 @@ FocusScope {
                             curve: 3
                             value: StreamingPreferences.bitrateKbps
                             valueText: qsTr("%1 Mbit/s").arg(settingsPage.mbps(StreamingPreferences.bitrateKbps))
+                                       + (StreamingPreferences.autoAdjustBitrate ? " · " + qsTr("auto") : "")
                             onMoved: (v) => {
                                 StreamingPreferences.bitrateKbps = v
                                 StreamingPreferences.autoAdjustBitrate = false
@@ -1185,7 +1186,7 @@ FocusScope {
                             objectName: "set:videoDecoderSelection"
                             label: qsTr("Décodage vidéo")
                             expert: true
-                            description: qsTr("Laisse « Auto », sauf souci avec le décodeur de ce PC.")
+                            description: qsTr("Le décodage logiciel ne sert qu’en cas de souci de pilote.")
                             options: [
                                 {text: qsTr("Auto"), value: StreamingPreferences.VDS_AUTO},
                                 {text: qsTr("Logiciel"), value: StreamingPreferences.VDS_FORCE_SOFTWARE},
@@ -1216,7 +1217,7 @@ FocusScope {
                         SettingChoice {
                             objectName: "set:audioConfig"
                             label: qsTr("Canaux audio")
-                            description: qsTr("Ce que ton casque ou tes enceintes savent restituer.")
+                            description: qsTr("À choisir selon ton casque ou tes enceintes.")
                             options: [
                                 {text: qsTr("Stéréo"), value: StreamingPreferences.AC_STEREO},
                                 {text: "5.1", value: StreamingPreferences.AC_51_SURROUND},
@@ -1229,7 +1230,7 @@ FocusScope {
                         SettingToggle {
                             objectName: "set:playAudioOnHost"
                             label: qsTr("Couper le son du PC distant")
-                            description: qsTr("Le son ne sort que d'ici. Relance le jeu en cours pour que ça s'applique.")
+                            description: qsTr("Le son est coupé sur le PC hôte pendant la session.")
                             checked: !StreamingPreferences.playAudioOnHost
                             onToggled: (v) => { StreamingPreferences.playAudioOnHost = !v; settingsPage.persist() }
                         }
@@ -1239,16 +1240,16 @@ FocusScope {
                             label: qsTr("Couper le son quand la fenêtre n'est pas au premier plan")
                             expert: true
                             available: SystemProperties.hasDesktopEnvironment
-                            description: qsTr("Silence dès que tu passes sur une autre fenêtre (Alt+Tab).")
+                            description: qsTr("Silence dès que tu passes sur une autre fenêtre.")
                             checked: StreamingPreferences.muteOnFocusLoss
                             onToggled: (v) => { StreamingPreferences.muteOnFocusLoss = v; settingsPage.persist() }
                         }
 
                         SettingToggle {
                             objectName: "set:micPassthroughEnabled"
-                            label: qsTr("Envoyer mon micro au PC distant")
+                            label: qsTr("Envoyer mon micro au PC hôte")
                             appWide: true
-                            description: qsTr("Pour le chat vocal (LavApollo 2.2 ou plus). Prends un casque ; Ctrl+Alt+Maj+U le coupe en jeu.")
+                            description: qsTr("Pour le chat vocal des jeux ou Discord.")
                             checked: ArtemisSettings.micPassthroughEnabled
                             onToggled: (v) => { ArtemisSettings.micPassthroughEnabled = v; settingsPage.persist() }
                         }
@@ -1313,7 +1314,7 @@ FocusScope {
                         SettingToggle {
                             objectName: "set:absoluteMouseMode"
                             label: qsTr("Souris pour le bureau à distance")
-                            description: qsTr("Curseur libre, sans capture : idéal pour le bureau, pas pour les jeux. Ctrl+Alt+Maj+M en stream.")
+                            description: qsTr("Le curseur se comporte comme sur ton propre bureau, mais ne fonctionne plus avec les jeux.")
                             checked: StreamingPreferences.absoluteMouseMode
                             onToggled: (v) => { StreamingPreferences.absoluteMouseMode = v; settingsPage.persist() }
                         }
@@ -1337,9 +1338,9 @@ FocusScope {
                             available: SystemProperties.hasDesktopEnvironment
                             description: qsTr("Alt+Tab, touche Windows… partent au PC distant (pas Ctrl+Alt+Suppr).")
                             options: [
-                                {text: qsTr("Non"), value: StreamingPreferences.CSK_OFF},
                                 {text: qsTr("En plein écran"), value: StreamingPreferences.CSK_FULLSCREEN},
-                                {text: qsTr("Toujours"), value: StreamingPreferences.CSK_ALWAYS}
+                                {text: qsTr("Toujours"), value: StreamingPreferences.CSK_ALWAYS},
+                                {text: qsTr("Jamais"), value: StreamingPreferences.CSK_OFF}
                             ]
                             value: StreamingPreferences.captureSysKeysMode
                             onChosen: (v) => { StreamingPreferences.captureSysKeysMode = v; settingsPage.persist() }
@@ -1357,7 +1358,7 @@ FocusScope {
                         spacing: 12
 
                         SettingAction {
-                            label: qsTr("Configurer une manette")
+                            label: qsTr("Assigner les boutons d’une manette")
                             appWide: true
                             description: qsTr("Pour une manette que LavArtemis ne reconnaît pas, ou un bouton mal placé : on clique le contrôle sur le schéma, puis on l'actionne.")
                             buttonText: qsTr("Ouvrir")
@@ -1415,7 +1416,7 @@ FocusScope {
 
                         SettingRow {
                             label: qsTr("Thème")
-                            description: qsTr("Couleurs, formes et polices de toute l'appli.")
+                            description: qsTr("Change l’allure de toute l’appli.")
                             focusable: false
                             Row {
                                 readonly property bool hgroup: true
@@ -1478,7 +1479,7 @@ FocusScope {
                         SettingChoice {
                             objectName: "set:themeMode"
                             label: qsTr("Clair ou sombre")
-                            description: qsTr("« Système » suit le mode clair ou sombre de Windows, en direct.")
+                            description: qsTr("« Système » suit le mode clair ou sombre de l'appareil, en direct.")
                             options: [
                                 {text: Theme.modeNames[0], value: 0},
                                 {text: Theme.modeNames[1], value: 1},
@@ -1492,7 +1493,7 @@ FocusScope {
                             objectName: "set:language"
                             label: qsTr("Langue")
                             description: settingsPage.languageNote !== "" ? settingsPage.languageNote
-                                         : qsTr("Langue de l'appli ; la nouvelle interface est en français.")
+                                         : qsTr("Prend effet au redémarrage.")
                             dropdown: true
                             options: settingsPage.languageOptions
                             value: StreamingPreferences.language
@@ -1630,7 +1631,7 @@ FocusScope {
 
                             model: [
 
-                                {key: "\\", label: qsTr("Menu en jeu"), desc: qsTr("Ouvre ou ferme le menu pendant le stream.")},
+                                {key: "\\", label: qsTr("Menu du stream"), desc: qsTr("Ouvre ou ferme le menu pendant le stream.")},
 
                                 {key: "Q", label: qsTr("Déconnecter"), desc: qsTr("Comme « Déconnecter » dans le menu en jeu : arrête le stream et revient à l'accueil.")},
 

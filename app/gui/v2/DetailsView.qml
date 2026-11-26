@@ -64,9 +64,20 @@ FocusScope {
     readonly property var rows: {
         rev
         return [{label: qsTr("Profil"), value: profiles[profileIndex()].name},
-                {label: qsTr("Écran"), value: joining || !StreamingPreferences.useVirtualDisplay ? qsTr("Écran du PC") : qsTr("Écran de cet appareil")},
+                {label: qsTr("Écran"), value: screenValue()},
                 {label: qsTr("Codec"), value: StreamingPreferences.videoCodecConfig === StreamingPreferences.VCC_FORCE_PYROWAVE ? "PyroWave" : codecNames[codecIndex()]},
                 {label: qsTr("Débit"), value: qsTr("%1 Mbit/s").arg(Math.round(StreamingPreferences.bitrateKbps / 1000))}]
+    }
+    // Prototype DISPLAYS: « Écran de cet appareil · 1920 × 1080 · 120 Hz » (the virtual display the host
+    // creates at this stream's size), « Écran du PC · 2560 × 1600 · 120 Hz » (the mode LavApollo says its
+    // display shows; a host that does not say it: the name alone)
+    function screenValue() {
+        if (joining || !StreamingPreferences.useVirtualDisplay) {
+            var mode = home && home.host ? home.host.hostDisplay : ""
+            return mode ? qsTr("Écran du PC") + " · " + mode : qsTr("Écran du PC")
+        }
+        return qsTr("Écran de cet appareil") + " · " + StreamingPreferences.width + " × " + StreamingPreferences.height
+               + " · " + StreamingPreferences.fps + " Hz"
     }
     function change(i, d) {
         if (i === 0) {

@@ -4,6 +4,7 @@ import QtQuick.Effects
 
 import AppModel 1.0
 import ComputerManager 1.0
+import SystemProperties 1.0
 
 // The Playnite library of the shown PC (prototype V8 « library », planches 22, 23, 60, 62, 21;
 // design-port-spec §1.6): filters Tous / Récents / Installés (+ « Masqués · N »), LB / RB (Q / E)
@@ -171,16 +172,32 @@ FocusScope {
     Rectangle { anchors.fill: parent; color: Theme.bg }
     Stage {
         anchors.fill: parent
-        // Braise: the picked game's picture behind (.22) under a veil
+        // Braise: the picked game's picture behind (.22) under a veil; its cover blurred when it has no
+        // background (prototype pick.blur = BLUR: blur 28 px, saturate 1.2, x1.25)
         Item {
             anchors.fill: parent
             visible: Theme.braise
+            clip: true
             Image {
+                id: pickBack
                 anchors.fill: parent
                 source: lib.pick ? (lib.pick.bg || lib.pick.cover) : ""
                 fillMode: Image.PreserveAspectCrop
                 opacity: 0.22
                 asynchronous: true
+                visible: !Theme.effects
+            }
+            MultiEffect {
+                visible: Theme.effects
+                anchors.fill: parent
+                source: pickBack
+                opacity: 0.22
+                readonly property bool blurred: !!lib.pick && !lib.pick.bg
+                blurEnabled: blurred
+                blurMax: 64
+                blur: blurred ? 1.0 : 0
+                saturation: blurred ? 0.2 : 0
+                scale: blurred ? 1.25 : 1.0
             }
             Rectangle {
                 anchors.fill: parent
@@ -422,7 +439,7 @@ FocusScope {
                             id: hoursText
                             x: parent.width - (32 + 32 + 18) * lib.k - width
                             anchors.baseline: nameText.baseline
-                            text: cell.modelData.playtime > 0 ? qsTr("%1 h").arg(Math.max(1, Math.round(cell.modelData.playtime / 3600))) : "—"
+                            text: SystemProperties.playtimeShort(cell.modelData.playtime)
                             color: tile.ringFill ? Theme.ringFillFg : Theme.fg; font.family: "Archivo"; font.weight: Font.DemiBold; font.pixelSize: 13 * lib.k
                         }
                         Rectangle {
@@ -471,6 +488,8 @@ FocusScope {
                     height: Theme.affiche ? 330 * lib.k : 214 * lib.k
                     radius: Theme.affiche ? 0 : 18 * lib.k
                     source: lib.pick ? (Theme.affiche ? lib.pick.cover : (lib.pick.bg || lib.pick.cover)) : ""
+                    // Braise's fiche: the cover blurred when the game has no background (pick.blur)
+                    blurred: Theme.braise && !!lib.pick && !lib.pick.bg
                     name: lib.pick ? lib.pick.name : ""
                     k: lib.k
                 }

@@ -26,7 +26,7 @@ ApplicationWindow {
     property string updateDownloadUrl: ""
 
     function openUpdateDialog() {
-        updateDialog.open()
+        updateOptions.offer()
     }
 
     // The native title bar takes the theme's background and text colours (Windows 11) instead of
@@ -302,129 +302,124 @@ ApplicationWindow {
         onAccepted: stackView.push("qrc:/gui/GamepadMapper.qml")
     }
 
-    // Update dialog: offers an in-app download on Windows, or opens the
-    // release page on platforms without self-install (macOS, Linux AppImage).
-    NavigableMessageDialog {
-        id: updateDialog
-        // A question, not an error (NavigableMessageDialog picks the error icon without Dialog.Yes)
-        imageSrc: "qrc:/res/baseline-help_outline-24px.svg"
-        // « Ignorer cette version », as Android: the startup check no longer offers it
-        // (AutoUpdateChecker::skipVersion), « Vérifier » in Réglages still does
-        standardButtons: Dialog.Ok | Dialog.Cancel | Dialog.Discard
-        onAboutToShow: {
-            var skip = standardButton(Dialog.Discard)
-            if (skip) skip.text = qsTr("Ignorer cette version")
-        }
-        onDiscarded: {
-            AutoUpdateChecker.skipVersion(window.updateVersion)
-            window.updateVersion = ""
-            close()
-        }
-
+    // Update (prototype V8-13, ctxKind update / updating): the theme's centred dialog. « Télécharger et
+    // installer » downloads the installer here (Windows), the bar follows the download, then « Installer et
+    // redémarrer ». Without self-install (macOS, Linux AppImage, a release without installer) the main entry
+    // opens the release page. « Ignorer cette version », as Android: the startup check no longer offers it
+    // (AutoUpdateChecker::skipVersion), « Vérifier » in Réglages still does.
+    // The download keeps its own state: a dialog closed while it runs (« Plus tard » is not offered then)
+    // cannot abandon it silently; only « Annuler le téléchargement » stops it.
+    LavOptions {
+        id: updateOptions
         property bool canDownload: AutoUpdateChecker.canSelfInstall() && window.updateDownloadUrl !== ""
-
-        text: qsTr("LavArtemis %1 is available. You are running version %2.")
-                  .arg(window.updateVersion).arg(SystemProperties.versionString) +
-              "\n\n" +
-              (canDownload ? qsTr("Press OK to download and install it.")
-                           : qsTr("Press OK to open the download page in your browser."))
-
-        onAccepted: {
-            if (canDownload) {
-                updateDownloadDialog.open()
-            } else if (SystemProperties.hasBrowser) {
-                Qt.openUrlExternally(window.updateBrowserUrl)
-            }
-        }
-    }
-
-    // The download gets its own dialog because pressing a standard button closes
-    // the dialog it belongs to. Driving the progress bar from updateDialog's own
-    // OK handler drew it on a dialog that had already gone away, which is why
-    // accepting an update looked like it did nothing at all.
-    NavigableDialog {
-        id: updateDownloadDialog
-
         property bool downloading: false
         property string downloadedPath: ""
-        property string errorText: ""
+        property real progress: 0
+        readonly property string headText: qsTr("Mise à jour") + " · LavArtemis"
 
-        // Nothing to accept until the download resolves one way or the other.
-        standardButtons: downloading ? Dialog.Cancel : (Dialog.Ok | Dialog.Cancel)
-
-        // A click outside the dialog must not silently abandon a running download.
-        closePolicy: Popup.NoAutoClose
-
-        onOpened: {
-            downloading = true
-            downloadedPath = ""
-            errorText = ""
-            updateProgressBar.value = 0
-            updateProgressBar.indeterminate = true
-            AutoUpdateChecker.downloadUpdate(window.updateDownloadUrl)
+        function offer() {
+            if (downloading || downloadedPath !== "") return showProgress()
+            showDialog({head: headText, title: qsTr("LavArtemis %1 est disponible").arg(window.updateVersion), info: true,
+                        note: canDownload
+                              ? qsTr("Tu as la version %1. La nouvelle se télécharge et s’installe, puis LavArtemis redémarre.").arg(SystemProperties.versionString)
+                              : qsTr("Tu as la version %1. Elle n’a pas d’installeur pour ce PC : sa page s’ouvre dans ton navigateur.").arg(SystemProperties.versionString),
+                        entries: [{l: canDownload ? qsTr("Télécharger et installer") : qsTr("Ouvrir la page de la version"), a: "updGo", main: true},
+                                  {l: qsTr("Ignorer cette version"), a: "updSkip"},
+                                  {l: qsTr("Plus tard"), a: "cancel"}]})
+        }
+        function showProgress() {
+            var ready = downloadedPath !== ""
+            showDialog({head: headText, info: ready, extra: updateProgress,
+                        title: ready ? qsTr("LavArtemis %1 est prête à installer").arg(window.updateVersion)
+                                     : qsTr("Téléchargement de LavArtemis %1…").arg(window.updateVersion),
+                        note: ready ? qsTr("Installe-la : LavArtemis se ferme, puis redémarre.") : "",
+                        entries: ready ? [{l: qsTr("Installer et redémarrer"), a: "updInstall", main: true}, {l: qsTr("Plus tard"), a: "cancel"}]
+                                       : [{l: qsTr("Annuler le téléchargement"), a: "updStop", main: true}]})
+        }
+        function failed(error) {
+            showDialog({head: headText, title: qsTr("Oups"), info: true,
+                        note: qsTr("Le téléchargement a échoué : %1").arg(error),
+                        entries: SystemProperties.hasBrowser
+                                 ? [{l: qsTr("Ouvrir la page de la version"), a: "updPage", main: true}, {l: qsTr("OK"), a: "cancel"}]
+                                 : [{l: qsTr("OK"), a: "cancel", main: true}]})
         }
 
-        onAccepted: {
-            if (downloadedPath !== "") {
+        onPicked: (a) => {
+            if (a === "updGo") {
+                if (!canDownload) {
+                    if (SystemProperties.hasBrowser) Qt.openUrlExternally(window.updateBrowserUrl)
+                    return
+                }
+                downloading = true
+                downloadedPath = ""
+                progress = 0
+                AutoUpdateChecker.downloadUpdate(window.updateDownloadUrl)
+                showProgress()
+            } else if (a === "updSkip") {
+                AutoUpdateChecker.skipVersion(window.updateVersion)
+                window.updateVersion = ""
+            } else if (a === "updStop") {
+                AutoUpdateChecker.cancelDownload()
+                downloading = false
+            } else if (a === "updInstall") {
                 AutoUpdateChecker.installAndRestart(downloadedPath)
-            } else if (errorText !== "" && SystemProperties.hasBrowser) {
-                // The in-app path failed, so hand them the release page instead.
+            } else if (a === "updPage") {
                 Qt.openUrlExternally(window.updateBrowserUrl)
             }
         }
-
-        onRejected: {
-            if (downloading) {
-                AutoUpdateChecker.cancelDownload()
-            }
-        }
+        onClosed: if (stackView.currentItem) stackView.currentItem.forceActiveFocus()
 
         Component.onCompleted: {
             AutoUpdateChecker.downloadProgress.connect(function(received, total) {
-                if (total > 0) {
-                    updateProgressBar.indeterminate = false
-                    updateProgressBar.value = received / total
-                }
+                if (total > 0) updateOptions.progress = received / total
             })
             AutoUpdateChecker.downloadReady.connect(function(path) {
-                updateDownloadDialog.downloading = false
-                updateDownloadDialog.downloadedPath = path
+                updateOptions.downloading = false
+                updateOptions.downloadedPath = path
+                updateOptions.progress = 1
+                updateOptions.showProgress()
             })
             AutoUpdateChecker.downloadFailed.connect(function(error) {
-                updateDownloadDialog.downloading = false
-                updateDownloadDialog.errorText = error
+                if (!updateOptions.downloading) return  // cancelled
+                updateOptions.downloading = false
+                updateOptions.failed(error)
             })
         }
-
-        ColumnLayout {
-            Label {
-                text: {
-                    if (updateDownloadDialog.downloading) {
-                        return qsTr("Downloading LavArtemis %1…").arg(window.updateVersion)
-                    }
-                    else if (updateDownloadDialog.downloadedPath !== "") {
-                        return qsTr("LavArtemis %1 is ready to install. Press OK to install it and restart.")
-                                  .arg(window.updateVersion)
-                    }
-                    else if (SystemProperties.hasBrowser) {
-                        return qsTr("Download failed: %1").arg(updateDownloadDialog.errorText) +
-                               "\n\n" + qsTr("Press OK to open the download page in your browser.")
-                    }
-                    else {
-                        return qsTr("Download failed: %1").arg(updateDownloadDialog.errorText)
-                    }
-                }
-                wrapMode: Text.Wrap
-                Layout.fillWidth: true
-                Layout.maximumWidth: 400
-            }
-
-            ProgressBar {
-                id: updateProgressBar
-                Layout.fillWidth: true
-                visible: updateDownloadDialog.downloading
-                from: 0
-                to: 1
+    }
+    // The bar of the download (prototype hasProgress: « Téléchargement… » / « Téléchargée » and the %)
+    Item {
+        id: updateProgress
+        visible: false
+        readonly property real k: 1.25 * Theme.stageScale
+        height: progressLabel.height + 18 * k
+        Text {
+            id: progressLabel
+            text: updateOptions.downloadedPath !== "" ? qsTr("Téléchargée") : qsTr("Téléchargement…")
+            color: Theme.fg
+            font.family: Theme.textFont
+            font.weight: Font.Bold
+            font.pixelSize: 14 * updateProgress.k
+        }
+        Text {
+            anchors.right: parent.right
+            text: Math.round(updateOptions.progress * 100) + " %"
+            color: Theme.fg
+            font.family: Theme.textFont
+            font.weight: Font.Bold
+            font.pixelSize: 14 * updateProgress.k
+        }
+        Rectangle {
+            y: progressLabel.height + 8 * updateProgress.k
+            width: parent.width
+            height: 10 * updateProgress.k
+            radius: Math.min(height / 2, Theme.pill * updateProgress.k)
+            clip: true
+            color: Theme.off
+            Rectangle {
+                width: parent.width * Math.max(0, Math.min(1, updateOptions.progress))
+                height: parent.height
+                radius: parent.radius
+                color: Theme.on
             }
         }
     }

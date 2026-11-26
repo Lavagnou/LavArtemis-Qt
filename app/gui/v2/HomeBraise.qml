@@ -78,7 +78,6 @@ Item {
                 font.letterSpacing: -0.4 * lay.k
                 anchors.verticalCenter: parent.verticalCenter
             }
-            DevChip { k: lay.k; anchors.verticalCenter: parent.verticalCenter }
             UpdateButton { k: lay.k; anchors.verticalCenter: parent.verticalCenter }
         }
         readonly property real leftW: Math.max(300 * lay.k, brand.width)

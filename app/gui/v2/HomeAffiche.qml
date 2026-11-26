@@ -38,7 +38,6 @@ Item {
                 font.pixelSize: 18 * lay.k
                 anchors.verticalCenter: parent.verticalCenter
             }
-            DevChip { k: lay.k; anchors.verticalCenter: parent.verticalCenter }
             UpdateButton { k: lay.k; anchors.verticalCenter: parent.verticalCenter }
         }
         readonly property real leftW: Math.max(260 * lay.k, brand.width)
