@@ -103,14 +103,19 @@ FocusScope {
         return out
     }
     readonly property int cols: Theme.affiche ? 1 : (Theme.ludique ? ids.length : 3)
-    // Braise: the height each tile needs, so that a row of the grid is as tall as its tallest tile
+    // Every tile has the same size (user's rule, 2026-11-26): Braise's rows and Affiche's lines are all as tall
+    // as the tallest tile (« Quitter Red Dead Redemption 2 » and its subtitle), never one row taller than the
+    // others; Ludique's dock tiles have a fixed size. `needs` holds the height each tile needs, by layout.
     property var needs: ({})
     property int needsRev: 0
-    function setNeed(i, h) { if (needs[i] !== h) { needs[i] = h; needsRev++ } }
-    function rowHeight(r) {
+    function setNeed(key, h) { if (needs[key] !== h) { needs[key] = h; needsRev++ } }
+    function tileHeight(layout, minimum) {
         needsRev
-        var h = 96 * k
-        for (var i = r * 3; i < r * 3 + 3; i++) if (needs[i] !== undefined) h = Math.max(h, needs[i])
+        var h = minimum
+        for (var i = 0; i < ids.length; i++) {
+            var n = needs[layout + i]
+            if (n !== undefined) h = Math.max(h, n)
+        }
         return h
     }
 
@@ -328,11 +333,11 @@ FocusScope {
                         k: menu.k
                         holdable: false
                         width: (740 - 24) / 3 * menu.k
-                        // the prototype's grid: every tile of a row as tall as the tallest one (min 96)
+                        // every row as tall as the tallest tile (min 96)
                         readonly property real need: Math.max(96 * menu.k, 24 * menu.k + 10 * menu.k + bLow.height + 32 * menu.k)
-                        onNeedChanged: menu.setNeed(index, need)
-                        Component.onCompleted: menu.setNeed(index, need)
-                        height: menu.rowHeight(Math.floor(index / 3))
+                        onNeedChanged: menu.setNeed("b" + index, need)
+                        Component.onCompleted: menu.setNeed("b" + index, need)
+                        height: menu.tileHeight("b", 96 * menu.k)
                         radius: 18 * menu.k
                         opacity: bt.modelData.dim ? 0.45 : 1
                         Rectangle { anchors.fill: parent; radius: parent.radius; color: menu.dark ? Qt.rgba(26 / 255, 24 / 255, 22 / 255, 0.95) : Qt.rgba(1, 1, 1, 0.95) }
@@ -436,7 +441,13 @@ FocusScope {
                         k: menu.k
                         holdable: false
                         width: affichePanel.width
-                        height: Math.max(54 * menu.k, aLabels.implicitHeight + 12 * menu.k)
+                        // the prototype's row: the yellow fill only; its ring2 outline went past the window's edge
+                        ringShown: false
+                        // every line as tall as the tallest one (min 54)
+                        readonly property real need: Math.max(54 * menu.k, aLabels.implicitHeight + 12 * menu.k)
+                        onNeedChanged: menu.setNeed("a" + index, need)
+                        Component.onCompleted: menu.setNeed("a" + index, need)
+                        height: menu.tileHeight("a", 54 * menu.k)
                         opacity: at.modelData.dim ? 0.45 : 1
                         readonly property color fg: at.ringFill ? "#111111" : affichePanel.fg
                         Rectangle { anchors.fill: parent; color: at.ringFill ? "#FFD60A" : "transparent" }

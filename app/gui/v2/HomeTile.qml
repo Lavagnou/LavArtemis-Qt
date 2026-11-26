@@ -24,6 +24,7 @@ Item {
     property string glowKind: "cover"     // "app" | "cover"
     property bool holdable: true
     property bool outlineOnly: false      // Affiche covers: ring2 only, never the yellow fill
+    property bool ringShown: true         // false: the focus is the content's own (Affiche rows of the in-game menu: fill only)
     // "⋯" button: shown at the mouse on hover only (PC), always at the gamepad / keyboard, x1.3 at touch
     property bool hasMore: holdable
     property real moreSize: 38
@@ -80,7 +81,7 @@ Item {
         visible: tile.mouseRing
     }
     FocusRing {
-        active: tile.padRing || (Theme.affiche && tile.focused && Theme.input === "mouse")
+        active: tile.ringShown && (tile.padRing || (Theme.affiche && tile.focused && Theme.input === "mouse"))
         radius: tile.radius
         k: tile.k
     }
