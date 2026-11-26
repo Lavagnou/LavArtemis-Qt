@@ -242,12 +242,34 @@ Item {
                 Rectangle { anchors.fill: parent; radius: parent.height / 2; color: "transparent"; border.width: lay.k; border.color: lay.chipBorder }
                 Text { id: quitText; anchors.centerIn: parent; text: qsTr("Quitter"); color: lay.fgc; font.family: "Inter"; font.weight: Font.Bold; font.pixelSize: 16 * lay.k }
             }
-            Text {
+            // « {via} · ⋯ sur la carte pour relancer ». Inter has no « ⋯ » (U+22EF): Qt took it from a CJK
+            // font, half as wide with tiny dots. The prototype's browser draws it from Segoe UI Symbol, as wide as
+            // an « m », dots on the middle of the x-height: drawn here with the cards' « dots » icon at that size.
+            Row {
+                id: relaunchHint
                 anchors.verticalCenter: parent.verticalCenter
-                text: qsTr("%1 · ⋯ sur la carte pour relancer").arg(lay.home.stageVia)
-                color: lay.text2
-                font.family: "Inter"
-                font.pixelSize: 14 * lay.k
+                spacing: 4 * lay.k
+                readonly property real px: 14 * lay.k
+                Text {
+                    id: relaunchVia
+                    text: qsTr("%1 ·").arg(lay.home.stageVia)
+                    color: lay.text2
+                    font.family: "Inter"
+                    font.pixelSize: relaunchHint.px
+                }
+                LavIcon {
+                    name: "dots"
+                    size: relaunchHint.px
+                    color: lay.text2
+                    // the glyph's dots sit 0.29 em above the baseline
+                    y: relaunchVia.baselineOffset - 0.29 * relaunchHint.px - height / 2
+                }
+                Text {
+                    text: qsTr("sur la carte pour relancer")
+                    color: lay.text2
+                    font.family: "Inter"
+                    font.pixelSize: relaunchHint.px
+                }
             }
         }
     }
