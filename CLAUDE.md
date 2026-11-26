@@ -690,6 +690,7 @@ session, réglages).
 |---|---|---|
 | `windows` | — | `windows:[{index, kind:"qt", role:"main"/"quickmenu"/"toast"/"other", title, hwnd, x, y, w, h, dpr}…, {kind:"stream", title, hwnd, x, y, w, h}]` (stream : pendant sa boucle SDL) |
 | `tree` | `textOnly?`, `window?` | `items:[{window, type, objectName, text, x, y, w, h, focus, enabled}]` |
+| `focusrings` | `window?` | `rings:[{window, x, y, w, h, owner, cutBy}]` : chaque `FocusRing` visible, sa boîte dessinée (échelle comprise) et ce qui la coupe (`cutBy` : `{type, objectName, x, y, w, h}` du premier ancêtre en `clip: true` ou `layer.enabled` qui ne la contient pas, ou `"window"` ; `null` sinon). Scénario 19 |
 | `click` | `text` / `objectName` (+ `contains?`, `index?`) ou `x`,`y` (+ `window?`) ; `button?` (left, right, middle, x1, x2) | `{window, x, y, item?}` |
 | `key` | `key`, `modifiers?`, `state?` ("click", "down", "up"), `target?`, `window?` | `{target, focus?}` |
 | `text` | `s`, `target?`, `window?` | `{target}` |
@@ -1146,7 +1147,12 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
   - **Retirées du menu** : Envoyer des touches (et « Mes macros… »), Masquer le curseur local, Verrouiller le
     pointeur, Coller du texte ; leurs raccourcis Ctrl+Alt+Maj restent (Envoyer des touches n'en a pas). Pas
     d'« Ouvrir le clavier » sur PC (Android l'a).
-  Braise grille de 3, Affiche panneau noir à droite, Ludique dock (autant de colonnes que de tuiles). **La fenêtre du
+  Braise grille de 3, Affiche panneau noir à droite, Ludique dock (autant de colonnes que de tuiles). **Toutes les
+  tuiles ont la même taille** (règle de l'utilisateur, 2026-11-26) : en Braise toutes les rangées prennent la hauteur
+  de la tuile la plus haute (« Quitter Red Dead Redemption 2 » et son sous-titre), en Affiche toutes les lignes aussi
+  (`QuickMenu.tileHeight()`, hauteurs voulues dans `needs` par disposition) ; le dock Ludique a des tuiles fixes
+  96 × 108. Les lignes d'Affiche n'ont que le remplissage jaune au focus (`HomeTile.ringShown: false`), comme le
+  prototype : leur contour ring2 passait le bord de la fenêtre. **La fenêtre du
   menu couvre toute la fenêtre du stream** (`QuickMenuManager::placeQuickView()`, `SizeRootObjectToView`, fond
   transparent) : voile et tuiles dessinés par-dessus l'image. Sous-dialogues = `LavOptions` (presse-papiers,
   commandes, Plus, confirmation). Micro non envoyé : tuile grisée, un toast dit où l'activer. « Quitter {jeu} »
@@ -1161,6 +1167,15 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
   - **Accueil Braise** : « {via} · ⋯ sur la carte pour relancer » dessine le « ⋯ » avec l'icône `dots` à la taille
     du texte. Inter n'a pas U+22EF : Qt le prenait dans une police CJK (MS Gothic, moitié moins large, points
     minuscules), le navigateur du prototype dans Segoe UI Symbol (large comme un « m »).
+  - ⚠️ **Un anneau de focus n'est jamais coupé** (règle de l'utilisateur, 2026-11-26 ; tous les thèmes, Ludique 4 + 5 px
+    et × 1,04). Une liste ou un panneau qui coupe (`clip`, `layer`) laisse la place autour de ce qu'il contient :
+    grille de la bibliothèque (`GridView` agrandie de 16 px de chaque côté avec `leftMargin`/`topMargin`/… ; mêmes
+    cases au même endroit), lignes des Réglages (`rowsFlick` 14 px plus large à gauche, lignes 14 px plus loin). Le
+    ring2 d'Affiche d'un élément collé au bord de la fenêtre (panneaux de l'accueil et des détails, lignes de la
+    bibliothèque) rentre de ce côté (`FocusRing.fitInWindow()`) ; les lignes du menu en jeu Affiche n'ont que le
+    remplissage jaune, comme le prototype. Contrôle : commande `focusrings` du canal, **scénario 19** (le clavier
+    parcourt accueil, options, détails, bibliothèque, Mes PC et ses options, Réglages, menu en jeu et Plus, dans les
+    trois thèmes). Tout nouvel écran qui coupe ses enfants y passe.
   - ⚠️ **Racine du menu : `width: Window.width` / `height: Window.height`.** Sans ça, sur la plateforme
     `offscreen` (captures), la racine restait à 0 × 0 et la `Stage` (clip) coupait tout : fenêtre vide.
 - **Mes PC** : icône par type (`formFactor`), ligne « Tour · réseau filaire · 4 ms » avec l'icône du lien, ligne
