@@ -194,15 +194,15 @@ faire marcher les appareils trop atypiques pour être devinés.
 **On clique le contrôle sur un schéma de manette, puis on l'actionne.** Pas de séquence imposée :
 `SdlGamepadMapper` n'a qu'une cible à la fois (`m_TargetElement`) et une file
 (`selectElements(QStringList)`) qui sert aux **trois** usages — un clic sur un bouton (file de 1), un
-clic sur un stick (file de 2 : X puis Y), et « Tout mapper dans l'ordre » (file de 21). L'ancien
+clic sur un stick (file de 2 : X puis Y), et « Tout assigner dans l'ordre » (file de 21). L'ancien
 assistant linéaire est donc devenu un cas particulier gratuit du même moteur.
 
 | Fichier | Rôle |
 |---|---|
 | `gui/sdlgamepadmapper.{h,cpp}` | Le moteur : capture, évaluation live, préremplissage, sauvegarde |
-| `gui/ControllerDiagram.qml` | Le schéma : repère logique 1000×620, `res/gamepad_body.svg` en fond |
-| `gui/GamepadControl.qml` | Un point cliquable ; dérive son état du `ControllerDiagram` qu'il reçoit |
-| `gui/GamepadMapper.qml` | La page : sélecteur de périphérique + schéma |
+| `gui/ControllerDiagram.qml` | Le schéma du prototype (planches V8-46, 47) : repère logique 760×400, corps dessiné (`Shape`, chemin du prototype, `surface2` + filet `line`), une commande par élément aux positions de `PAD_CTRL` |
+| `gui/GamepadControl.qml` | Un point cliquable ; dérive son état du `ControllerDiagram` qu'il reçoit. Pas assigné : contour en tirets ; assigné : accent ; attendu : `warnBg` + filet `warnLine`, ×1,08 ; l'entrée live l'allume |
+| `gui/GamepadMapper.qml` | La page du prototype : périphériques à gauche (le premier est choisi à l'ouverture ; choisir charge sa disposition, rien n'est écrit avant « Enregistrer »), barre d'invite + « N à faire », schéma, puis « Tout assigner dans l'ordre » / « Tout effacer » / « Enregistrer » (« Arrêter » / « Passer » pendant une attente) |
 | `settings/mappingmanager.{h,cpp}` | Persistance (`QSettings`, tableau `gcmapping`), `gamecontrollerdb.txt`, repli deviné |
 
 > ⚠️ **L'invariant qui a coûté le plus cher : tout entrée doit revenir au repos avant de compter à
@@ -1179,6 +1179,12 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
   micro au PC hôte, Assigner les boutons d'une manette, Native · W × H, « 80 Mbit/s · auto », raccourcis système
   En plein écran / Toujours / Jamais, Automatique (français), Menu du stream…).
 - `AppMenu.qml` et `DevChip.qml` sont supprimés.
+- **Benchmark** (V8-43 à 45) : `BenchmarkView.qml` refait au prototype (segments Test / Objectif, résumé, avertissement,
+  « Lancer le benchmark », « Benchmarks précédents » ; en cours « ESSAI N SUR M » + barre + Arrêter ; résultats classés
+  avec MEILLEUR, Latence / Fluidité ±, « +N pts » / « référence » d'après `goalScore`, actions sur la ligne choisie).
+  Grille de focus au clavier. ⚠️ Les libellés des boutons sont **dans** leur `MouseArea` : un texte recouvert par une
+  `MouseArea` sœur est refusé par le canal de test (« covered »).
+- **Mapper** (V8-46, 47) : voir « Mapper de manettes » ; le premier périphérique est choisi à l'ouverture.
 - Ce qui reste et les écarts : `port-notes.md`, section PC.
 
 ## 🇫🇷 Langue
