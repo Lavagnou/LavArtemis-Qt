@@ -129,6 +129,20 @@ void MappingManager::applyMappings()
     // every path that applies mappings gets the fallback for free.
     s_GuessedDeviceNames.clear();
     s_GuessedDeviceGuids.clear();
+
+    // A real mapping (the user's, or SDL's hint) for a device guessed earlier: it is no longer a
+    // guess, whether guessing is on or off. Done here and not in applyFallbackMappings(), which
+    // only runs with guessing on: a mapping saved with guessing off left the device an "ignored
+    // guess" (isIgnoredGuess), unusable until the next start.
+    for (auto it = s_GuessedGuids.begin(); it != s_GuessedGuids.end();) {
+        if (m_Mappings.contains(*it)) {
+            it = s_GuessedGuids.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
+
     if (fallbackEnabled()) {
         applyFallbackMappings();
     }
@@ -262,12 +276,6 @@ void MappingManager::applyFallbackMappings()
     int numJoysticks = SDL_NumJoysticks();
     for (int i = 0; i < numJoysticks; i++) {
         const QString guid = deviceGuid(i);
-
-        // A real mapping (the user's, or SDL's hint) for a device guessed
-        // earlier: it is no longer a guess.
-        if (m_Mappings.contains(guid)) {
-            s_GuessedGuids.remove(guid);
-        }
 
         // Anything SDL already recognises is left strictly alone -- but a
         // device it recognises through our own earlier guess is still a

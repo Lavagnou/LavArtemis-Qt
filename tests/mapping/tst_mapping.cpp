@@ -129,6 +129,20 @@ void testGuessAcrossApplies()
     check(MappingManager::isGameController(findDevice(kName)), "on again: a game controller");
     check(MappingManager::getGuessedDeviceGuids().contains(guid), "on again: a guess again");
 
+    // The user saves a real mapping while guessing is off (the mapper starts from the guess SDL
+    // still has): the device is usable at once, not after a restart (review of waves 1-4, #1)
+    g_FallbackEnabled = false;
+    MappingManager offAgain;
+    offAgain.applyMappings();
+    check(MappingManager::isIgnoredGuess(findDevice(kName)), "off again: an ignored guess");
+    MappingManager savedOff;
+    savedOff.addMapping(guid + ",LavArtemis Unit Joystick,a:b0,b:b1,leftx:a0,lefty:a1,platform:" + SDL_GetPlatform());
+    savedOff.applyMappings();
+    check(MappingManager::isGameController(findDevice(kName)), "saved with guessing off: a game controller");
+    check(!MappingManager::isIgnoredGuess(findDevice(kName)), "saved with guessing off: not an ignored guess");
+    check(!MappingManager::getGuessedDeviceGuids().contains(guid), "saved with guessing off: not a guess");
+    g_FallbackEnabled = true;
+
     // The user saves a real mapping (the mapper): no longer a guess
     MappingManager saved;
     saved.addMapping(guid + ",LavArtemis Unit Joystick,a:b1,b:b0,leftx:a0,lefty:a1,platform:" + SDL_GetPlatform());
