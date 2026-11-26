@@ -241,7 +241,8 @@ FocusScope {
                 return
             }
             // as a component: the StackView owns the page and destroys it on pop
-            stackView.push(Qt.createComponent("../BenchmarkView.qml"), {"hostUuid": role(i, "uuid"), "hostName": role(i, "name")})
+            stackView.push(Qt.createComponent("../BenchmarkView.qml"), {"hostUuid": role(i, "uuid"), "hostName": role(i, "name"),
+                           "hostSoft": role(i, "apolloVersion") ? "LavApollo " + role(i, "apolloVersion") : ""})
         } else if (action === "rename") {
             dialogUuid = role(i, "uuid")
             dialogField.label = qsTr("Nom")
