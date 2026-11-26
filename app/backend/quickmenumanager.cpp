@@ -5,6 +5,9 @@
 #include "settings/streamingpreferences.h"
 #include "../streaming/panzoom.h"
 #include "../streaming/input/input.h"
+#ifdef LAV_TEST_BUILD
+#include "../testctl/hiddenwindows.h"
+#endif
 
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -479,7 +482,10 @@ void QuickMenuManager::createQuickView()
         
         // Make it a popup overlay
 #ifdef LAV_TEST_BUILD
-        m_quickView->setFlags(Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint | Qt::Tool | Qt::WindowDoesNotAcceptFocus);
+        // Test build: never topmost while the windows are hidden (testctl/hiddenwindows.h); on
+        // top again with LAV_TEST_VISIBLE=1, to be seen over the stream
+        m_quickView->setFlags((TestWindows::active() ? Qt::WindowFlags() : Qt::WindowStaysOnTopHint) |
+                              Qt::FramelessWindowHint | Qt::Tool | Qt::WindowDoesNotAcceptFocus);
 #else
         m_quickView->setFlags(Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint | Qt::Tool);
 #endif

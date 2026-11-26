@@ -37,6 +37,10 @@
 #include "video/slvid.h"
 #endif
 
+#ifdef LAV_TEST_BUILD
+#include "testctl/hiddenwindows.h"
+#endif
+
 #ifdef Q_OS_WIN32
 // Scaling the icon down on Win32 looks dreadful, so render at lower res
 #define ICON_SIZE 32
@@ -75,8 +79,9 @@ namespace {
 constexpr bool kTestBuild = true;
 
 #ifdef Q_OS_WIN32
-// Test build: the stream window must never become the foreground window. Applied after every
-// (re)creation of the native window; harmless to repeat.
+// Test build: the stream window must never become the foreground window, nor be seen
+// (testctl/hiddenwindows.h: SDL's window is taken over once SDL has set it up). Applied after
+// every (re)creation of the native window; harmless to repeat.
 void lavTestMakeNonActivating(SDL_Window* window)
 {
     SDL_SysWMinfo info;
@@ -87,6 +92,7 @@ void lavTestMakeNonActivating(SDL_Window* window)
         if (!(style & WS_EX_NOACTIVATE)) {
             SetWindowLongPtr(hwnd, GWL_EXSTYLE, style | WS_EX_NOACTIVATE);
         }
+        TestWindows::adopt(hwnd);
     }
 }
 

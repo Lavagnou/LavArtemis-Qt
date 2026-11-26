@@ -72,6 +72,7 @@
 #include "settings/profilemanager.h"
 #ifdef LAV_TEST_BUILD
 #include "testctl/testcontrol.h"
+#include "testctl/hiddenwindows.h"
 #endif
 
 #if defined(Q_OS_WIN32)
@@ -455,6 +456,10 @@ int main(int argc, char *argv[])
     // renderer's and the microphone's SDL_InitSubSystem(SDL_INIT_AUDIO), all later than here).
     qputenv("SDL_AUDIODRIVER", "dummy");
     SDL_SetHint(SDL_HINT_AUDIODRIVER, "dummy");
+
+    // Test build: no window is ever seen by the person using the PC (before any window exists;
+    // LAV_TEST_VISIBLE=1 turns it off), see testctl/hiddenwindows.h
+    TestWindows::install();
 #endif
 
     // Set the app version for the QCommandLineParser's showVersion() command

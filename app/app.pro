@@ -742,13 +742,17 @@ lav_test {
     win32: RC_ICONS = lavartemis-dev.ico
     # Testbench command channel (app/testctl): QLocalServer "lavartemis-test"
     SOURCES += backend/testguard.cpp \
+        testctl/hiddenwindows.cpp \
         testctl/testprotocol.cpp \
         testctl/uiprobe.cpp \
         testctl/testcontrol.cpp
     HEADERS += backend/testguard.h streaming/input/testinput.h \
+        testctl/hiddenwindows.h \
         testctl/testprotocol.h \
         testctl/uiprobe.h \
         testctl/testcontrol.h
+    # testctl/hiddenwindows.cpp: SetWindowSubclass, DWMWA_CLOAK (the windows never seen)
+    win32: LIBS += -lcomctl32 -ldwmapi
 }
 VERSION = $$LAV_VERSION_NUM
 DEFINES += VERSION_STR=\\\"$$LAV_VERSION_STR\\\"
