@@ -1102,6 +1102,10 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
   PageDown**, X ne fait plus rien (il envoyait Menu ; Y et Start envoyaient `Key_Hangup`, que rien ne lisait).
 - **Pages poussées comme composant** (`stackView.push(Qt.createComponent(...), props)`) : un objet fait par
   `createObject()` n'est pas détruit au retour et gardait le focus clavier (Mes PC, Réglages, benchmark, mapper).
+- ⚠️ **Instantané d'un modèle par `Instantiator` : trier par `index`, pas par `objectAt(i)`** (`HomeView.apps`). Le
+  `rev++` d'un `onRowsMoved` passe avant que l'`Instantiator` ait réordonné ses objets : l'instantané gardait
+  l'ancien ordre pour de bon (un jeu joué ne remontait pas dans les Récents, scénario 15). Lire `index` réévalue
+  aussi l'instantané quand les index changent.
 - ⚠️ **Jamais de propriété nommée `on` + Majuscule** (`onHost`, `onCapsule`) : QML la lit comme un gestionnaire du
   signal de la propriété `host` / `capsule`, la valeur reste vide sans erreur.
 - **Effets** : `Theme.effects` est faux sur le scene graph logiciel (`testbench.py shots`, captures hors écran) ; tout
