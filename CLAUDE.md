@@ -704,7 +704,7 @@ session, réglages).
 | `commands` | — | `commands:[…]` |
 | `joystick` | `{attach:true, kind:"generic", axes?(4), buttons?(8), hats?(1)}` ; `{detach:true}` | `{name, guid, instance, gameController}` : un joystick HID générique (« LavArtemis Test Joystick », type inconnu, sans VID/PID) que SDL ne connaît pas, **hors stream aussi** (mapper, avertissement de lancement) ; jamais ouvert par le stream ; retiré à `quit` |
 | `appasset` | `host` (nom), `appId`, `kind:"cover"` (défaut) / `"background"` | `{width, height}` : l'image telle que le client la reçoit (`NvHTTP::getBoxArt` / `getBackground`), `0 × 0` quand l'hôte n'en a pas (404) |
-| `hoststore` | `action:"list"` (défaut) / `"keep"` + `uuid` / `"restore"` | `list` → `{hosts:[{uuid, name}]}` : la liste des PC **enregistrée** (QSettings `hosts`) ; `keep` garde l'entrée enregistrée d'un PC, `restore` la remet dans la liste enregistrée comme le ferait la sauvegarde d'un **autre processus** LavArtemis (le banc n'en lance qu'un) |
+| `hoststore` | `action:"list"` (défaut) / `"keep"` + `uuid` / `"restore"` | `list` → `{hosts:[{uuid, name}]}` : la liste des PC **enregistrée**, lue comme au démarrage (`hostsbackup` tant qu'il existe, sinon `hosts` : une sauvegarde réécrit `hosts` entre les deux, lire `hosts` seul y trouvait un PC « absent ») ; `keep` garde l'entrée enregistrée d'un PC, `restore` la remet dans la liste enregistrée comme le ferait la sauvegarde d'un **autre processus** LavArtemis (le banc n'en lance qu'un) |
 | `clipboard` | `action:"get"` (défaut) / `"set"`, `text` | `{text}` : le presse-papiers de **ce PC** vu par le client, un texte en mémoire (`ClipboardManager::testClipboardText`), **jamais** celui du système ; `set` = une copie faite ici (la synchro réagit) |
 
 - **`tree`** : visibles seulement (`isVisible`, opacité effective > 0, partie visible non vide, coupée par la fenêtre et
@@ -1112,7 +1112,12 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
   Affiche (bandeau image 250 + colonne de 760, panneau noir « RÉGLAGES DE CE LANCEMENT » à droite, bouton jaune en
   bas), Ludique (grande carte 1184 × 590, image à gauche, « Comment tu veux jouer ? », bouton violet avec la pastille
   « A »). Composants internes `TargetPicture` et `RowArrow`.
-- **Bibliothèque Affiche** : en-tête « ← PC · N JEUX », « Playnite » 54, filtres en mots soulignés ; à la manette et
+- **Compteur de la bibliothèque** (`backend/librarycounttext.{h,cpp}`, `tests/librarycount`,
+  `SystemProperties.libraryCountText()`) : les jeux masqués ne comptent jamais. Liste vide « PC · aucun jeu » ;
+  filtre Tous, ou liste de tous les jeux non masqués (Récents) « PC · N jeux » ; sinon « PC · N affichés sur M »,
+  M = jeux non masqués ; singuliers « 1 jeu », « 1 affiché sur M ». Comparer à tous les jeux (masqués compris)
+  écrivait « 265 affichés sur 265 » dès qu'un jeu était masqué.
+- **Bibliothèque Affiche** : en-tête « ← » + la ligne du compteur en majuscules (« ← PC · N JEUX », suit le filtre), « Playnite » 54, filtres en mots soulignés ; à la manette et
   au clavier, **fenêtre de 8 lignes** autour du focus (`windowed`, `winStart` : les `fid` restent les index de la
   liste entière) ; à la souris la liste défile. Fiche : « joué il y a … » (`HomeView.lastPlayedText()`).
 - **« Reprendre » / « Rejoindre » (choix 23)** : `OtherClientsConnected` du `serverinfo` de LavApollo (sessions de
@@ -1490,7 +1495,8 @@ par `tests/hostdisplay`.
   (`ComputerManager::handleQuitAppFailed` pour `pendingQuit`).
 - ⚠️ **Journal : aucun secret d'appairage.** Les arguments d'une requête `pair` (sel, `otpauth`, défis, secret)
   donneraient le PIN, et une phrase de passe courte, hors ligne : `NvHTTP::openConnection` n'en écrit que les noms
-  (`loggableArguments`), et retire la requête du texte d'erreur de Qt (qui cite l'URL). Scénario 1.
+  (`loggableArguments`), y compris dans « Executing request » et « Aborting timed out request » qui citent l'URL
+  entière (`loggableUrl`), et retire la requête du texte d'erreur de Qt (qui cite l'URL). Scénario 1.
 
 ## ⚠️ Pièges / Gotchas
 
