@@ -716,6 +716,16 @@ QString loggableArguments(const QString& command, const QString& arguments)
     return parts.join('&');
 }
 
+// The whole URL of a request as the log may show it: a pairing request's query goes through
+// loggableArguments() (its uniqueid and uuid are hidden with the rest)
+QString loggableUrl(const QUrl& url, const QString& command)
+{
+    if (command != QLatin1String("pair") || !url.hasQuery()) {
+        return url.toString();
+    }
+    return url.toString(QUrl::RemoveQuery) + QLatin1Char('?') + loggableArguments(command, url.query());
+}
+
 }
 
 QString
@@ -829,7 +839,7 @@ NvHTTP::openConnection(QUrl baseUrl,
         QTimer::singleShot(timeoutMs, &loop, &QEventLoop::quit);
     }
     if (logLevel >= NvLogLevel::NVLL_VERBOSE) {
-        qInfo() << "Executing request:" << url.toString();
+        qInfo() << "Executing request:" << loggableUrl(url, command);
     }
     loop.exec(QEventLoop::ExcludeUserInputEvents);
 
@@ -837,7 +847,7 @@ NvHTTP::openConnection(QUrl baseUrl,
     if (!reply->isFinished())
     {
         if (logLevel >= NvLogLevel::NVLL_ERROR) {
-            qWarning() << "Aborting timed out request for" << url.toString();
+            qWarning() << "Aborting timed out request for" << loggableUrl(url, command);
         }
         reply->abort();
     }
