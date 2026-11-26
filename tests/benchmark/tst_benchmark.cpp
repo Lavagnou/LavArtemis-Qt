@@ -271,6 +271,13 @@ void testSkips()
         if (run->skip) {
             skipped++;
             check(run->config.codec == Codec::AV1 || isVrrPacing(run->config.pacing), "only the unavailable runs are skipped");
+            // The spec's sentences (docs/benchmark.md, "Notes"), as Android writes them
+            if (run->config.codec == Codec::AV1) {
+                check(run->skipReason == "av1 is not available: the device fell back to hevc", "an AV1 skip says the device fell back");
+            }
+            else {
+                check(run->skipReason == "VRR is not available on this display", "a VRR skip says the display has no VRR");
+            }
         }
         results.push_back(r);
     }
@@ -361,6 +368,10 @@ void testNotes()
     check(bitrateCapped(50000) == "The bitrate was capped at 50 Mbps.", "capped, in Mbps");
     check(bitrateCapped(12500) == "The bitrate was capped at 12.5 Mbps.", "capped, a decimal point whatever the locale");
     check(localized("") .isEmpty() && localized("Le stream a échoué.") == "Le stream a échoué.", "an unknown note stays as it is");
+    // Android's English names (values/strings.xml, benchmark_pacing_*), lower case: they sit inside a sentence
+    check(pacingLabel("default") == "default pacing" && pacingLabel("ull") == "ultra low latency"
+              && pacingLabel("paced-ull") == "paced ultra low latency" && pacingLabel("predictive") == "predictive pacing",
+          "Android's pacing modes by Android's English names");
 
     QTranslator fr;
     const QString qm = QFileInfo(QStringLiteral(__FILE__)).dir().filePath("../../app/languages/qml_fr.qm");
@@ -380,7 +391,8 @@ void testNotes()
         { "av1 is not available: the device fell back to hevc", "AV1 n'est pas disponible : l'appareil est revenu à HEVC" },
         { "av1 is not available: the client fell back to h264", "AV1 n'est pas disponible : l'appareil est revenu à H.264" },
         { "Ran as hevc, vsync-off instead.", "Passé en HEVC, V-Sync désactivée à la place." },
-        { "Ran as h264, ull instead.", "Passé en H.264, Latence ultra faible à la place." },
+        { "Ran as h264, ull instead.", "Passé en H.264, latence ultra faible à la place." },
+        { "Ran as hevc, default instead.", "Passé en HEVC, rythme par défaut à la place." },
         { "Starting RTSP handshake failed: error -1.", "Échec au démarrage (négociation RTSP) : erreur -1." },
         { "The connection ended (error -102).", "La connexion s'est coupée (erreur -102)." },
         { "The bitrate was capped at 50 Mbps.", "Le débit a été plafonné à 50 Mbit/s." },
@@ -393,6 +405,27 @@ void testNotes()
         }
     }
     check(modeLabel(Mode::Quick) == "Rapide" && goalLabel(Goal::Balanced) == QString::fromUtf8("Équilibré"), "mode and goal names in French");
+    // Every pacing id by Android's French name (values-fr/strings.xml, benchmark_pacing_*): a report made on
+    // either client names its modes the same way
+    struct { const char* id; const char* french; } pacings[] = {
+        { "default", "rythme par défaut" },
+        { "ull", "latence ultra faible" },
+        { "paced-ull", "latence ultra faible rythmée" },
+        { "predictive", "rythme prédictif" },
+        { "vrr-low-latency", "VRR, faible latence" },
+        { "vrr-balanced", "VRR, équilibré" },
+        { "vrr-smooth", "VRR, fluide" },
+        { "vsync-off", "V-Sync désactivée" },
+        { "vsync", "V-Sync" },
+        { "vsync-paced", "V-Sync + frame pacing" },
+    };
+    for (const auto& p : pacings) {
+        const QString got = pacingLabel(p.id);
+        if (got != QString::fromUtf8(p.french)) {
+            std::fprintf(stderr, "FAIL: pacing %s -> %s\n", p.id, got.toUtf8().constData());
+            ++failures;
+        }
+    }
     QCoreApplication::removeTranslator(&fr);
 }
 

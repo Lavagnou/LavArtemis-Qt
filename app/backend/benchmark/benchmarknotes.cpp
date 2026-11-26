@@ -61,6 +61,7 @@ QString localized(const std::string& text)
         return QCoreApplication::translate("BenchmarkNotes", "VRR is not available on this display");
     }
 
+    // "device" is the spec's form, written by both planners; "client" is what the PC wrote before 2026-11-26
     static const QRegularExpression fellBack(QStringLiteral("^(.+) is not available: the (?:device|client) fell back to (.+)$"));
     static const QRegularExpression ranAsRe(QStringLiteral("^Ran as (.+), (.+) instead\\.$"));
     static const QRegularExpression startFailedRe(QStringLiteral("^Starting (.+) failed: error (-?\\d+)\\.?$"));
@@ -117,11 +118,11 @@ QString pacingLabel(const std::string& pacing)
     if (pacing == "vrr-low-latency") return QCoreApplication::translate("BenchmarkRunner", "VRR, low latency");
     if (pacing == "vrr-balanced") return QCoreApplication::translate("BenchmarkRunner", "VRR, balanced");
     if (pacing == "vrr-smooth") return QCoreApplication::translate("BenchmarkRunner", "VRR, smooth");
-    // Android's modes, for reports made there
-    if (pacing == "default") return QCoreApplication::translate("BenchmarkRunner", "Default pacing");
-    if (pacing == "ull") return QCoreApplication::translate("BenchmarkRunner", "Ultra low latency");
-    if (pacing == "paced-ull") return QCoreApplication::translate("BenchmarkRunner", "Paced ultra low latency");
-    if (pacing == "predictive") return QCoreApplication::translate("BenchmarkRunner", "Predictive pacing");
+    // Android's modes, for reports made there, by Android's names (values/strings.xml, benchmark_pacing_*), lower case
+    if (pacing == "default") return QCoreApplication::translate("BenchmarkRunner", "default pacing");
+    if (pacing == "ull") return QCoreApplication::translate("BenchmarkRunner", "ultra low latency");
+    if (pacing == "paced-ull") return QCoreApplication::translate("BenchmarkRunner", "paced ultra low latency");
+    if (pacing == "predictive") return QCoreApplication::translate("BenchmarkRunner", "predictive pacing");
     return QString::fromStdString(pacing);
 }
 

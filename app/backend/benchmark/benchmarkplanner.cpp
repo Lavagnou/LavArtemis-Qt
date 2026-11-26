@@ -219,7 +219,7 @@ void Planner::markSkips(PlannedRun& run, const std::vector<RunResult>& results) 
         }
         if (r.requested.codec == run.config.codec && r.effective.codec != r.requested.codec) {
             run.skip = true;
-            run.skipReason = std::string(toString(run.config.codec)) + " is not available: the client fell back to " + toString(r.effective.codec);
+            run.skipReason = std::string(toString(run.config.codec)) + " is not available: the device fell back to " + toString(r.effective.codec);
             return;
         }
         if (isVrrPacing(run.config.pacing) && isVrrPacing(r.requested.pacing) && !isVrrPacing(r.effective.pacing)) {

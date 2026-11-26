@@ -258,20 +258,20 @@
         <translation>VRR, fluide</translation>
     </message>
     <message>
-        <source>Default pacing</source>
-        <translation>Frame pacing par défaut</translation>
+        <source>default pacing</source>
+        <translation>rythme par défaut</translation>
     </message>
     <message>
-        <source>Ultra low latency</source>
-        <translation>Latence ultra faible</translation>
+        <source>ultra low latency</source>
+        <translation>latence ultra faible</translation>
     </message>
     <message>
-        <source>Paced ultra low latency</source>
-        <translation>Latence ultra faible avec pacing</translation>
+        <source>paced ultra low latency</source>
+        <translation>latence ultra faible rythmée</translation>
     </message>
     <message>
-        <source>Predictive pacing</source>
-        <translation>Pacing prédictif</translation>
+        <source>predictive pacing</source>
+        <translation>rythme prédictif</translation>
     </message>
     <message>
         <source>Quick</source>

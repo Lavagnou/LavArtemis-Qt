@@ -1280,7 +1280,15 @@ deux clients (planification, mesures, formules, JSON) : `LavApollo/docs/benchmar
   `LavApollo/docs/benchmark.md`, « Notes ». L'étape qui échoue est notée par son nom anglais
   (`Session::failedStageName()`), une connexion coupée par son code (`terminationErrorCode()`) ; seul un
   message d'erreur de lancement reste tel qu'il a été affiché. Noms de mode et d'objectif traduits
-  (`modeLabel`/`goalLabel` dans la vue du rapport et l'historique).
+  (`modeLabel`/`goalLabel` dans la vue du rapport et l'historique). Le planificateur écrit la phrase de la
+  spécification, « the **device** fell back to » ; l'ancienne forme du PC (« the client fell back to ») reste
+  traduite, pour les anciens rapports.
+- ⚠️ **`pacingLabel` = les noms d'Android, au mot près** (`benchmark_pacing_*` de `values/` et `values-fr/`, lus
+  aussi par `BenchmarkNotes.pacingLabel` d'Android) : en minuscules, ils sont posés dans une phrase (« HEVC,
+  20 Mbps, rythme par défaut », « Passé en HEVC, rythme par défaut à la place. »). Les modes propres à Android
+  (`default`, `ull`, `paced-ull`, `predictive`) portent les noms d'Android, les modes communs (V-Sync, VRR) les
+  mêmes des deux côtés. Changer un libellé = le changer des deux côtés ; `tests/benchmark` vérifie chaque
+  identifiant en français.
 - **« Arrêter »** : pendant que l'appli de l'hôte se ferme (avant le premier passage, ou le redémarrage de la
   scène entre un passage VRR et un autre), `cancel()` termine tout de suite ; `launch()` vérifie donc
   `m_Running` / `m_CancelRequested` (sinon le lancement retenu par la fermeture démarrait un stream après
