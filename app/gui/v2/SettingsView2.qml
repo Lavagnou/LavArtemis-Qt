@@ -761,7 +761,7 @@ FocusScope {
                             contentItem: Text {
                                 leftPadding: 22
                                 verticalAlignment: Text.AlignVCenter
-                                text: Theme.displayText(navItem.modelData.title)
+                                text: navItem.modelData.title  // the prototype keeps the page names in their case, Affiche too
                                 color: navItem.selected ? Theme.onAccent : Theme.fg
                                 font.family: Theme.displayFont
                                 font.pixelSize: 20
