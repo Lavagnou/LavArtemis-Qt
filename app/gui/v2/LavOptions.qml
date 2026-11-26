@@ -10,11 +10,14 @@ import QtQuick.Effects
 //    under a 3 px rule, Ludique 560 r40; the main entry first, "Annuler" last;
 //  - popover at the pointer (right click or "⋯" with the mouse, PC): 300 wide, kind in small
 //    capitals, the closing warning as "⚠ Ferme …", no "Annuler", no icons on the other rows.
+// An entry with an `icon` (an SVG path: « Plus » of the in-game menu, menu workshop 2026-11-26) shows it
+// before its label, from the start of the row, as the tiles do: the accent's stroke in Braise, a round
+// chip in Ludique, none in Affiche (its menu has no icons) nor in the popover.
 // Sizes are prototype px x k (k = 1.25 x Theme.stageScale: the overlay is not inside a Stage).
 Popup {
     id: opts
 
-    // Set by open...(): {title, head, cover, warn, info, note, popNote, entries: [{l, a, main, play}]}
+    // Set by open...(): {title, head, cover, warn, info, note, popNote, entries: [{l, a, main, play, icon}]}
     property string title: ""
     property string head: ""
     property url cover: ""
@@ -91,11 +94,15 @@ Popup {
 
     readonly property real boxW: popover ? 300 * k
                                          : ((Theme.affiche ? 580 : (Theme.ludique ? 560 : 520)) + (cols - 1) * 250) * k
+    // The area it is centred in: the overlay. The in-game menu says its own size: on the `offscreen` platform
+    // (captures) the overlay of its window stays 0 x 0, and the dialog came out centred on the window's corner
+    property real areaWidth: parent ? parent.width : 0
+    property real areaHeight: parent ? parent.height : 0
     width: boxW
-    x: popover ? Math.max(8 * k, (atX + 4 * k + 310 * k > parent.width - 8 * k) ? atX - 314 * k : atX + 4 * k)
-               : (parent.width - width) / 2
-    y: popover ? Math.max(8 * k, (atY + 4 * k + height > parent.height - 8 * k) ? atY - height - 4 * k : atY + 4 * k)
-               : (parent.height - height) / 2
+    x: popover ? Math.max(8 * k, (atX + 4 * k + 310 * k > areaWidth - 8 * k) ? atX - 314 * k : atX + 4 * k)
+               : (areaWidth - width) / 2
+    y: popover ? Math.max(8 * k, (atY + 4 * k + height > areaHeight - 8 * k) ? atY - height - 4 * k : atY + 4 * k)
+               : (areaHeight - height) / 2
 
     Overlay.modal: Item {
         // Backdrop of the dialog: a light veil and a 3 px blur of the page (prototype backdrop-filter)
@@ -301,6 +308,7 @@ Popup {
                     readonly property bool focused: opts.focusIndex === index
                     readonly property bool ringOn: focused && Theme.showFocus && !opts.popover
                     readonly property bool hovered: hover.hovered
+                    readonly property bool iconShown: !!modelData.icon && !main && !opts.popover && !Theme.affiche
                     width: grid.cellW
                     height: opts.popover ? Math.max((main ? 36 : 34) * opts.k, label.implicitHeight + 14 * opts.k)
                           : Theme.affiche ? Math.max((main ? 60 : 52) * opts.k, label.implicitHeight + 16 * opts.k)
@@ -330,9 +338,30 @@ Popup {
 
                     Row {
                         anchors.verticalCenter: parent.verticalCenter
-                        x: opts.popover || Theme.affiche ? (opts.popover ? 14 : 16) * opts.k : (parent.width - width) / 2
+                        x: opts.popover || Theme.affiche || entry.iconShown ? (opts.popover ? 14 : 16) * opts.k : (parent.width - width) / 2
                         width: Math.min(implicitWidth, parent.width - 2 * (opts.popover ? 14 : 16) * opts.k)
-                        spacing: (opts.popover ? 9 : 10) * opts.k
+                        spacing: (opts.popover ? 9 : (entry.iconShown ? 12 : 10)) * opts.k
+                        // Braise: the icon in the accent; Ludique: in a round chip (the dock's chip colours)
+                        Item {
+                            id: entryIcon
+                            visible: entry.iconShown
+                            width: (Theme.ludique ? 32 : 20) * opts.k
+                            height: width
+                            anchors.verticalCenter: parent.verticalCenter
+                            Rectangle {
+                                visible: Theme.ludique
+                                anchors.fill: parent
+                                radius: width / 2
+                                color: Theme.dark ? "#2E2650" : "#E4DEFF"
+                            }
+                            LavIcon {
+                                anchors.centerIn: parent
+                                path: entry.modelData.icon || ""
+                                size: (Theme.ludique ? 17 : 20) * opts.k
+                                stroke: Theme.ludique ? 2 : 1.8
+                                color: Theme.ludique ? (Theme.dark ? "#F3EEFF" : "#1B1530") : Theme.accentText
+                            }
+                        }
                         LavIcon {
                             visible: !!entry.modelData.play && !(Theme.affiche && !opts.popover)
                             name: "play"
@@ -342,10 +371,12 @@ Popup {
                         }
                         Text {
                             id: label
-                            width: Math.min(implicitWidth, entry.width - 2 * (opts.popover ? 14 : 16) * opts.k - (entry.modelData.play ? 26 * opts.k : 0))
+                            width: Math.min(implicitWidth, entry.width - 2 * (opts.popover ? 14 : 16) * opts.k - (entry.modelData.play ? 26 * opts.k : 0)
+                                                           - (entry.iconShown ? entryIcon.width + 12 * opts.k : 0))
+                            anchors.verticalCenter: parent.verticalCenter
                             text: (Theme.affiche && !opts.popover && entry.main) ? entry.modelData.l + " →" : entry.modelData.l
                             wrapMode: Text.WordWrap
-                            horizontalAlignment: opts.popover || Theme.affiche ? Text.AlignLeft : Text.AlignHCenter
+                            horizontalAlignment: opts.popover || Theme.affiche || entry.iconShown ? Text.AlignLeft : Text.AlignHCenter
                             color: {
                                 if (Theme.affiche && !opts.popover && entry.ringOn) return Theme.ringFillFg
                                 if (opts.popover) return entry.main ? Theme.onAccent : Theme.fg

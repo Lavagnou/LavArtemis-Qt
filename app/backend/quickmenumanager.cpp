@@ -176,6 +176,16 @@ void QuickMenuManager::executeAction(const QString &action)
         toggleKeyboardCapture();
     } else if (action == "toggle_fullscreen") {
         toggleFullscreen();
+    } else if (action == "toggle_mouse_mode") {
+        // « Plus › Comportement de la souris »: Ctrl+Alt+Shift+M
+        if (Session::get() && Session::get()->getInputHandler()) {
+            Session::get()->getInputHandler()->toggleMouseMode();
+        }
+    } else if (action == "minimize") {
+        // « Plus › Réduire la fenêtre »: Ctrl+Alt+Shift+D
+        if (Session::get() && Session::get()->getInputHandler()) {
+            Session::get()->getInputHandler()->minimizeStreamWindow();
+        }
     } else if (action == "toggle_microphone") {
         if (Session::get()) {
             Session::get()->toggleMicrophoneMute();
@@ -341,6 +351,12 @@ void QuickMenuManager::toggleZoom()
 bool QuickMenuManager::streamFullScreen() const
 {
     return Session::get() && Session::get()->isStreamWindowFullScreen();
+}
+
+bool QuickMenuManager::desktopMouseMode() const
+{
+    return Session::get() && Session::get()->getInputHandler() &&
+           Session::get()->getInputHandler()->isAbsoluteMouseMode();
 }
 
 int QuickMenuManager::zoomPercent() const

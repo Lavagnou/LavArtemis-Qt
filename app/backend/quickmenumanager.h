@@ -81,6 +81,8 @@ public:
     Q_INVOKABLE void toggleZoom();
     Q_INVOKABLE int zoomPercent() const;
     Q_INVOKABLE bool streamFullScreen() const;
+    // « Comportement de la souris » (Ctrl+Alt+Shift+M): « Bureau » = the remote desktop mouse, « Jeu » otherwise
+    Q_INVOKABLE bool desktopMouseMode() const;
     QString hostName() const { return m_hostName; }
     QString appTitle() const { return m_appTitle; }
     QString appKind() const { return m_appKind; }

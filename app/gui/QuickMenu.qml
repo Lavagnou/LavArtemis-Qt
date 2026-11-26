@@ -2,17 +2,26 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Effects
 import QtQuick.Window
-import KeyMacroManager 1.0
 import SystemProperties 1.0
 import "v2"
 
 // The in-game menu (prototype V8 « ingame », planches 26, 28, 30, 31, 35, 61, 63, 66): an overlay of
-// the stream window (QuickMenuManager covers it with this transparent window), 11 tiles = Reprendre,
-// the 9 most useful entries and « Plus », in the theme's layout:
+// the stream window (QuickMenuManager covers it with this transparent window). Its entries are the
+// user's (menu workshop of 2026-11-26, `dispositions/pc` version 89; LavArtemis'
+// docs/superpowers/verif-2026-11-25/decisions-design.md « Menu en jeu »), the common ones in Android's
+// order and wording (StreamMenu.tiles() / more()):
+//  - tiles: Reprendre · Déconnecter · Quitter {jeu} (a game inside Playnite only: for the Bureau or
+//    Playnite Fullscreen it would repeat « Quitter la session ») · Quitter la session · Passer en
+//    trackpad / multitouch (a touch screen only) · Micro · Libérer la souris et le clavier ·
+//    Statistiques de performance · Plus;
+//  - « Plus »: Plein écran / fenêtre · Presse-papiers · Commandes du PC hôte · Zoom · Réduire la fenêtre ·
+//    Capturer le clavier · Comportement de la souris (Bureau / Jeu), each with its icon.
+// « Envoyer des touches », « Masquer le curseur local », « Verrouiller le pointeur » and « Coller du
+// texte » are not in the menu (their Ctrl+Alt+Shift shortcuts stay). In the theme's layout:
 //  - Braise: a scrim, the title and « PC · via » above a grid of 3 columns of tiles (icon, label, value);
 //  - Affiche: a black panel on the right, one row per entry, no icons;
-//  - Ludique: a dock of 11 round tiles at the bottom (chip, short label, value), the PC pill at the top.
-// Keys, clipboard, host commands, « Plus » and the quit confirmation open the prototype's dialog
+//  - Ludique: a dock of round tiles at the bottom (chip, short label, value), the PC pill at the top.
+// Clipboard, host commands, « Plus » and the quit confirmation open the prototype's dialog
 // (LavOptions). Prototype px x k (the Stage composes on a 1280 x 720 prototype scene x 1.25).
 FocusScope {
     id: menu
@@ -27,15 +36,28 @@ FocusScope {
     property string focusId: "m0"
 
     // ---- entries ------------------------------------------------------------------------------------
-    readonly property var ids: ["resume", "keys", "clip", "cmds", "stats", "mic", "zoom", "release", "more", "disconnect", "quit"]
+    readonly property bool quitsGame: quickMenuManager.playniteGameName !== ""
+    readonly property var ids: {
+        var out = ["resume", "disconnect"]
+        if (quitsGame) out.push("quit")
+        out.push("quitSession")
+        if (SystemProperties.hasTouchScreen) out.push("touch")
+        out.push("mic", "release", "stats", "more")
+        return out
+    }
+    // The workshop's ICON (= Android's drawable/v2_ic_m_*)
     readonly property var icons: ({
-        resume: "M8 5l11 7-11 7z", keys: "M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M8 14h8", clip: "M9 3h6v4H9zM7 5H5v16h14V5h-2",
+        resume: "M8 5l11 7-11 7z", clip: "M9 3h6v4H9zM7 5H5v16h14V5h-2",
         cmds: "M4 5h16v14H4zM8 10l3 2-3 2M13 14h3", zoom: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4M11 8v6M8 11h6",
         mic: "M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM5 11a7 7 0 0 0 14 0M12 18v3", stats: "M5 20v-9M12 20V5M19 20v-6",
         more: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8v8M8 12h8", disconnect: "M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10",
-        quit: "M12 3v8M6.3 7.3a8 8 0 1 0 11.4 0", release: "M5 3l5.5 15 2.2-6.3L19 9.5zM13 13l5 5"
+        quit: "M12 3v8M6.3 7.3a8 8 0 1 0 11.4 0", release: "M5 3l5.5 15 2.2-6.3L19 9.5zM13 13l5 5",
+        quitSession: "M6 6l12 12M18 6L6 18",
+        touch: "M9 11V5a2 2 0 0 1 4 0v6M13 10a2 2 0 0 1 4 0v3a7 7 0 0 1-7 7H9a5 5 0 0 1-4.6-3L3 14a1.6 1.6 0 0 1 2.7-1.6L9 15",
+        fullscreen: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5", minimize: "M5 19h14",
+        capture: "M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M8 14h8",
+        mouseMode: "M12 3a6 6 0 0 1 6 6v6a6 6 0 0 1-12 0V9a6 6 0 0 1 6-6zM12 7v4"
     })
-    readonly property bool quitsGame: quickMenuManager.playniteGameName !== ""
     readonly property string playingTitle: quitsGame ? quickMenuManager.playniteGameName : quickMenuManager.appTitle
     readonly property string via: {
         var kind = quickMenuManager.appKind
@@ -52,18 +74,17 @@ FocusScope {
         var micSent = quickMenuManager.microphoneActive()
         switch (id) {
         case "resume": return [qsTr("Reprendre"), qsTr("Reprendre"), "", ""]
-        case "keys": return [qsTr("Envoyer des touches"), qsTr("Touches"), "›", ""]
-        case "clip": return [qsTr("Presse-papiers"), qsTr("Copier"), "›", ""]
-        case "cmds": return [qsTr("Commandes du PC hôte"), qsTr("Commandes"), "›", ""]
+        case "disconnect": return [qsTr("Déconnecter"), qsTr("Déconnecter"), "", ""]
+        // only for a game inside Playnite (ids)
+        case "quit": return [qsTr("Quitter %1").arg(playingTitle), qsTr("Quitter"), qsTr("Retour à Playnite"), qsTr("Retour à Playnite, le stream continue")]
+        case "quitSession": return [qsTr("Quitter la session"), qsTr("Quitter la session"), "", ""]
+        case "touch": return quickMenuManager.trackpadTouchMode() ? [qsTr("Passer en multitouch"), qsTr("Multitouch"), "", ""]
+                                                                  : [qsTr("Passer en trackpad"), qsTr("Trackpad"), "", ""]
         case "stats": return [qsTr("Statistiques de performance"), qsTr("Stats"), quickMenuManager.isStatsVisible ? qsTr("Affichées") : qsTr("Masquées"), ""]
         case "mic": return micSent ? [qsTr("Micro"), qsTr("Micro"), quickMenuManager.microphoneMuted() ? qsTr("Coupé") : qsTr("Activé"), ""]
                                    : [qsTr("Micro non envoyé"), qsTr("Micro"), qsTr("Non envoyé"), ""]
-        case "zoom": return [qsTr("Zoom"), qsTr("Zoom"), qsTr("%1 %").arg(quickMenuManager.zoomPercent()), ""]
-        case "release": return [qsTr("Libérer la souris et le clavier"), qsTr("Libérer"), "", ""]
+        case "release": return [qsTr("Libérer la souris et le clavier"), qsTr("Libérer clavier/souris"), "", ""]
         case "more": return [qsTr("Plus"), qsTr("Plus"), "›", ""]
-        case "disconnect": return [qsTr("Déconnecter"), qsTr("Déconnecter"), "", ""]
-        case "quit": return quitsGame ? [qsTr("Quitter %1").arg(playingTitle), qsTr("Quitter"), qsTr("Retour à Playnite"), qsTr("Retour à Playnite, le stream continue")]
-                                      : [qsTr("Quitter %1").arg(playingTitle), qsTr("Quitter"), "", ""]
         }
         return [id, id, "", ""]
     }
@@ -81,7 +102,7 @@ FocusScope {
         }
         return out
     }
-    readonly property int cols: Theme.affiche ? 1 : (Theme.ludique ? 11 : 3)
+    readonly property int cols: Theme.affiche ? 1 : (Theme.ludique ? ids.length : 3)
     // Braise: the height each tile needs, so that a row of the grid is as tall as its tallest tile
     property var needs: ({})
     property int needsRev: 0
@@ -127,7 +148,6 @@ FocusScope {
     function doEntry(id) {
         switch (id) {
         case "resume": closeMenu(); return
-        case "keys": openKeys(); return
         case "clip":
             openDialog({title: qsTr("Presse-papiers"), note: qsTr("Copier-coller entre ce PC et %1.").arg(quickMenuManager.hostName),
                         entries: [{l: qsTr("Envoyer au PC ce que j’ai copié"), a: "clipboard_upload"},
@@ -151,9 +171,12 @@ FocusScope {
             return
         case "more": openMore(); return
         case "disconnect": closeMenu(); quickMenuManager.executeAction("disconnect"); return
-        case "quit":
-            if (quitsGame) { closeMenu(); quickMenuManager.quitPlayniteGame(); return }
-            openQuitSession()
+        case "quit": closeMenu(); quickMenuManager.quitPlayniteGame(); return
+        case "quitSession": openQuitSession(); return
+        case "minimize": closeMenu(); quickMenuManager.executeAction("minimize"); return
+        case "mouseMode":
+            quickMenuManager.executeAction("toggle_mouse_mode")
+            closeAndSay(qsTr("Comportement de la souris : %1").arg(quickMenuManager.desktopMouseMode() ? qsTr("Bureau") : qsTr("Jeu")))
             return
         case "capture":
             quickMenuManager.executeAction("toggle_keyboard")
@@ -170,7 +193,6 @@ FocusScope {
             quickMenuManager.executeAction("toggle_touch_mode")
             closeAndSay(trackpad ? qsTr("Mode multitouch") : qsTr("Mode trackpad"))
             return
-        case "quitSession": openQuitSession(); return
         }
     }
 
@@ -187,28 +209,6 @@ FocusScope {
         if (!cfg.warn) cfg.info = true
         dialog.showDialog(cfg)
     }
-    function openKeys() {
-        var e = [], macros = KeyMacroManager.macros
-        for (var i = 0; i < macros.length; i++) {
-            if (macros[i].builtIn) e.push({l: macros[i].name, a: "macro:" + macros[i].id})
-        }
-        e.push({l: qsTr("Mes macros…"), a: "macros"})
-        e.push(cancelEntry)
-        openDialog({title: qsTr("Envoyer des touches"), note: qsTr("Envoyées au PC comme si tu les tapais là-bas."), entries: e})
-    }
-    function openMacros() {
-        var e = [], macros = KeyMacroManager.macros
-        for (var i = 0; i < macros.length; i++) {
-            if (!macros[i].builtIn) e.push({l: macros[i].name, a: "macro:" + macros[i].id})
-        }
-        if (e.length === 0) {
-            openDialog({title: qsTr("Mes macros"), note: qsTr("Aucune macro pour l’instant."),
-                        entries: [{l: qsTr("OK"), a: "cancel", main: true}]})
-            return
-        }
-        e.push(cancelEntry)
-        openDialog({title: qsTr("Mes macros"), note: qsTr("Envoyées au PC comme si tu les tapais là-bas."), entries: e})
-    }
     function openCommands() {
         var names = quickMenuManager.serverCommandManager ? quickMenuManager.serverCommandManager.getAvailableCommands() : []
         if (names.length === 0) {
@@ -222,14 +222,17 @@ FocusScope {
         e.push(cancelEntry)
         openDialog({title: qsTr("Commandes du PC hôte"), note: qsTr("Accéder aux commandes de contrôle du PC hôte"), entries: e})
     }
+    // « Plus »: the workshop's order, an icon before each entry (LavOptions: Braise accent, Ludique chip,
+    // none in Affiche), a value after « · » as Android's StreamMenu.withValue()
     function openMore() {
-        var e = [{l: qsTr("Capturer le clavier"), a: "do:capture"},
-                 {l: qsTr("Plein écran / fenêtre") + " · " + (quickMenuManager.streamFullScreen() ? qsTr("Plein écran") : qsTr("Fenêtre")), a: "do:fullscreen"}]
-        if (SystemProperties.hasTouchScreen) {
-            e.push({l: quickMenuManager.trackpadTouchMode() ? qsTr("Passer en multitouch") : qsTr("Passer en trackpad"), a: "do:touch"})
-        }
-        if (quitsGame) e.push({l: qsTr("Quitter la session"), a: "do:quitSession"})
-        e.push(cancelEntry)
+        var e = [{l: qsTr("Plein écran / fenêtre") + " · " + (quickMenuManager.streamFullScreen() ? qsTr("Plein écran") : qsTr("Fenêtre")), a: "do:fullscreen", icon: icons.fullscreen},
+                 {l: qsTr("Presse-papiers"), a: "do:clip", icon: icons.clip},
+                 {l: qsTr("Commandes du PC hôte"), a: "do:cmds", icon: icons.cmds},
+                 {l: qsTr("Zoom") + " · " + qsTr("%1 %").arg(quickMenuManager.zoomPercent()), a: "do:zoom", icon: icons.zoom},
+                 {l: qsTr("Réduire la fenêtre"), a: "do:minimize", icon: icons.minimize},
+                 {l: qsTr("Capturer le clavier"), a: "do:capture", icon: icons.capture},
+                 {l: qsTr("Comportement de la souris") + " · " + (quickMenuManager.desktopMouseMode() ? qsTr("Bureau") : qsTr("Jeu")), a: "do:mouseMode", icon: icons.mouseMode},
+                 cancelEntry]
         openDialog({title: qsTr("Plus"), note: playingTitle + (via.length ? sep + via : ""), entries: e})
     }
     function openQuitSession() {
@@ -239,9 +242,7 @@ FocusScope {
     }
     function onPicked(a) {
         if (a === "cancel") return
-        if (a === "macros") { openMacros(); return }
         if (a.indexOf("do:") === 0) { doEntry(a.substring(3)); return }
-        if (a.indexOf("macro:") === 0) { closeMenu(); KeyMacroManager.sendMacro(a.substring(6)); return }
         if (a.indexOf("server_cmd:") === 0) { closeMenu(); quickMenuManager.serverCommandManager.executeCommand(a.substring(11)); return }
         if (a === "clipboard_upload" || a === "clipboard_fetch") { closeMenu(); quickMenuManager.executeAction(a); return }
         if (a === "quit") { closeMenu(); quickMenuManager.executeAction("quit"); return }
@@ -549,8 +550,14 @@ FocusScope {
                                 color: lt.chip
                                 LavIcon { anchors.centerIn: parent; path: lt.modelData.icon; size: 22 * menu.k; stroke: 2; color: lt.chipFg }
                             }
+                            // « Quitter la session », « Libérer clavier/souris » (workshop): two lines in a 96 px tile
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
+                                width: lt.width - 12 * menu.k
+                                horizontalAlignment: Text.AlignHCenter
+                                wrapMode: Text.WordWrap
+                                maximumLineCount: 2
+                                lineHeight: 0.95
                                 text: lt.modelData.label
                                 color: Theme.fg
                                 font.family: Theme.textFont; font.weight: Font.ExtraBold; font.pixelSize: 13 * menu.k
@@ -577,6 +584,9 @@ FocusScope {
 
     LavOptions {
         id: dialog
+        // the menu fills the stream window (the overlay may still be 0 x 0 offscreen)
+        areaWidth: menu.width
+        areaHeight: menu.height
         onPicked: (a) => menu.onPicked(a)
         onClosed: menu.forceActiveFocus()
     }

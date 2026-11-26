@@ -136,10 +136,14 @@ public:
     bool isAbsoluteTouchMode() const { return m_AbsoluteTouchMode; }
     void setAbsoluteTouchMode(bool absolute);
 
-    // In-game menu: the same actions as the Ctrl+Alt+Shift shortcuts Z, K and X. Main thread.
+    // In-game menu: the same actions as the Ctrl+Alt+Shift shortcuts Z, K, X, M and D. Main thread.
     void toggleInputCapture() { performSpecialKeyCombo(KeyComboUngrabInput); }
     void toggleSystemKeyCapture() { performSpecialKeyCombo(KeyComboToggleKeyboardGrab); }
     void toggleFullScreenMode() { performSpecialKeyCombo(KeyComboToggleFullScreen); }
+    // « Comportement de la souris » of « Plus »: true = « Bureau » (remote desktop mouse), false = « Jeu »
+    bool isAbsoluteMouseMode() const { return m_AbsoluteMouseMode; }
+    void toggleMouseMode() { performSpecialKeyCombo(KeyComboToggleMouseMode); }
+    void minimizeStreamWindow() { performSpecialKeyCombo(KeyComboToggleMinimize); }
 
     int getAttachedGamepadMask();
 
