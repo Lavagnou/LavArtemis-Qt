@@ -159,7 +159,7 @@ l'accueil n'a pas d'événement de navigation sur lequel sauvegarder.
 | Feature | Où | Note |
 |---|---|---|
 | **Profils de réglages** | `settings/profilemanager.{h,cpp}` | `profiles.json` dans `AppConfigLocation`. Un profil est un **snapshot complet**, pas un patch épars ; un **nouveau profil est un instantané complet de ce qui est en vigueur** (`createProfile()`, comme `SettingsStore.snapshot()` d'Android) : chaque clé que `value()`/`setValue()` ont vue (`m_KnownKeys`, toutes lues par `StreamingPreferences::reload()` au démarrage), avec sa valeur actuelle, défaut compris, qu'un profil soit actif ou non. Avant le 2026-11-26, créé sans profil actif il était **vide** (et partiel sous un profil épars) : ce qu'il ne portait pas suivait les globaux. Test : `tests/profiles`. `language`, `defaultver` et les clés propres à la machine (`mdns`, `detectnetblocking`, `uidisplaymode`, `tracevrrframes`) **bypassent** les profils (`isGlobalKey()`). |
-| **Send keys + macros** | `backend/keymacromanager.{h,cpp}` | 15 presets (mêmes que l'Android Dev ; le raccourci HDR Win+Alt+B est retiré des deux) + `keyboard-macros.json`. **Même format et mêmes noms `VK_` que l'Android** → un fichier marche sur les deux. Table des 174 noms extraite de `KeyMapper.java`, pas retapée. |
+| **Send keys + macros** | `backend/keymacromanager.{h,cpp}` | 15 presets (mêmes que l'Android Dev ; le raccourci HDR Win+Alt+B est retiré des deux) + `keyboard-macros.json`. **Même format et mêmes noms `VK_` que l'Android** → un fichier marche sur les deux. Table des 174 noms extraite de `KeyMapper.java`, pas retapée. ⚠️ **Plus dans le menu en jeu** depuis l'atelier du 2026-11-26 (décision de l'utilisateur, Android pareil) : le gestionnaire reste (singleton QML enregistré), sans appelant dans l'interface. |
 | **Liens `art://` + `.art`** | `cli/artlink.{h,cpp}` | `rewriteArguments()` **traduit le lien en ligne de commande existante** au lieu d'ajouter un chemin de lancement parallèle → hérite du host seeking, du wake-on-LAN et de l'UI de segue. Export via `AppModel::exportArtFile()`. **Seul `argv[1]`** peut être un lien ou un fichier `.art` (c'est là que le gestionnaire de liens et le double-clic les mettent) : plus loin, c'est un argument ordinaire (`stream PC "Mon jeu.art"`). Testé par `tests/artlink`. |
 | **Pan & zoom** | `streaming/panzoom.{h,cpp}` | Combos Ctrl+Alt+Shift (`+`/`-`/`0`, flèches). |
 
@@ -1120,24 +1120,47 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
   `SystemProperties.libraryCountText()`) : les jeux masqués ne comptent jamais. Liste vide « PC · aucun jeu » ;
   filtre Tous, ou liste de tous les jeux non masqués (Récents) « PC · N jeux » ; sinon « PC · N affichés sur M »,
   M = jeux non masqués ; singuliers « 1 jeu », « 1 affiché sur M ». Comparer à tous les jeux (masqués compris)
-  écrivait « 265 affichés sur 265 » dès qu'un jeu était masqué.
+  écrivait « 265 affichés sur 265 » dès qu'un jeu était masqué. **Filtre Masqués** (`hiddenFilter`, demande de
+  l'utilisateur du 2026-11-26) : les jeux masqués qu'il liste, « PC · 1 jeu masqué » / « PC · 3 jeux masqués » /
+  « PC · aucun jeu masqué » (jamais « 1 affiché sur 3 » : M ne compte pas les masqués) ; en majuscules dans l'en-tête
+  d'Affiche, comme les autres. Scénario 2.
 - **Bibliothèque Affiche** : en-tête « ← » + la ligne du compteur en majuscules (« ← PC · N JEUX », suit le filtre), « Playnite » 54, filtres en mots soulignés ; à la manette et
   au clavier, **fenêtre de 8 lignes** autour du focus (`windowed`, `winStart` : les `fid` restent les index de la
   liste entière) ; à la souris la liste défile. Fiche : « joué il y a … » (`HomeView.lastPlayedText()`).
 - **« Reprendre » / « Rejoindre » (choix 23)** : `OtherClientsConnected` du `serverinfo` de LavApollo (sessions de
   stream d'**autres** clients appairés) → `NvComputer::otherClientsConnected` → rôle `otherClients` de
   `ComputerModel` (ajouté à la fin de l'enum) → `HomeView.otherDevice`. Un hôte qui ne le dit pas = 0 = « Reprendre ».
-- **Menu en jeu en tuiles** (`QuickMenu.qml`, planches V8-26/28/30/31/35/61/63/66) : 11 tuiles (Reprendre, Envoyer
-  des touches, Presse-papiers, Commandes du PC hôte, Statistiques, Micro, Zoom, Libérer, Plus, Déconnecter,
-  Quitter {jeu}), Braise grille de 3, Affiche panneau noir à droite, Ludique dock. **La fenêtre du menu couvre toute
-  la fenêtre du stream** (`QuickMenuManager::placeQuickView()`, `SizeRootObjectToView`, fond transparent) : voile et
-  tuiles dessinés par-dessus l'image. Sous-dialogues = `LavOptions` (touches + « Mes macros… », presse-papiers,
-  commandes, Plus = Capturer le clavier / Plein écran · valeur / Passer en trackpad / Quitter la session,
-  confirmation « Quitter {app} ? »). Micro non envoyé : tuile grisée, un toast dit où l'activer. « Quitter {jeu} »
+- **Menu en jeu en tuiles** (`QuickMenu.qml`, planches V8-26/28/30/31/35/61/63/66), **entrées de l'atelier du
+  2026-11-26** (`dispositions/pc` version 89 ; `decisions-design.md` « Menu en jeu » du dépôt LavArtemis), mêmes
+  ordre, libellés et icônes qu'Android (`StreamMenu.tiles()` / `more()`, `V2GameMenu`) pour les entrées communes :
+  - **tuiles** : Reprendre · Déconnecter · Quitter {jeu} (**seulement un jeu lancé dans Playnite** : pour le Bureau
+    ou Playnite Fullscreen il doublait « Quitter la session ») · Quitter la session (confirmation « Quitter {app} ? »)
+    · Passer en trackpad / multitouch (PC tactile seulement, comme Android le cache sur écran externe) · Micro · Libérer
+    la souris et le clavier · Statistiques de performance · Plus. Libellés courts du dock Ludique : « Quitter la
+    session » et « Libérer clavier/souris » sur deux lignes, « Trackpad » / « Multitouch », « Stats ».
+  - **Plus** : Plein écran / fenêtre · valeur · Presse-papiers · Commandes du PC hôte · Zoom · valeur · Réduire la
+    fenêtre (Ctrl+Alt+Maj+D) · Capturer le clavier · **Comportement de la souris** · Bureau / Jeu (l'ex-« Mode de
+    souris », Ctrl+Alt+Maj+M : `SdlInputHandler::toggleMouseMode()` / `isAbsoluteMouseMode()`, Bureau = souris du
+    bureau à distance ; un toast dit le nouvel état). **Une icône devant chaque entrée** (`LavOptions`, champ `icon`
+    d'une entrée) : trait de l'accent en Braise, pastille ronde en Ludique, rien en Affiche ni dans le popover.
+  - **Retirées du menu** : Envoyer des touches (et « Mes macros… »), Masquer le curseur local, Verrouiller le
+    pointeur, Coller du texte ; leurs raccourcis Ctrl+Alt+Maj restent (Envoyer des touches n'en a pas). Pas
+    d'« Ouvrir le clavier » sur PC (Android l'a).
+  Braise grille de 3, Affiche panneau noir à droite, Ludique dock (autant de colonnes que de tuiles). **La fenêtre du
+  menu couvre toute la fenêtre du stream** (`QuickMenuManager::placeQuickView()`, `SizeRootObjectToView`, fond
+  transparent) : voile et tuiles dessinés par-dessus l'image. Sous-dialogues = `LavOptions` (presse-papiers,
+  commandes, Plus, confirmation). Micro non envoyé : tuile grisée, un toast dit où l'activer. « Quitter {jeu} »
   d'un jeu Playnite : sous-titre « Retour à Playnite, le stream continue ». Zoom 100 % ↔ 200 %
-  (`QuickMenuManager::toggleZoom()`, `PanZoom`). Titre et « PC · via » : `QuickMenuManager::setStreamInfo()` (posé
+  (`QuickMenuManager::toggleZoom()`, `PanZoom`). Scénario 17 S2 (ordre des tuiles et de Plus, entrées retirées
+  absentes, Zoom, Comportement de la souris).
+  - ⚠️ **Dialogues du menu : `LavOptions.areaWidth` / `areaHeight` = la taille du menu.** Ils se centraient sur
+    `Overlay.overlay`, qui reste à 0 × 0 sur la plateforme `offscreen` : Plus sortait centré sur le coin de la
+    fenêtre dans les captures. Le voile modal du dialogue (taille de l'overlay) n'y est toujours pas dessiné. Titre et « PC · via » : `QuickMenuManager::setStreamInfo()` (posé
   par `Session`). **Statistiques à l'écran dans la boîte du thème** : `OverlayManager::setDebugBoxStyle()` (texte sur
   fond plein avec marge, sans contour), posé par `Session` d'après `ArtemisSettings.uiTheme` / `uiThemeMode`.
+  - **Accueil Braise** : « {via} · ⋯ sur la carte pour relancer » dessine le « ⋯ » avec l'icône `dots` à la taille
+    du texte. Inter n'a pas U+22EF : Qt le prenait dans une police CJK (MS Gothic, moitié moins large, points
+    minuscules), le navigateur du prototype dans Segoe UI Symbol (large comme un « m »).
   - ⚠️ **Racine du menu : `width: Window.width` / `height: Window.height`.** Sans ça, sur la plateforme
     `offscreen` (captures), la racine restait à 0 × 0 et la `Stage` (clip) coupait tout : fenêtre vide.
 - **Mes PC** : icône par type (`formFactor`), ligne « Tour · réseau filaire · 4 ms » avec l'icône du lien, ligne
