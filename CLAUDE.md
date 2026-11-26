@@ -1077,6 +1077,35 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
 > 📋 Le fond de la fenêtre est `Theme.bg` dès la première image, et les contrôles Material restants
 > prennent les couleurs et la police du thème depuis `main.qml` (`Material.*`, `font`).
 
+### Portage du prototype V8 (branche `port-v8`, nuit du 2026-11-26, pas encore validé)
+
+Référence : page V8 du prototype (`LavArtemis/docs/superpowers/verif-2026-11-25/PORT-BRIEF.md`, `design-port-spec.md`).
+Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 1,25` (la `Stage` de 1600).
+- **Accueil** : `HomeView.qml` garde les données, la grille de focus et les actions ; la mise en page est par thème
+  (`HomeBraise` : image héros + voile, `HomeAffiche` : affiche sans image, `HomeLudique` : capsules), chargée par un
+  `Loader`. Les mises en page reçoivent la page par `homeRef` (une propriété `home` de la mise en page masquerait
+  l'id `home`). Briques : `HomeTile` (focus, survol, assombrissement, halo, ⋯, clic / clic droit / appui 500 ms),
+  `HeaderButton`, `HomeHeaderButtons`, `FocusRing` (anneau par thème), `LiveDot` (pastille qui pulse), `LavToast`
+  (en haut, 2,4 s), `HintsBar` (manette / clavier seulement), `LavOptions` (dialogue centré par thème, ou popover au
+  pointeur avec la souris), `CoverFace`, `DashedRect`, `DevChip`, `ThemeLogo`, `UpdateButton`, `NoGamesCard`,
+  `MouseMoves`.
+- **Focus en grille, pas la chaîne de focus Qt** : `focusId` (`nh`, `ns`, `resume`, `squit`, `a0`, `a1`, `r0`…`r5`,
+  `lib`, `wake`), `grid` et `move()` = ceux du prototype. Entrée / A : activer, **maintenue 500 ms = options**
+  (`holdTimer`, le relâché n'active pas) ; Menu / Y : options ; Q / E, PageUp / PageDown, LB / RB : PC précédent /
+  suivant. La souris déplace le focus (survol), **seulement si elle a vraiment bougé** (`mouseMovedAt`,
+  `MouseMoves`) : Qt envoie aussi un survol quand un élément bouge sous un pointeur immobile.
+- **Manette (`SdlGamepadKeyNavigation`)** : B et Start = Échap, **Y = Menu** (options), **LB / RB = PageUp /
+  PageDown**, X ne fait plus rien (il envoyait Menu ; Y et Start envoyaient `Key_Hangup`, que rien ne lisait).
+- **Pages poussées comme composant** (`stackView.push(Qt.createComponent(...), props)`) : un objet fait par
+  `createObject()` n'est pas détruit au retour et gardait le focus clavier (Mes PC, Réglages, benchmark, mapper).
+- ⚠️ **Jamais de propriété nommée `on` + Majuscule** (`onHost`, `onCapsule`) : QML la lit comme un gestionnaire du
+  signal de la propriété `host` / `capsule`, la valeur reste vide sans erreur.
+- **Effets** : `Theme.effects` est faux sur le scene graph logiciel (`testbench.py shots`, captures hors écran) ; tout
+  `layer.effect` / `MultiEffect` y est conditionné, sinon l'élément n'est pas dessiné du tout.
+- Bibliothèque (`LibraryView`, filtres Tous / Récents / Installés / Masqués, LB / RB) et écran de détails
+  (`DetailsView`) : nouveaux ; leurs rangées changent les vrais réglages (pas de réglages « de ce lancement »).
+- Ce qui reste et les écarts : `port-notes.md`, section PC.
+
 ## 🇫🇷 Langue
 
 L'interface v2 est **écrite en français** (sources `qsTr("…")` en français). Le reste (mapper,
