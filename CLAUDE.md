@@ -599,8 +599,35 @@ Chemins réseau **hors NvHTTP** et pourquoi ils sont sûrs :
 
 ### Mode discret
 
-Le client tourne sur le PC de l'utilisateur pendant qu'il travaille : fenêtres visibles mais **jamais le focus,
+Le client tourne sur le PC de l'utilisateur pendant qu'il travaille : **fenêtres jamais vues, jamais le focus,
 jamais son pointeur, jamais de son, jamais son vrai micro**.
+- **Fenêtres jamais vues** (`testctl/hiddenwindows.{h,cpp}`, `TestWindows::install()` en tête de `main()`, avant toute
+  fenêtre) : jusqu'au 2026-11-26 elles étaient seulement non activables, et le banc faisait apparaître sans arrêt
+  des fenêtres par-dessus celles de l'utilisateur (le menu en jeu était même `WindowStaysOnTopHint`) : il ne pouvait
+  plus se servir de son PC. Toute fenêtre de premier niveau du thread GUI (Qt, menu en jeu, popups Qt Quick en
+  fenêtre, stream SDL, dialogues) est maintenant :
+  - **voilée** (`DWMWA_CLOAK`) dès la fin de son `WM_CREATE`, avant tout affichage (hook `WH_CALLWNDPROCRET`) : DWM
+    n'en dessine rien (ni contenu, ni cadre, ni ombre, ni Alt+Tab) et **la souris passe au travers** (une fenêtre
+    voilée n'est pas testée au pointage : vérifié, `WindowFromPoint` l'ignore même topmost), mais pour Windows, Qt
+    et SDL elle reste une fenêtre affichée à sa place : Qt la garde exposée (mise en page, animations, rendu), le
+    stream continue de présenter, `grabWindow()` et `PrintWindow(PW_RENDERFULLCONTENT)` (captures du banc) marchent ;
+  - **au bas de l'ordre Z, jamais topmost, jamais activée** : hook `WH_CBT` (création en `HWND_BOTTOM`, toute
+    activation refusée sur `HCBT_ACTIVATE`) ; les fenêtres Qt sont sous-classées dès leur création
+    (`WM_WINDOWPOSCHANGING` réécrit **après** Qt : `HWND_BOTTOM` + `SWP_NOACTIVATE`, ce qui retire aussi le topmost ;
+    `WM_STYLECHANGING` garde `WS_EX_NOACTIVATE`, donc pas de bouton dans la barre des tâches) ; le menu en jeu n'a plus
+    `WindowStaysOnTopHint` dans ce mode.
+  - ⚠️ **La fenêtre SDL n'est sous-classée qu'une fois que SDL l'a installée** (propriété `SDL_WindowData`, ou
+    `TestWindows::adopt()` dans `lavTestMakeNonActivating()`) : le `SetupWindowData` de SDL remplace la procédure
+    d'une fenêtre qu'il n'a pas créée et rappelle l'ancienne, un sous-classement posé avant tournerait en boucle.
+  - ⚠️ **Ne pas sortir les fenêtres du bureau** (essayé le 2026-11-26) : une fenêtre de premier niveau est coupée par
+    la fenêtre du bureau ; au-delà de son bord, sa région de mise à jour est vide, Qt ne la voit jamais exposée et ne
+    fait plus ses `updatePolish` : mises en page figées à mi-chemin, popups bloquées dans leur transition d'ouverture
+    (le scénario 2 échouait, « covered: a modal popup »). Le voile garde la fenêtre à sa place.
+  - **`LAV_TEST_VISIBLE=1`** (environnement du client, donc du banc) coupe tout cela pour regarder un scénario à
+    l'œil : les fenêtres s'affichent comme dans l'appli (toujours sans focus), le menu en jeu redevient topmost, et le
+    contrôle de visibilité du banc ne vérifie rien.
+  - Le banc vérifie la règle à chaque scénario (`VisibilityWatch` de `conftest.py` : une fenêtre du client sur un
+    écran et non voilée, ou topmost, fait échouer).
 - **Fenêtre du stream** (`session.cpp`) : toujours fenêtrée (`m_IsFullScreen = false`, `m_FullScreenFlag = 0`,
   `toggleFullscreen()` sans effet), ni multi-écran (fenêtre bordless always-on-top), ni état maximisé / minimisé
   hérité du GUI ; titre « … - Test ». SDL2 ici = **sdl2-compat 2.32.70 sur SDL3**, qui ignore
@@ -629,8 +656,9 @@ jamais son pointeur, jamais de son, jamais son vrai micro**.
     **active**, ce qu'elle n'est jamais ici : dans le build de test, **visible compte comme active** (`main.qml`,
     `onVisibleChanged`, pas de minuterie d'inactivité). Sans ça, aucune liste d'applis ni aucun changement d'état
     n'arrivait jamais (accueil « Aucun PC appairé » avec un PC appairé).
-  - ⚠️ Les `FileDialog` natifs (export `.art` de `HomeView`, `BenchmarkView`) **s'activent** : aucun scénario ne doit les
-    ouvrir (le canal n'en ouvre aucun de lui-même ; un `click` qui en ouvrirait un, si).
+  - ⚠️ Les `FileDialog` natifs (export `.art` de `HomeView`, `BenchmarkView`) **cherchent à s'activer** (le hook `WH_CBT`
+    le refuse maintenant, et ils sont voilés) : aucun scénario ne doit les ouvrir, ils sont modaux (le canal n'en ouvre
+    aucun de lui-même ; un `click` qui en ouvrirait un, si).
 - **Pointeur / clavier** : capture **logique seulement** : `isCaptureActive()` vaut toujours vrai (les événements
   injectés passent), `setCaptureActive()`, `updateKeyboardGrabState()`, `updatePointerRegionLock()` et
   `SDL_CaptureMouse` ne font rien côté OS (pas de mode relatif, de verrou, de curseur masqué, de warp).
