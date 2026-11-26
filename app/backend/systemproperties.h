@@ -47,6 +47,11 @@ public:
     Q_INVOKABLE QRect getSafeAreaResolution(int displayIndex);
     Q_INVOKABLE int getRefreshRate(int displayIndex);
 
+    // « 25 min jouées » / « 3 h jouées » / « Jamais lancé », and the short « 25 min » / « 3 h » / « — »
+    // (backend/playtimetext, tests/playtime)
+    Q_INVOKABLE QString playtimeText(double seconds) const;
+    Q_INVOKABLE QString playtimeShort(double seconds) const;
+
     Q_INVOKABLE void startAsyncLoad();
     Q_INVOKABLE void waitForAsyncLoad();
     Q_INVOKABLE void refreshDisplays();

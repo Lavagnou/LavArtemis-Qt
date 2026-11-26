@@ -1,5 +1,6 @@
 #include "systemproperties.h"
 #include "utils.h"
+#include "playtimetext.h"
 
 #include <QGuiApplication>
 #include <QInputDevice>
@@ -287,6 +288,16 @@ int SystemProperties::getRefreshRate(int displayIndex)
 {
     // Returns 0 if out of bounds
     return monitorRefreshRates.value(displayIndex);
+}
+
+QString SystemProperties::playtimeText(double seconds) const
+{
+    return PlaytimeText::played(static_cast<qint64>(seconds));
+}
+
+QString SystemProperties::playtimeShort(double seconds) const
+{
+    return PlaytimeText::shortForm(static_cast<qint64>(seconds));
 }
 
 void SystemProperties::startAsyncLoad()

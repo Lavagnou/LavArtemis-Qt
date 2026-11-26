@@ -223,6 +223,7 @@ SOURCES += \
     backend/serverpermissions.cpp \
     backend/quickmenumanager.cpp \
     backend/hostdisplayfit.cpp \
+    backend/playtimetext.cpp \
     backend/keymacromanager.cpp \
     backend/benchmark/benchmarktypes.cpp \
     backend/benchmark/benchmarkscoring.cpp \
@@ -294,6 +295,7 @@ HEADERS += \
     backend/serverpermissions.h \
     backend/quickmenumanager.h \
     backend/hostdisplayfit.h \
+    backend/playtimetext.h \
     backend/keymacromanager.h \
     backend/benchmark/presenthistogram.h \
     backend/benchmark/benchmarktypes.h \
