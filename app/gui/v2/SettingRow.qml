@@ -19,6 +19,10 @@ Item {
     property string description: ""
     property int descriptionLines: 2
     property bool expert: false
+    // « ● » after the label (prototype V8 « Suit le profil »): rows of a page whose settings are saved in the
+    // active profile (the page Column says profileRows), except the ones kept by this PC (appWide)
+    property bool appWide: false
+    readonly property bool followsProfile: !appWide && parent !== null && parent.profileRows === true
     property bool available: true
     property bool focusable: true
     property bool clickToActivate: false
@@ -69,15 +73,11 @@ Item {
         Behavior on border.color { ColorAnimation { duration: Theme.animMs } }
     }
 
-    // Focus ring: gamepad and keyboard only
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: -5
-        radius: Theme.rs + 5
-        color: "transparent"
-        border.width: 3
-        border.color: Theme.fg
-        visible: row.activeFocus && Theme.showFocus
+    // Focus ring: gamepad and keyboard only, the theme's (prototype ring)
+    FocusRing {
+        active: row.activeFocus && Theme.showFocus
+        radius: Theme.rs
+        k: 1.25
     }
 
     Column {
@@ -92,7 +92,7 @@ Item {
             width: parent.width
             Text {
                 id: labelText
-                width: Math.min(implicitWidth, texts.width - (tag.visible ? tag.width + 10 : 0))
+                width: Math.min(implicitWidth, texts.width - (tag.visible ? tag.width + 10 : 0) - (profileDot.visible ? profileDot.width + 10 : 0))
                 text: row.label
                 color: Theme.fg
                 elide: Text.ElideRight
@@ -101,15 +101,22 @@ Item {
                 font.weight: Font.Bold
                 anchors.verticalCenter: parent.verticalCenter
             }
+            Text {
+                id: profileDot
+                visible: row.followsProfile
+                text: "●"
+                color: Theme.muted
+                font.pixelSize: 12
+                anchors.verticalCenter: parent.verticalCenter
+            }
             Rectangle {
+                // the prototype's chip: surface2, radius 6, 10 px bold, letter-spaced
                 id: tag
                 visible: row.expert
-                width: tagText.implicitWidth + 14
-                height: 22
-                radius: Theme.id === "affiche" ? 0 : 11
-                color: "transparent"
-                border.width: 1
-                border.color: Theme.muted
+                width: tagText.implicitWidth + 15
+                height: tagText.implicitHeight + 3
+                radius: Theme.id === "affiche" ? 0 : 7.5
+                color: Theme.surface2
                 anchors.verticalCenter: parent.verticalCenter
                 Text {
                     id: tagText
@@ -117,9 +124,9 @@ Item {
                     text: qsTr("EXPERT")
                     color: Theme.muted
                     font.family: Theme.textFont
-                    font.pixelSize: 11
-                    font.weight: Font.Bold
-                    font.letterSpacing: 0.8
+                    font.pixelSize: 12
+                    font.weight: Font.ExtraBold
+                    font.letterSpacing: 0.5
                 }
             }
         }

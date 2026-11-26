@@ -6,7 +6,10 @@
 
 #include "settings/mappingmanager.h"
 
-#define AXIS_NAVIGATION_REPEAT_DELAY 150
+// The stick repeats as the prototype's gamepad (V8): a first move at once, the second after 380 ms held, then
+// one every 110 ms; back to rest starts over
+#define AXIS_NAVIGATION_FIRST_REPEAT_DELAY 380
+#define AXIS_NAVIGATION_REPEAT_DELAY 110
 
 SdlGamepadKeyNavigation::SdlGamepadKeyNavigation(StreamingPreferences* prefs)
     : m_Prefs(prefs),
@@ -230,7 +233,13 @@ void SdlGamepadKeyNavigation::onPollingTimerFired()
     for (auto gc : std::as_const(m_Gamepads)) {
         short leftX = SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTX);
         short leftY = SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTY);
-        if (SDL_GetTicks() - m_LastAxisNavigationEventTime < AXIS_NAVIGATION_REPEAT_DELAY) {
+        if (leftY > -30000 && leftY < 30000 && leftX > -30000 && leftX < 30000) {
+            m_AxisRepeats = 0;
+            continue;
+        }
+        const Uint32 wait = m_AxisRepeats == 0 ? 0 : (m_AxisRepeats == 1 ? AXIS_NAVIGATION_FIRST_REPEAT_DELAY
+                                                                        : AXIS_NAVIGATION_REPEAT_DELAY);
+        if (SDL_GetTicks() - m_LastAxisNavigationEventTime < wait) {
             // Do nothing
         }
         else if (leftY < -30000) {
@@ -245,6 +254,7 @@ void SdlGamepadKeyNavigation::onPollingTimerFired()
             }
 
             m_LastAxisNavigationEventTime = SDL_GetTicks();
+            m_AxisRepeats++;
         }
         else if (leftY > 30000) {
             if (m_UiNavMode) {
@@ -257,16 +267,19 @@ void SdlGamepadKeyNavigation::onPollingTimerFired()
             }
 
             m_LastAxisNavigationEventTime = SDL_GetTicks();
+            m_AxisRepeats++;
         }
         else if (leftX < -30000) {
             sendKey(QEvent::Type::KeyPress, Qt::Key_Left);
             sendKey(QEvent::Type::KeyRelease, Qt::Key_Left);
             m_LastAxisNavigationEventTime = SDL_GetTicks();
+            m_AxisRepeats++;
         }
         else if (leftX > 30000) {
             sendKey(QEvent::Type::KeyPress, Qt::Key_Right);
             sendKey(QEvent::Type::KeyRelease, Qt::Key_Right);
             m_LastAxisNavigationEventTime = SDL_GetTicks();
+            m_AxisRepeats++;
         }
     }
 }

@@ -59,6 +59,19 @@ FocusScope {
         return null
     }
 
+    // Expert rows of a page the platform offers, hidden while expert mode is off (`expertMode` only makes the
+    // binding follow the switch)
+    function hiddenCount(id, expertMode) {
+        if (expertMode) return 0
+        var column = pageColumn(id), count = 0
+        if (!column) return 0
+        for (var i = 0; i < column.children.length; i++) {
+            var c = column.children[i]
+            if (c.expert === true && c.available !== false) count++
+        }
+        return count
+    }
+
     function hasRows(column) {
         for (var i = 0; i < column.children.length; i++) {
             if (column.children[i].shown === true) return true
@@ -585,6 +598,15 @@ FocusScope {
                 title: qsTr("Réglages")
                 onBack: settingsPage.goBack()
             }
+            // Prototype V8: « Thème Braise · LavArtemis 0.7.0-dev.7 » on the right of the header
+            Text {
+                anchors.right: header.right
+                anchors.verticalCenter: header.verticalCenter
+                text: qsTr("Thème %1 · LavArtemis %2").arg(Theme.themeNames[Theme.id] || "").arg(SystemProperties.versionString)
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: 18
+            }
 
             // ---- page list ----
             Flickable {
@@ -602,12 +624,13 @@ FocusScope {
                     x: 6
                     y: 6
                     width: navFlick.width - 12
-                    spacing: 10
+                    // prototype V8: pages 40 px apart by 4 (x 1.25)
+                    spacing: 5
 
                     AbstractButton {
                         id: expertToggle
                         width: nav.width
-                        height: 96
+                        height: 80
                         hoverEnabled: true
                         focusPolicy: Qt.StrongFocus
                         onClicked: {
@@ -676,7 +699,7 @@ FocusScope {
                         }
                     }
 
-                    Item { width: 1; height: 8 }
+                    Item { width: 1; height: 10 }
 
                     Repeater {
                         id: navRepeater
@@ -691,7 +714,7 @@ FocusScope {
                             readonly property bool selected: settingsPage.currentPage === pageId
                             visible: settingsPage.pageVisible(pageId)
                             width: nav.width
-                            height: 60
+                            height: 50
                             hoverEnabled: true
                             focusPolicy: Qt.StrongFocus
                             onClicked: settingsPage.currentPage = pageId
@@ -741,8 +764,8 @@ FocusScope {
                                 text: Theme.displayText(navItem.modelData.title)
                                 color: navItem.selected ? Theme.onAccent : Theme.fg
                                 font.family: Theme.displayFont
-                                font.pixelSize: 22
-                                font.weight: navItem.selected ? Font.Bold : Font.DemiBold
+                                font.pixelSize: 20
+                                font.weight: Font.Bold
                             }
                         }
                     }
@@ -845,6 +868,8 @@ FocusScope {
                     // =============================== Affichage ==============================
                     Column {
                         id: pageAffichage
+                        // rows saved in the active profile (« ● »), but those marked appWide
+                        readonly property bool profileRows: true
                         visible: settingsPage.currentPage === "affichage"
                         width: parent.width
                         spacing: 12
@@ -989,6 +1014,7 @@ FocusScope {
                         SettingToggle {
                             objectName: "set:keepAwake"
                             label: qsTr("Garder l'écran allumé pendant le stream")
+                            appWide: true
                             expert: true
                             description: qsTr("Empêche la veille et l'économiseur d'écran de ce PC pendant le stream.")
                             checked: StreamingPreferences.keepAwake
@@ -999,6 +1025,8 @@ FocusScope {
                     // ================================= Vidéo ================================
                     Column {
                         id: pageVideo
+                        // rows saved in the active profile (« ● »), but those marked appWide
+                        readonly property bool profileRows: true
                         visible: settingsPage.currentPage === "video"
                         width: parent.width
                         spacing: 12
@@ -1023,6 +1051,7 @@ FocusScope {
 
                         SettingAction {
                             label: qsTr("Revenir au débit recommandé")
+                            appWide: true
                             available: StreamingPreferences.bitrateKbps !== settingsPage.defaultKbps
                             description: qsTr("%1 Mbit/s pour cette résolution et ces images par seconde, ajusté ensuite automatiquement.")
                                          .arg(settingsPage.mbps(settingsPage.defaultKbps))
@@ -1037,6 +1066,7 @@ FocusScope {
                         // Android's « Saisir un débit » (edit_diy_bitrate): any value, past the track's end
                         SettingAction {
                             label: qsTr("Saisir un débit")
+                            appWide: true
                             expert: true
                             description: qsTr("Une valeur précise, même au-delà du curseur.")
                             buttonText: qsTr("Saisir…")
@@ -1057,6 +1087,7 @@ FocusScope {
 
                         SettingRow {
                             label: qsTr("Agrandir le tampon réseau (PyroWave)")
+                            appWide: true
                             expert: true
                             available: settingsPage.pyroWave && (Qt.platform.os === "linux" || Qt.platform.os === "windows")
                                        && (NetworkBuffers.needsFix || NetworkBuffers.message !== "")
@@ -1096,6 +1127,7 @@ FocusScope {
 
                         SettingRow {
                             label: qsTr("Calibrer PyroWave")
+                            appWide: true
                             expert: true
                             available: SystemProperties.hasPyroWave && settingsPage.pyroWave
                             focusable: false
@@ -1175,6 +1207,8 @@ FocusScope {
                     // ================================= Audio ================================
                     Column {
                         id: pageAudio
+                        // rows saved in the active profile (« ● »), but those marked appWide
+                        readonly property bool profileRows: true
                         visible: settingsPage.currentPage === "audio"
                         width: parent.width
                         spacing: 12
@@ -1213,6 +1247,7 @@ FocusScope {
                         SettingToggle {
                             objectName: "set:micPassthroughEnabled"
                             label: qsTr("Envoyer mon micro au PC distant")
+                            appWide: true
                             description: qsTr("Pour le chat vocal (LavApollo 2.2 ou plus). Prends un casque ; Ctrl+Alt+Maj+U le coupe en jeu.")
                             checked: ArtemisSettings.micPassthroughEnabled
                             onToggled: (v) => { ArtemisSettings.micPassthroughEnabled = v; settingsPage.persist() }
@@ -1221,6 +1256,7 @@ FocusScope {
                         SettingChoice {
                             objectName: "set:micDeviceName"
                             label: qsTr("Micro utilisé")
+                            appWide: true
                             expert: true
                             enabled: ArtemisSettings.micPassthroughEnabled
                             description: qsTr("Un micro branché après coup apparaît dès que tu rouvres la liste.")
@@ -1234,6 +1270,7 @@ FocusScope {
                         SettingSlider {
                             objectName: "set:maxPendingAudioMs"
                             label: qsTr("Tampon audio")
+                            appWide: true
                             expert: true
                             description: qsTr("Plus bas, moins de latence ; plus haut, moins de craquements sur un réseau instable. Effet à la prochaine connexion.")
                             descriptionLines: 3
@@ -1249,6 +1286,8 @@ FocusScope {
                     // ================================ Entrées ===============================
                     Column {
                         id: pageEntrees
+                        // rows saved in the active profile (« ● »), but those marked appWide
+                        readonly property bool profileRows: true
                         visible: settingsPage.currentPage === "entrees"
                         width: parent.width
                         spacing: 12
@@ -1284,6 +1323,7 @@ FocusScope {
                         SettingToggle {
                             objectName: "set:rememberTouchMode"
                             label: qsTr("Retenir le mode tactile choisi en jeu")
+                            appWide: true
                             expert: true
                             available: SystemProperties.hasTouchScreen || StreamingPreferences.rememberTouchMode
                             description: qsTr("Sinon, un mode choisi pendant le stream ne vaut que pour ce stream.")
@@ -1310,12 +1350,15 @@ FocusScope {
                     // =============================== Manettes ===============================
                     Column {
                         id: pageManettes
+                        // rows saved in the active profile (« ● »), but those marked appWide
+                        readonly property bool profileRows: true
                         visible: settingsPage.currentPage === "manettes"
                         width: parent.width
                         spacing: 12
 
                         SettingAction {
                             label: qsTr("Configurer une manette")
+                            appWide: true
                             description: qsTr("Pour une manette que LavArtemis ne reconnaît pas, ou un bouton mal placé : on clique le contrôle sur le schéma, puis on l'actionne.")
                             buttonText: qsTr("Ouvrir")
                             onTriggered: {
@@ -1355,6 +1398,7 @@ FocusScope {
                         SettingToggle {
                             objectName: "set:genericGamepadFallbackEnabled"
                             label: qsTr("Deviner la disposition des manettes inconnues")
+                            appWide: true
                             expert: true
                             description: qsTr("Une manette non reconnue reçoit une disposition devinée au lieu d'être ignorée.")
                             checked: ArtemisSettings.genericGamepadFallbackEnabled
@@ -1484,6 +1528,8 @@ FocusScope {
                     // ================================== PC ==================================
                     Column {
                         id: pagePc
+                        // rows saved in the active profile (« ● »), but those marked appWide
+                        readonly property bool profileRows: true
                         visible: settingsPage.currentPage === "pc"
                         width: parent.width
                         spacing: 12
@@ -1499,6 +1545,7 @@ FocusScope {
                         SettingToggle {
                             objectName: "set:clipboardSync"
                             label: qsTr("Synchroniser le presse-papiers")
+                            appWide: true
                             expert: true
                             description: qsTr("Envoie ton presse-papiers au PC distant au début du stream et à chaque copie faite ici, et récupère le sien quand tu te déconnectes. Le menu en jeu le fait aussi à la demande.")
                             descriptionLines: 3
@@ -1509,6 +1556,7 @@ FocusScope {
                         SettingSlider {
                             objectName: "set:clipboardMaxSizeMB"
                             label: qsTr("Taille maximale")
+                            appWide: true
                             expert: true
                             enabled: ClipboardManager.isEnabled
                             description: qsTr("Au-delà, le contenu copié n'est pas synchronisé.")
@@ -1524,6 +1572,7 @@ FocusScope {
                         SettingToggle {
                             objectName: "set:clipboardNotifications"
                             label: qsTr("Notifier chaque synchronisation")
+                            appWide: true
                             expert: true
                             enabled: ClipboardManager.isEnabled
                             description: qsTr("Une notification à chaque contenu synchronisé.")
@@ -1534,6 +1583,7 @@ FocusScope {
                         SettingToggle {
                             objectName: "set:enableMdns"
                             label: qsTr("Trouver les PC sur le réseau local")
+                            appWide: true
                             expert: true
                             description: qsTr("Détecte tout seul les PC du réseau (recommandé).")
                             checked: StreamingPreferences.enableMdns
@@ -1551,6 +1601,7 @@ FocusScope {
                         SettingToggle {
                             objectName: "set:detectNetworkBlocking"
                             label: qsTr("Détecter les connexions bloquées")
+                            appWide: true
                             expert: true
                             description: qsTr("Prévient quand un pare-feu ou le réseau bloque le stream (recommandé).")
                             checked: StreamingPreferences.detectNetworkBlocking
@@ -1780,6 +1831,36 @@ FocusScope {
                             description: qsTr("Le dossier « vrr-diagnostics » de l'appli.")
                             buttonText: qsTr("Ouvrir")
                             onTriggered: VrrDiagnostics.openFolder()
+                        }
+                    }
+
+                    // Prototype V8: the expert rows of this page, while expert mode is off
+                    AbstractButton {
+                        id: hiddenButton
+                        readonly property int hidden: settingsPage.hiddenCount(settingsPage.currentPage, ArtemisSettings.uiExpertMode)
+                        visible: hidden > 0
+                        width: parent.width
+                        height: 57
+                        hoverEnabled: true
+                        focusPolicy: Qt.StrongFocus
+                        onClicked: { ArtemisSettings.uiExpertMode = true; ArtemisSettings.save() }
+                        Keys.onReturnPressed: clicked()
+                        Keys.onEnterPressed: clicked()
+                        background: DashedRect {
+                            radius: Theme.rs
+                            borderColor: Theme.muted
+                            FocusRing { active: hiddenButton.activeFocus && Theme.showFocus; radius: Theme.rs; k: 1.25 }
+                        }
+                        contentItem: Text {
+                            text: (hiddenButton.hidden > 1 ? qsTr("%1 réglages avancés masqués").arg(hiddenButton.hidden)
+                                                           : qsTr("%1 réglage avancé masqué").arg(hiddenButton.hidden))
+                                  + " · " + qsTr("activer le mode expert")
+                            color: Theme.muted
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.family: Theme.textFont
+                            font.pixelSize: 18
+                            font.weight: Font.DemiBold
                         }
                     }
                 }

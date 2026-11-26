@@ -48,4 +48,5 @@ private:
     bool m_FirstPoll;
     bool m_HasFocus;
     Uint32 m_LastAxisNavigationEventTime;
+    int m_AxisRepeats = 0;  // moves sent since the stick left its rest position
 };
