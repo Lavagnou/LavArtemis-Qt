@@ -599,6 +599,6 @@ FocusScope {
         areaWidth: menu.width
         areaHeight: menu.height
         onPicked: (a) => menu.onPicked(a)
-        onClosed: menu.forceActiveFocus()
+        returnFocusTo: menu
     }
 }

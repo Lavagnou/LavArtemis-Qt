@@ -424,6 +424,6 @@ FocusScope {
     LavOptions {
         id: savePrompt
         onPicked: (a) => { if (a === "save") mapperPage.save() }
-        onClosed: mapperPage.forceActiveFocus()
+        returnFocusTo: mapperPage
     }
 }

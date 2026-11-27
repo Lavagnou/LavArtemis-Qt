@@ -780,7 +780,7 @@ FocusScope {
     LavOptions {
         id: dialog
         onPicked: (a) => hostsPage.onDialog(a)
-        onClosed: hostsPage.forceActiveFocus()
+        returnFocusTo: hostsPage
     }
     // The pairing code in big digits (prototype ctx.hasPin)
     Rectangle {

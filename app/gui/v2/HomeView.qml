@@ -879,7 +879,7 @@ FocusScope {
         id: optionsMenu
         onPicked: (a) => home.onOption(a)
         // focus back to the page under the dialog (the home, the library, the details)
-        onClosed: if (stackView.currentItem) stackView.currentItem.forceActiveFocus()
+        returnFocusTo: stackView.currentItem
     }
 
     FileDialog {

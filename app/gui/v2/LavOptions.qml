@@ -35,6 +35,14 @@ Popup {
 
     signal picked(string action)
 
+    // The page under the dialog, which gets the keys back as soon as the dialog starts closing. Qt takes the
+    // keys from a popup at the START of its exit animation (Material: 220 ms) and gives them to nobody: waiting
+    // for onClosed, at its end, lost a key pressed in between (Échap or B, then a direction or A at once).
+    // onClosed gives them again, after Qt's own focus restore.
+    property Item returnFocusTo: null
+    onAboutToHide: if (returnFocusTo) returnFocusTo.forceActiveFocus()
+    onClosed: if (returnFocusTo) returnFocusTo.forceActiveFocus()
+
     // The extra item is the caller's, hidden until a dialog shows it; one at a time. An extra with a
     // `focusTarget` (a text field) gets the keys when the dialog opens
     property Item shownExtra: null

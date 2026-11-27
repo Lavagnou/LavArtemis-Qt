@@ -367,7 +367,7 @@ ApplicationWindow {
                 Qt.openUrlExternally(window.updateBrowserUrl)
             }
         }
-        onClosed: if (stackView.currentItem) stackView.currentItem.forceActiveFocus()
+        returnFocusTo: stackView.currentItem
 
         Component.onCompleted: {
             AutoUpdateChecker.downloadProgress.connect(function(received, total) {
