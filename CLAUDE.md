@@ -1296,7 +1296,9 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
     grille de la bibliothèque (`GridView` agrandie de 16 px de chaque côté avec `leftMargin`/`topMargin`/… ; mêmes
     cases au même endroit), lignes des Réglages (`rowsFlick` 14 px plus large à gauche, lignes 14 px plus loin). Le
     ring2 d'Affiche d'un élément collé au bord de la fenêtre (panneaux de l'accueil et des détails, lignes de la
-    bibliothèque) rentre de ce côté (`FocusRing.fitInWindow()`) ; les lignes du menu en jeu Affiche n'ont que le
+    bibliothèque) rentre de ce côté (`FocusRing.fitInWindow()` : mesuré en unités de l'élément, que la `Stage` met à
+    l'échelle, et de nouveau quand l'élément bouge et après les positionneurs : mesuré avant que la `Row` des cartes
+    place la seconde, encore à x = 0, l'anneau de Playnite dépassait la fenêtre) ; les lignes du menu en jeu Affiche n'ont que le
     remplissage jaune, comme le prototype. Contrôle : commande `focusrings` du canal, **scénario 19** (le clavier
     parcourt accueil, options, détails, bibliothèque, Mes PC et ses options, Réglages, menu en jeu et Plus, dans les
     trois thèmes). Tout nouvel écran qui coupe ses enfants y passe.
