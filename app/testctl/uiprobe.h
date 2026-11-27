@@ -39,6 +39,13 @@ struct Item
     // A Flickable (ListView...): 1 while it moves (after a wheel or a flick it takes the next press
     // to stop itself, so a click then reaches nothing under it), 0 at rest; -1 = not a Flickable
     int moving = -1;
+    // Layout checks (scenario 21): `fid` = the item's own focus-grid id (HomeTile / HeaderButton `fid` of the v2
+    // pages), `inFid` = the nearest ancestor's; `truncated` = a Text elided or cut to its maximumLineCount;
+    // `clipped` = the visible part is smaller than the item (cut by the window or a clipping ancestor)
+    QString fid;
+    QString inFid;
+    bool truncated = false;
+    bool clipped = false;
 };
 
 // Visible Qt Quick windows: `main` first (when visible), then the others in

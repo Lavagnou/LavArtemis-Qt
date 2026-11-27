@@ -57,7 +57,7 @@ QString typeName(const QObject* object)
 namespace {
 
 void visit(QQuickItem* item, int windowIndex, qreal parentOpacity, const QRectF& clip, bool textOnly,
-           const QSet<QQuickItem*>& focusChain, QList<Item>& out)
+           const QSet<QQuickItem*>& focusChain, const QString& ancestorFid, QList<Item>& out)
 {
     if (!item->isVisible()) {
         return;
@@ -69,6 +69,8 @@ void visit(QQuickItem* item, int windowIndex, qreal parentOpacity, const QRectF&
 
     const QRectF sceneRect = item->mapRectToScene(QRectF(0, 0, item->width(), item->height()));
     const QRectF visible = sceneRect.intersected(clip);
+    const QVariant fidValue = item->property("fid");
+    const QString fid = fidValue.isValid() && fidValue.typeId() == QMetaType::QString ? fidValue.toString() : QString();
     if (!visible.isEmpty()) {
         Item entry;
         entry.window = windowIndex;
@@ -88,6 +90,12 @@ void visit(QQuickItem* item, int windowIndex, qreal parentOpacity, const QRectF&
         if (moving.isValid() && moving.typeId() == QMetaType::Bool) {
             entry.moving = moving.toBool() ? 1 : 0;
         }
+        entry.fid = fid;
+        entry.inFid = ancestorFid;
+        const QVariant truncated = item->property("truncated");
+        entry.truncated = truncated.isValid() && truncated.typeId() == QMetaType::Bool && truncated.toBool();
+        // half a pixel: mapRectToScene of a scaled Stage is not exact
+        entry.clipped = visible.width() < sceneRect.width() - 0.5 || visible.height() < sceneRect.height() - 0.5;
         if (entry.objectName.startsWith(QLatin1String("set:"))) {
             for (const char* name : {"label", "checked", "value", "valueText"}) {
                 const QVariant value = item->property(name);
@@ -109,7 +117,7 @@ void visit(QQuickItem* item, int windowIndex, qreal parentOpacity, const QRectF&
     const QRectF childClip = item->clip() ? clip.intersected(sceneRect) : clip;
     const QList<QQuickItem*> children = item->childItems();
     for (QQuickItem* child : children) {
-        visit(child, windowIndex, opacity, childClip, textOnly, focusChain, out);
+        visit(child, windowIndex, opacity, childClip, textOnly, focusChain, fid.isEmpty() ? ancestorFid : fid, out);
     }
 }
 
@@ -132,7 +140,7 @@ QList<Item> collect(const QList<QQuickWindow*>& windows, bool textOnly)
             }
         }
         visit(window->contentItem(), i, 1.0, QRectF(0, 0, window->width(), window->height()), textOnly,
-              focusChain, items);
+              focusChain, QString(), items);
     }
     return items;
 }
@@ -155,6 +163,18 @@ QJsonObject toJson(const Item& item)
     }
     if (!item.row.isEmpty()) {
         json["row"] = item.row;
+    }
+    if (!item.fid.isEmpty()) {
+        json["fid"] = item.fid;
+    }
+    if (!item.inFid.isEmpty()) {
+        json["inFid"] = item.inFid;
+    }
+    if (item.truncated) {
+        json["truncated"] = true;
+    }
+    if (item.clipped) {
+        json["clipped"] = true;
     }
     return json;
 }

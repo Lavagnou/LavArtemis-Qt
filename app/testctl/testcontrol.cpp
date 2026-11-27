@@ -21,6 +21,7 @@
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QImage>
+#include <QJSValue>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLocalServer>
@@ -413,6 +414,20 @@ void TestControl::registerCommands()
             return true;
         }
         result["rings"] = UiProbe::focusRings(windows);
+        return true;
+    });
+    // Put the current page's focus (its `focusId`, the redesigned pages' focus grid) on {fid}: a layout check walks
+    // every ring of a page without a key per step (the ring shows only at the keyboard or the gamepad: press a key
+    // first). {focusId} as it is now
+    m_Dispatcher.add("pagefocus", [this](const QJsonObject& args, QJsonObject& result, QString& error) {
+        QQuickItem* page = UiProbe::currentPageItem(mainWindow());
+        const QString id = args.value("fid").toString();
+        if (page == nullptr || !page->property("focusId").isValid() || id.isEmpty()) {
+            error = QStringLiteral("no page with a focusId, or no \"fid\"");
+            return false;
+        }
+        page->setProperty("focusId", id);
+        result["focusId"] = page->property("focusId").toString();
         return true;
     });
     m_Dispatcher.add("state", bind(&TestControl::cmdState));
@@ -995,8 +1010,12 @@ bool TestControl::cmdState(const QJsonObject&, QJsonObject& result, QString& err
     // The page's own focus grid and state (the redesigned pages keep their focus in properties)
     QJsonObject pageState;
     if (QQuickItem* page = UiProbe::currentPageItem(mainWindow())) {
-        for (const char* name : {"focusId", "currentPage", "focusInRows", "filter", "focusIndex"}) {
-            const QVariant value = page->property(name);
+        for (const char* name : {"focusId", "currentPage", "focusInRows", "filter", "focusIndex", "grid"}) {
+            QVariant value = page->property(name);
+            // a QML `var` (the home's grid: rows of ids) comes as a QJSValue
+            if (value.metaType() == QMetaType::fromType<QJSValue>()) {
+                value = value.value<QJSValue>().toVariant();
+            }
             if (value.isValid()) {
                 pageState[QLatin1String(name)] = QJsonValue::fromVariant(value);
             }
