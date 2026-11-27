@@ -718,6 +718,7 @@ session, réglages).
 |---|---|---|
 | `windows` | — | `windows:[{index, kind:"qt", role:"main"/"quickmenu"/"toast"/"other", title, hwnd, x, y, w, h, dpr}…, {kind:"stream", title, hwnd, x, y, w, h}]` (stream : pendant sa boucle SDL) |
 | `tree` | `textOnly?`, `window?` | `items:[{window, type, objectName, text, x, y, w, h, focus, enabled}]` |
+| `resize` | `w`, `h` (px logiques), `window?` (défaut : la principale) | `{w, h}` : la fenêtre redimensionnée, sous sa taille minimale s'il le faut (elle est abaissée), sans l'activer. Scénario 19 (1024 × 576) |
 | `focusrings` | `window?` | `rings:[{window, x, y, w, h, owner, cutBy}]` : chaque `FocusRing` visible, sa boîte dessinée (échelle comprise) et ce qui la coupe (`cutBy` : `{type, objectName, x, y, w, h}` du premier ancêtre en `clip: true` ou `layer.enabled` qui ne la contient pas, ou `"window"` ; `null` sinon). Scénario 19 |
 | `click` | `text` / `objectName` (+ `contains?`, `index?`) ou `x`,`y` (+ `window?`) ; `button?` (left, right, middle, x1, x2) | `{window, x, y, item?}` |
 | `key` | `key`, `modifiers?`, `state?` ("click", "down", "up"), `target?`, `window?` | `{target, focus?}` |

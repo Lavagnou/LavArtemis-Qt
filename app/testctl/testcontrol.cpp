@@ -361,6 +361,28 @@ void TestControl::registerCommands()
     m_Dispatcher.add("joystick", bind(&TestControl::cmdJoystick));
     m_Dispatcher.add("screenshot", bind(&TestControl::cmdScreenshot));
     m_Dispatcher.add("windows", bind(&TestControl::cmdWindows));
+    // Resize a Qt window (index from "windows", default the main one) to w x h logical px, below its minimum size if
+    // asked (a 1024 x 576 window: the dialogs must never go past its edges); never activates it. {w, h} as it is now
+    m_Dispatcher.add("resize", [this](const QJsonObject& args, QJsonObject& result, QString& error) {
+        QQuickWindow* window = args.contains("window") ? qtWindowArg(args, error) : mainWindow();
+        if (window == nullptr) {
+            if (error.isEmpty()) {
+                error = QStringLiteral("no main window");
+            }
+            return false;
+        }
+        const int w = args.value("w").toInt(0);
+        const int h = args.value("h").toInt(0);
+        if (w < 200 || h < 200 || w > 8000 || h > 8000) {
+            error = QStringLiteral("w, h: a size in logical px (200..8000)");
+            return false;
+        }
+        window->setMinimumSize(QSize(qMin(window->minimumWidth(), w), qMin(window->minimumHeight(), h)));
+        window->resize(w, h);
+        result["w"] = window->width();
+        result["h"] = window->height();
+        return true;
+    });
     // The focus rings on screen and what cuts them (UiProbe::focusRings): {rings: [...]}; "window" limits it
     m_Dispatcher.add("focusrings", [this](const QJsonObject& args, QJsonObject& result, QString& error) {
         QList<QQuickWindow*> windows = UiProbe::windows(mainWindow());
