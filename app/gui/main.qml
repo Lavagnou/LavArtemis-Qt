@@ -188,7 +188,7 @@ ApplicationWindow {
                 goBack()
             }
             else {
-                quitConfirmationDialog.open()
+                quitConfirmationDialog.ask()
             }
         }
 
@@ -197,7 +197,7 @@ ApplicationWindow {
                 goBack()
             }
             else {
-                quitConfirmationDialog.open()
+                quitConfirmationDialog.ask()
             }
         }
     }
@@ -424,13 +424,17 @@ ApplicationWindow {
         }
     }
 
-    // This dialog appears when quitting via keyboard or gamepad button
-    NavigableMessageDialog {
+    // B / Échap / Start on the home (no level left to go back to): the prototype's dialog (v113), as Android -- « Quitter
+    // LavArtemis ? », « Quitter LavArtemis » then « Annuler », the focus on the first; B and Y close it
+    LavOptions {
         id: quitConfirmationDialog
-        standardButtons: Dialog.Yes | Dialog.No
-        text: qsTr("Are you sure you want to quit?")
-        // For keyboard/gamepad navigation
-        onAccepted: Qt.quit()
+        objectName: "quitConfirmation"
+        function ask() {
+            showDialog({head: "LavArtemis", title: qsTr("Quitter LavArtemis ?"), info: true,
+                        entries: [{l: qsTr("Quitter LavArtemis"), a: "quit", main: true}, {l: qsTr("Annuler"), a: "cancel"}]})
+        }
+        onPicked: (a) => { if (a === "quit") Qt.quit() }
+        returnFocusTo: stackView.currentItem
     }
 
     // HACK: This belongs in StreamSegue but keeping a dialog around after the parent
