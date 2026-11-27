@@ -47,7 +47,15 @@ Item {
         roomR = Math.min(out2, Math.max(0, Math.floor(win.width - q.x) / sx))
         roomB = Math.min(out2, Math.max(0, Math.floor(win.height - q.y) / sy))
     }
-    onActiveChanged: fitInWindow()
+    // again once the positioners have run (a Row places its children at its next polish) and whenever the item is
+    // moved: a room measured while the card was still at x = 0 put the ring past the window (scenario 21, Affiche)
+    onActiveChanged: { fitInWindow(); Qt.callLater(fitInWindow) }
+    Connections {
+        target: ring.parent
+        ignoreUnknownSignals: true
+        function onXChanged() { ring.fitInWindow() }
+        function onYChanged() { ring.fitInWindow() }
+    }
     onWidthChanged: fitInWindow()
     onHeightChanged: fitInWindow()
     Component.onCompleted: fitInWindow()
