@@ -208,8 +208,8 @@ Item {
             maxSize: 46 * lay.k
             minSize: 26 * lay.k
             spacingEm: -0.02
-            font.family: "Space Grotesk"
-            font.weight: Font.Bold
+            family: "Space Grotesk"
+            weight: Font.Bold
             lineHeight: 1.05
         }
     }
@@ -243,8 +243,8 @@ Item {
             maxSize: 42 * lay.k
             minSize: 26 * lay.k
             spacingEm: -0.02
-            font.family: "Space Grotesk"
-            font.weight: Font.Bold
+            family: "Space Grotesk"
+            weight: Font.Bold
             lineHeight: 1.02
         }
         Item { width: 1; height: (4 - lay.cutSpacer) * lay.k }

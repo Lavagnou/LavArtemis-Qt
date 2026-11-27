@@ -147,8 +147,8 @@ Item {
                     maxSize: 40 * lay.k
                     minSize: 24 * lay.k
                     spacingEm: -0.045
-                    font.family: "Archivo"
-                    font.weight: Font.Black
+                    family: "Archivo"
+                    weight: Font.Black
                     lineHeight: 0.95
                 }
             }

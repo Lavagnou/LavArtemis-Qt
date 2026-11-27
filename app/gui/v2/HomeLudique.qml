@@ -164,7 +164,7 @@ Item {
                 maxSize: 24 * lay.k
                 minSize: 17 * lay.k
                 spacingEm: -0.02
-                font.family: "Bricolage Grotesque"; font.weight: Font.ExtraBold
+                family: "Bricolage Grotesque"; weight: Font.ExtraBold
             }
             Text {
                 id: viaText
