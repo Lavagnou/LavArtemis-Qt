@@ -130,6 +130,8 @@ FocusScope {
         else { var c = i % cols + dx; if (c >= 0 && c < cols && i + dx < n) i += dx }
         focusId = "lg" + Math.max(0, Math.min(n - 1, i))
     }
+    // Held 500 ms = options, by the time really held (HomeView: a release may come before a timer already due)
+    property real holdSince: 0
     Timer { id: holdTimer; interval: 500; onTriggered: lib.options(lib.focusId, null, 0, 0) }
     Keys.onPressed: (event) => {
         Theme.input = "keys"
@@ -141,7 +143,7 @@ FocusScope {
         else if (key === Qt.Key_Return || key === Qt.Key_Enter || key === Qt.Key_Space) {
             event.accepted = true
             if (event.isAutoRepeat) return
-            if (targetOf(focusId)) holdTimer.restart(); else act(focusId)
+            if (targetOf(focusId)) { holdSince = Date.now(); holdTimer.restart() } else act(focusId)
         }
         else if (key === Qt.Key_Menu || key === Qt.Key_Y) { options(focusId, null, 0, 0); event.accepted = true }
         else if (key === Qt.Key_Q || key === Qt.Key_PageUp) { setFilter(filter - 1); event.accepted = true }
@@ -150,7 +152,11 @@ FocusScope {
     }
     Keys.onReleased: (event) => {
         if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) && !event.isAutoRepeat) {
-            if (holdTimer.running) { holdTimer.stop(); act(focusId) }
+            if (holdTimer.running) {
+                holdTimer.stop()
+                if (Date.now() - holdSince >= holdTimer.interval) options(focusId, null, 0, 0)
+                else act(focusId)
+            }
             event.accepted = true
         }
     }

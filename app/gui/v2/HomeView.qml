@@ -808,7 +808,11 @@ FocusScope {
             if (Theme.input !== "mouse" && Date.now() - home.touchAt > 900) Theme.input = "mouse"
         }
     }
-    // A held 500 ms on a card, a game or a host = options; released before = activate
+    // A held 500 ms on a card, a game or a host = options; released before = activate. The release decides
+    // by the time really held, not by the timer alone: Windows hands a timer over only when no other message
+    // waits, so after a busy moment a release could come before a timer already due, and a held key launched
+    // the game
+    property real holdSince: 0
     Timer {
         id: holdTimer
         interval: 500
@@ -825,7 +829,7 @@ FocusScope {
         else if (key === Qt.Key_Return || key === Qt.Key_Enter || key === Qt.Key_Space) {
             event.accepted = true
             if (event.isAutoRepeat) return
-            if (holdable(focusId)) holdTimer.restart()
+            if (holdable(focusId)) { holdSince = Date.now(); holdTimer.restart() }
             else act(focusId)
         }
         else if (key === Qt.Key_Menu || key === Qt.Key_Y) { options(focusId, null, 0, 0); event.accepted = true }
@@ -834,7 +838,11 @@ FocusScope {
     }
     Keys.onReleased: (event) => {
         if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) && !event.isAutoRepeat) {
-            if (holdTimer.running) { holdTimer.stop(); act(focusId) }
+            if (holdTimer.running) {
+                holdTimer.stop()
+                if (Date.now() - holdSince >= holdTimer.interval) options(focusId, null, 0, 0)
+                else act(focusId)
+            }
             event.accepted = true
         }
     }

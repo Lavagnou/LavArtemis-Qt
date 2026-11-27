@@ -1124,7 +1124,9 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
 - **Focus en grille, pas la chaîne de focus Qt** : `focusId` (`nh`, `ns`, `resume`, `squit`, `a0`, `a1`, `r0`…`r5`,
   `lib`, `wake`), `grid` et `move()` = ceux du prototype. Entrée / A : activer, **maintenue 500 ms = options**
   (`holdTimer`, le relâché n'active pas) ; Menu / Y : options ; Q / E, PageUp / PageDown, LB / RB : PC précédent /
-  suivant. La souris déplace le focus (survol), **seulement si elle a vraiment bougé** (`mouseMovedAt`,
+  suivant. ⚠️ **Le relâché décide sur le temps réellement tenu** (`holdSince`, accueil et bibliothèque), pas sur le
+  seul minuteur : Windows ne livre un minuteur que quand aucun autre message n'attend, et après un moment chargé un
+  relâché pouvait passer avant un minuteur déjà échu (la touche tenue lançait le jeu). La souris déplace le focus (survol), **seulement si elle a vraiment bougé** (`mouseMovedAt`,
   `MouseMoves`) : Qt envoie aussi un survol quand un élément bouge sous un pointeur immobile.
 - **Manette (`SdlGamepadKeyNavigation`)** : le stick répète comme le prototype, un pas tout de suite, le suivant après
   380 ms, puis toutes les 110 ms (`m_AxisRepeats`, remis à 0 au repos). B et Start = Échap, **Y = Menu** (options), **LB / RB = PageUp /
