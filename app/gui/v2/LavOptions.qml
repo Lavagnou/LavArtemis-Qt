@@ -123,17 +123,6 @@ Popup {
         }
     }
 
-    Keys.onPressed: (event) => {
-        if (event.key === Qt.Key_Up) { Theme.input = Theme.input === "pad" ? "pad" : "keys"; move(0, -1); event.accepted = true }
-        else if (event.key === Qt.Key_Down) { Theme.input = Theme.input === "pad" ? "pad" : "keys"; move(0, 1); event.accepted = true }
-        else if (event.key === Qt.Key_Left) { move(-1, 0); event.accepted = true }
-        else if (event.key === Qt.Key_Right) { move(1, 0); event.accepted = true }
-        else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
-            if (!event.isAutoRepeat) pick(focusIndex)
-            event.accepted = true
-        } else if (event.key === Qt.Key_Menu) { close(); event.accepted = true }
-    }
-
     background: Item {
         RectangularShadow {
             anchors.fill: bg
@@ -158,6 +147,20 @@ Popup {
 
     contentItem: Column {
         id: content
+        // The dialog's keys. On the content, which takes the popup's focus: a Popup is not an Item, and
+        // `Keys` attached to it was dropped (« Could not attach Keys property »), the arrows and A did nothing.
+        // Échap is not taken: it goes on to the popup (CloseOnEscape)
+        focus: true
+        Keys.onPressed: (event) => {
+            if (event.key === Qt.Key_Up) { Theme.input = Theme.input === "pad" ? "pad" : "keys"; opts.move(0, -1); event.accepted = true }
+            else if (event.key === Qt.Key_Down) { Theme.input = Theme.input === "pad" ? "pad" : "keys"; opts.move(0, 1); event.accepted = true }
+            else if (event.key === Qt.Key_Left) { opts.move(-1, 0); event.accepted = true }
+            else if (event.key === Qt.Key_Right) { opts.move(1, 0); event.accepted = true }
+            else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                if (!event.isAutoRepeat) opts.pick(opts.focusIndex)
+                event.accepted = true
+            } else if (event.key === Qt.Key_Menu) { opts.close(); event.accepted = true }
+        }
         padding: opts.popover ? 10 * opts.k : (Theme.affiche ? 26 * opts.k : (Theme.ludique ? 28 : 24) * opts.k)
         leftPadding: opts.popover ? 10 * opts.k : (Theme.affiche ? 28 : (Theme.ludique ? 28 : 24)) * opts.k
         rightPadding: leftPadding

@@ -1211,6 +1211,16 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
   appairage (code en grand), renommer, oublier, erreurs : **`LavOptions`** (popover à la souris, centré sinon).
   `LavOptions.extra` montre l'élément de l'appelant (caché sinon) et donne les touches à son `focusTarget`.
   « Annuler » de l'appairage ferme seulement le dialogue (l'appairage continue, comme « C'est fait »).
+- **Touches des dialogues `LavOptions`** (accueil, bibliothèque, détails, Mes PC, menu en jeu, mapper, mise à jour) :
+  - ⚠️ **Le gestionnaire `Keys` est sur le `contentItem` (`focus: true`), pas sur le `Popup`.** Un `Popup` n'est pas
+    un `Item` : `Keys` posé dessus était ignoré (« Could not attach Keys property » dans le journal), et les
+    flèches, A / Entrée et Menu ne faisaient rien dans les dialogues. Échap n'y est pas pris : il remonte au popup
+    (`CloseOnEscape`).
+  - ⚠️ **Les touches reviennent à la page dès que le dialogue commence à se fermer** : `returnFocusTo` (la page
+    dessous), rendu à `aboutToHide` puis encore à `closed`. Qt retire le focus du popup au **début** de son
+    animation de sortie (Material : 220 ms) et ne le donne à personne : rendu seulement à `onClosed`, une touche
+    pressée entre les deux (B puis A aussitôt) était perdue. Un appelant donne `returnFocusTo`, pas son propre
+    `onClosed: forceActiveFocus()`. Scénario 16 (S4, S4b).
 - **Réglages** : « ● » après le libellé des lignes enregistrées dans le profil (`SettingRow.followsProfile` : la
   page dit `profileRows`, une ligne propre au PC dit `appWide`) ; pastille EXPERT du prototype ; « N réglages
   avancés masqués · activer le mode expert » en bas de la page (`hiddenCount()`) ; « Thème X · LavArtemis version »
