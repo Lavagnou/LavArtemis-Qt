@@ -725,9 +725,9 @@ session, réglages).
 | `text` | `s`, `target?`, `window?` | `{target}` |
 | `wheel` | `dx?`, `dy?` (crans, `dy > 0` = vers le haut) ; Qt : `text`/`objectName` ou `x`,`y` (défaut : centre) ; stream : `x`,`y` | `{target}` |
 | `mouse` (stream) | `{action:"move", x, y}` ; `{action:"button", button?, down}` ; `{action:"click", button?, x?, y?}` | `{x, y, buttons, windowW, windowH}` |
-| `gamepad` (stream) | `{attach:true}` d'abord ; puis `{button, value}` (bool ou 0/1), `{axis, value}` ; `{detach:true}` | `{pad, instance, attached?, …}` |
+| `gamepad` | `{attach:true}` d'abord ; puis `{button, value}` (bool ou 0/1), `{axis, value}` ; `{detach:true}` ; `pad?` (1 défaut, 2 = une seconde manette du même nom) | `{pad, instance, attached?, …}` |
 | `screenshot` | `path` (absolu, disque local, PNG), `window?` (0) | `{path, width, height, dpr}` |
-| `state` | — | `{page, pageTitle, pageBusy, quickMenu, pad, computers:[{name, uuid, address, online, state, paired, testHost, thisPc, currentGameId, benchmarkAppId, apps:[noms], appDetails:[{name, id, playniteGame, installed, lastActivity, playtime, hasBackground}], formFactor, link, latencyMs, sessionStartedAt, playniteGameName, playniteGameStartedAt}], profiles:[{id, name, active}], activeProfileId, session:{active, streaming, frames, received, decoded, rendered, dropped, width, height, fps, restarts, overlayStats:{shown, text}, statusMessage, micActive, micMuted, zoom}, toasts:[…], toast}` |
+| `state` | — | `{page, pageTitle, pageBusy, quickMenu, pad, pad2, focus:{type, objectName, path}, pageState:{focusId?, currentPage?, focusInRows?, filter?}, menuFocusId?, computers:[{name, uuid, address, online, state, paired, testHost, thisPc, currentGameId, benchmarkAppId, apps:[noms], appDetails:[{name, id, playniteGame, installed, lastActivity, playtime, hasBackground}], formFactor, link, latencyMs, sessionStartedAt, playniteGameName, playniteGameStartedAt}], profiles:[{id, name, active}], activeProfileId, session:{active, streaming, frames, received, decoded, rendered, dropped, width, height, fps, restarts, overlayStats:{shown, text}, statusMessage, micActive, micMuted, zoom}, toasts:[…], toast}` |
 | `setting` | `action:"get"/"set"/"reset"/"list"/"raw"`, `key`, `value` | `{key, source:"streaming"/"artemis", value}` ; `list` → `{streaming:{…}, artemis:{…}}` ; `raw` → `{key, globalStored, global, profiles:[{id, name, active, stored, value}], artemisStored, artemis}` |
 | `reset` | — | `{folders, registry, notYetRemoved, quitting:true}`, puis le client quitte |
 | `quit` | — | `{quitting:true, session}`, puis le client quitte |
@@ -782,14 +782,25 @@ session, réglages).
 - **Souris du stream** : `which = kTestInjectedMouseId`, `state` = boutons tenus, position suivie par le canal (au centre
   de chaque nouvelle fenêtre de stream). Molette : `preciseX/Y` (sdl2-compat rend un `y` entier faux pour une molette
   poussée, `y = mouseY` observé ; le client lit `preciseY`), `mouseX/Y` = dernière position.
+- **`focus`** (de `state`) : l'élément qui prend les touches dans la fenêtre que vise `key` (menu en jeu ouvert, sinon la
+  principale), son `objectName` et ceux de ses ancêtres (`path`) : colonnes des Réglages `settingsNav` / `settingsRows`,
+  pages `nav:<id>` (`nav:expert`), lignes `set:<clé>`, cartes du thème `theme:<id>`, cartes de Mes PC `host:<nom>` /
+  `host:add`. **`pageState`** : les propriétés de la page du haut qui portent son focus (`focusId` de l'accueil, de la
+  bibliothèque, des détails ; `currentPage` et `focusInRows` des Réglages). Dialogues et menu en jeu gardent leur focus
+  dans un index : le lire par la position de l'anneau (`focusrings`). Scénario 20.
 - **Manette** : joystick virtuel SDL « LavArtemis Test Pad » (`SDL_JoystickAttachVirtualEx`, type GAMECONTROLLER, 6 axes,
   15 boutons, aucun VID/PID) : SDL en fait une manette avec un mapping automatique (`a:b0` … `dpright:b14`, `leftx:a0` …
-  `righttrigger:a5`), nom intact (vérifié). Pendant un stream seulement ; **`{attach:true}` d'abord** (un `button`/`axis`
+  `righttrigger:a5`), nom intact (vérifié). **Attachée pendant un stream**, elle vit le temps de ce stream (retirée à
+  sa fin) ; **attachée hors stream**, elle pilote l'interface (`SdlGamepadKeyNavigation` l'ouvre, voir « Navigation à la
+  manette ») jusqu'à `detach` ou `quit`, streams compris. **`{attach:true}` d'abord** (un `button`/`axis`
   sans manette est refusé, il ne la crée pas), puis laisser le client l'ouvrir (~0,5 s) : un bouton pressé avant serait
   perdu. Boutons `a b x y back guide start leftstick rightstick leftshoulder rightshoulder dpup dpdown dpleft dpright` ;
   axes `leftx lefty rightx righty` (-32768…32767), `lefttrigger righttrigger` (0…32767). Le canal tient sa propre
   référence au sous-système joystick (la session le quitte avant lui, ce qui détacherait la manette sous nos pieds) ;
-  manette retirée à la fin du stream (contrôle toutes les 500 ms), par `detach` et à `quit`. Les deux
+  manette d'un stream retirée à sa fin (contrôle toutes les 500 ms), toute manette par `detach` et à `quit`. `pad: 2` :
+  une seconde manette du même nom (V4 : une manette au repos ne relance pas la répétition de l'autre). ⚠️ Une pression
+  plus courte que le sondage de l'interface (50 ms au repos) peut être perdue : SDL compare l'état d'un sondage à
+  l'autre ; tenir ~150 ms. Les deux
   `SDL_assert(!SDL_WasInit(SDL_INIT_JOYSTICK))` d'`input.cpp` ne sont donc compilés que hors du build de test.
 - **`state.session`**, en plus : `restarts` = reconnexions après un changement d'écran du PC depuis le lancement du
   client (`Session::testRestartCount`) ; `overlayStats` = statistiques à l'écran (affichées, texte) ; `statusMessage` =
@@ -1108,6 +1119,61 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
 > 📋 Le fond de la fenêtre est `Theme.bg` dès la première image, et les contrôles Material restants
 > prennent les couleurs et la police du thème depuis `main.qml` (`Material.*`, `font`).
 
+### Navigation à la manette et au clavier (audit du 2026-11-27)
+
+Audit : `LavArtemis/docs/superpowers/verif-2026-11-25/audit-manette.md`, arbitrages dans `decisions-design.md`
+(« Manette (2026-11-27) »), mêmes règles qu'Android et le prototype. **Règle 1 : une direction ne va que vers ce qui
+est visuellement dans cette direction**, rien ne saute en bout de liste, B revient d'un niveau, Y / Menu = options,
+LB / RB = PC suivant (page, filtre). Scénario 20 du banc.
+
+- **Répétition** (`SdlGamepadKeyNavigation`) : un pas tout de suite, le suivant après **380 ms**, puis toutes les
+  **110 ms**, pour la **croix** (elle ne répétait pas : un pas par appui), le **stick** et les **flèches du clavier**. La
+  répétition de Windows (~500 puis ~30 ms) est **avalée** par un filtre d'événements posé sur l'application
+  (`eventFilter` : `isAutoRepeat()` sur une flèche → jeté) et remplacée par la nôtre (`m_KeyRepeatTimer`, envoyée à la
+  fenêtre qui a le focus ; arrêtée au relâché, au changement de fenêtre active, à la désactivation de l'appli). Une
+  touche que nous envoyons nous-mêmes (`m_Sending`) traverse le filtre sans y toucher. Un appui traverse la fenêtre puis
+  chaque élément de la chaîne : seul le premier lance la répétition.
+- **Stick** : compte à partir de **18000** (~55 % de la course, le 0,55 du prototype ; il fallait ±30000, 92 %). En
+  diagonale, **la verticale seule** part (un pas, jamais deux).
+- **Sondage** : 50 ms au repos, **10 ms tant qu'une direction est tenue** (sinon 380 / 110 devenaient ~400 / 150).
+- **Une répétition par manette** (`m_PadNav`, par id d'instance SDL) : une manette au repos (ou la manette virtuelle de
+  Steam) remettait à zéro la répétition commune, et le stick tenu sur l'autre répétait à chaque sondage (V4). Le
+  relâché perdu d'une croix (vidé avec les événements d'un stream) est rattrapé par l'état du bouton.
+- **Build de test** : seule la manette virtuelle du canal est ouverte (`isOurPad()`, par son nom : les manettes de
+  l'utilisateur ne pilotent jamais le client de test), le sondage tourne sans focus OS, et les touches vont au puits du
+  canal (`setTestKeySink`) : la fenêtre et l'élément que viserait `key`.
+- **Réglages** : Haut / Bas ne quittent **jamais** la colonne (liste des pages, ou lignes de la page) et s'arrêtent au
+  bout ; changer de colonne = Gauche / Droite seulement. **B** : lignes → liste des pages → accueil (`back()`). **LB / RB**
+  (et Q / E) : page précédente / suivante **en boucle**, le focus va sur la nouvelle page de la liste (il restait sur une
+  ligne de la page cachée). **Gauche / Droite changent un choix en liste déroulante** comme les segments (Résolution,
+  Images/s, Codec… ; options `ask` sautées), Gauche au bout → liste des pages. Exception : les **cartes du thème** (Gauche
+  / Droite déplacent le focus, A applique : pas de reconstruction de l'interface à chaque pression). Barre d'indications
+  « A Changer · LB RB Page · B Retour », « A Ouvrir » sur la liste (`focusInRows`) ; les colonnes laissent sa place.
+- **Accueil** (`HomeView.move()`) : changer de rangée va à l'élément dont le **centre horizontal est le plus proche**
+  (mesuré sur les `HomeTile` / `HeaderButton` par leur `fid` : deux cartes au-dessus de sept jaquettes), plus au même
+  indice de colonne. **Le premier appui directionnel après la souris ou le tactile ne bouge pas** : il montre l'anneau
+  sur Reprendre, sinon Playnite (`defaultFocus()`) ; la souris déplaçait le focus là où on ne le voyait pas. **Y sur
+  « Reprendre »** = les options de ce qui tourne (`targetOf("resume")`, comme Android). Revenir des Réglages garde le
+  focus sur « Réglages » (`focusId` n'est pas remis à zéro, même quand le thème a changé).
+- **Mes PC** : s'ouvre sur la **carte du PC affiché à l'accueil** ; **Entrée / A maintenue 500 ms = options** (au temps
+  réellement tenu, comme l'accueil), relâchée avant = ouvrir ; Y sur « Ajouter un PC » = le menu d'ajout ; Bas vers une
+  rangée plus courte = son dernier élément ; une seule rangée : Haut / Bas ne font rien. Barre « A Ouvrir · Y Options ·
+  B Retour ».
+- **Listes à une colonne** (dialogue `LavOptions`, bibliothèque Affiche, menu en jeu Affiche) : Gauche / Droite ne font
+  **rien** ; **une seule rangée** (dock Ludique) : Haut / Bas ne font rien. Dialogue à plusieurs colonnes : Haut sur la
+  première rangée et Bas sur la dernière restent sur place (la rangée n'était pas bornée : Haut sautait à la première
+  entrée). Détails : Gauche / Droite ne font rien sur « Lancer ». Y / Menu ferme un dialogue.
+- **Quitter depuis l'accueil** (B / Échap / Start, plus de niveau où revenir : `Keys.onEscapePressed` de la `StackView`
+  de `main.qml`) : le dialogue v2 du prototype v113, comme Android — `LavOptions` « Quitter LavArtemis ? », entrées
+  « Quitter LavArtemis » (focus) puis « Annuler » ; B, Y et « Annuler » le ferment. Il remplace le « Are you sure you
+  want to quit? » Oui / Non hérité (`NavigableMessageDialog`). ⚠️ Son ouverture s'appelle `ask()` : redéfinir `open()`
+  sur un `LavOptions` boucle (`showDialog()` appelle `open()`).
+- **Accueil dans une fenêtre basse** : les mises en page sont posées sur la scène du prototype (900 de haut × k), la
+  fenêtre minimale de 1000 × 600 n'en laisse que 750 (`Stage`, `minScale` 0,8). Ludique (`HomeLudique.deficit`) referme
+  les espaces puis réduit les cartes de 20 au plus ; Affiche (`HomeAffiche.deficit`) réduit la Scène et les cartes de 16,
+  puis les jaquettes de 60 : sinon la `Stage`, qui coupe, rognait le bas des récents et leur anneau (Ludique au repos,
+  Affiche avec une session). Braise tenait déjà. Scénario 20 (`_small_window_rings`, au repos et avec une session).
+
 ### Portage du prototype V8 (branche `port-v8`, nuit du 2026-11-26, pas encore validé)
 
 Référence : page V8 du prototype (`LavArtemis/docs/superpowers/verif-2026-11-25/PORT-BRIEF.md`, `design-port-spec.md`).
@@ -1129,9 +1195,9 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
   seul minuteur : Windows ne livre un minuteur que quand aucun autre message n'attend, et après un moment chargé un
   relâché pouvait passer avant un minuteur déjà échu (la touche tenue lançait le jeu). La souris déplace le focus (survol), **seulement si elle a vraiment bougé** (`mouseMovedAt`,
   `MouseMoves`) : Qt envoie aussi un survol quand un élément bouge sous un pointeur immobile.
-- **Manette (`SdlGamepadKeyNavigation`)** : le stick répète comme le prototype, un pas tout de suite, le suivant après
-  380 ms, puis toutes les 110 ms (`m_AxisRepeats`, remis à 0 au repos). B et Start = Échap, **Y = Menu** (options), **LB / RB = PageUp /
-  PageDown**, X ne fait plus rien (il envoyait Menu ; Y et Start envoyaient `Key_Hangup`, que rien ne lisait).
+- **Manette (`SdlGamepadKeyNavigation`)** : B et Start = Échap, **Y = Menu** (options), **LB / RB = PageUp / PageDown**,
+  X ne fait plus rien (il envoyait Menu ; Y et Start envoyaient `Key_Hangup`, que rien ne lisait). Répétition, seuil du
+  stick et règles de déplacement : « Navigation à la manette et au clavier » ci-dessous.
 - **Pages poussées comme composant** (`stackView.push(Qt.createComponent(...), props)`) : un objet fait par
   `createObject()` n'est pas détruit au retour et gardait le focus clavier (Mes PC, Réglages, benchmark, mapper).
 - ⚠️ **Instantané d'un modèle par `Instantiator` : trier par `index`, pas par `objectAt(i)`** (`HomeView.apps`). Le
