@@ -28,7 +28,10 @@ SettingRow {
         return -1
     }
 
-    stepHandler: dropdown ? null : function(delta) {
+    // Left / Right step through the options, the dropdown's too (audit R5: on Résolution, Images/s, Codec... Right
+    // did nothing and Left left the row; Android's SettingRowView.step does it whatever the look). At the end of
+    // the options the key goes on to the page: Left back to the list of pages.
+    stepHandler: function(delta) {
         var i = currentIndex
         do {
             i += delta

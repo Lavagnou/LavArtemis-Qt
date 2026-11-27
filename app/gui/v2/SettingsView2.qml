@@ -148,6 +148,20 @@ FocusScope {
         }
     }
 
+    // B / Échap (and the hints bar's « Retour »): rows -> list of pages -> home
+    function back() {
+        if (focusInRows) focusNav()
+        else goBack()
+    }
+    // The hints bar's « A »: what Entrée does on the focused item
+    function activateFocused() {
+        var cur = Window.activeFocusItem
+        if (!cur) return
+        if (cur.pageId !== undefined) { currentPage = cur.pageId; focusRows() }
+        else if (typeof cur.activate === "function") cur.activate()
+        else if (typeof cur.clicked === "function") cur.clicked()
+    }
+
     // ---- keyboard and gamepad ---------------------------------------------------------------
     Connections {
         target: SdlGamepadKeyNavigation
@@ -217,14 +231,22 @@ FocusScope {
         if (item) item.forceActiveFocus(Qt.TabFocusReason)
     }
 
+    // LB / RB (PageUp / PageDown, Q / E): previous / next page, looping (Android's SettingsCatalog.stepPage, the
+    // prototype), and the focus goes to that page in the list: left on a row of the page just hidden, it moved
+    // nowhere (audit R6 / V6)
     function switchPage(delta) {
+        if (visiblePages.length === 0) return
         var pos = 0
         for (var i = 0; i < visiblePages.length; i++) {
             if (visiblePages[i].id === currentPage) pos = i
         }
-        pos = Math.max(0, Math.min(visiblePages.length - 1, pos + delta))
+        pos = (pos + delta + visiblePages.length) % visiblePages.length
         currentPage = visiblePages[pos].id
+        focusNav()
     }
+
+    // Where the keys are: the list of pages, or the rows of a page (hints « A Ouvrir » / « A Changer », B)
+    property bool focusInRows: false
 
     // Up/Down inside the rows: next focusable item of the rows, skipping the other buttons of a
     // button group (theme cards, profile buttons); never leaves the rows
@@ -259,12 +281,14 @@ FocusScope {
         var cur = Window.activeFocusItem
         var inRows = within(cur, rowsColumn)
         if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back) {
-            goBack()
+            // B goes back one level: rows -> list of pages -> home (audit R4; Android SettingsScreen.onBack)
+            if (inRows) focusNav()
+            else goBack()
             event.accepted = true
-        } else if (event.key === Qt.Key_PageUp) {
+        } else if (event.key === Qt.Key_PageUp || event.key === Qt.Key_Q) {
             switchPage(-1)
             event.accepted = true
-        } else if (event.key === Qt.Key_PageDown) {
+        } else if (event.key === Qt.Key_PageDown || event.key === Qt.Key_E) {
             switchPage(1)
             event.accepted = true
         } else if (event.key === Qt.Key_Down || event.key === Qt.Key_Up) {
@@ -287,6 +311,7 @@ FocusScope {
     // Keep the focused row in view
     Window.onActiveFocusItemChanged: {
         var item = Window.activeFocusItem
+        if (item) focusInRows = within(item, rowsColumn)
         if (!item || !within(item, rowsColumn)) return
         var p = item.mapToItem(rowsFlick.contentItem, 0, 0)
         var margin = 40
@@ -614,13 +639,15 @@ FocusScope {
                 x: 44
                 y: header.y + header.height + 26
                 width: 352
-                height: parent.height - y - 20
+                // above the hints bar (Affiche: bottom left)
+                height: parent.height - y - 20 - (hints.visible && Theme.affiche ? hints.height + 16 : 0)
                 contentHeight: nav.implicitHeight + 20
                 boundsBehavior: Flickable.StopAtBounds
                 clip: true
 
                 Column {
                     id: nav
+                    objectName: "settingsNav"
                     x: 6
                     y: 6
                     width: navFlick.width - 12
@@ -629,6 +656,7 @@ FocusScope {
 
                     AbstractButton {
                         id: expertToggle
+                        objectName: "nav:expert"
                         width: nav.width
                         height: 80
                         hoverEnabled: true
@@ -708,6 +736,7 @@ FocusScope {
                         model: settingsPage.pageDefs
                         delegate: AbstractButton {
                             id: navItem
+                            objectName: "nav:" + pageId
                             required property var modelData
                             required property int index
                             readonly property string pageId: modelData.id
@@ -781,7 +810,8 @@ FocusScope {
                 x: navFlick.x + navFlick.width + 16
                 y: navFlick.y
                 width: parent.width - x - 40
-                height: parent.height - y - 20
+                // above the hints bar (Braise, Ludique: bottom right)
+                height: parent.height - y - 20 - (hints.visible && !Theme.affiche ? hints.height + 16 : 0)
                 contentHeight: rowsColumn.implicitHeight + 40
                 boundsBehavior: Flickable.StopAtBounds
                 clip: true
@@ -789,6 +819,7 @@ FocusScope {
 
                 Column {
                     id: rowsColumn
+                    objectName: "settingsRows"
                     x: 22
                     y: 6
                     width: rowsFlick.width - 44
@@ -1428,6 +1459,7 @@ FocusScope {
                                     model: ["braise", "affiche", "ludique"]
                                     delegate: AbstractButton {
                                         id: themeCard
+                                        objectName: "theme:" + modelData
                                         required property string modelData
                                         readonly property var pal: Theme.palettes[modelData][Theme.dark ? "dark" : "light"]
                                         readonly property bool selected: Theme.id === modelData
@@ -1868,6 +1900,17 @@ FocusScope {
                         }
                     }
                 }
+            }
+
+            // The prototype's bar (gamepad and keyboard only): « A Changer · LB RB Page · B Retour » on a row,
+            // « A Ouvrir » on the list of pages (audit R7, R11; Android SettingsScreen)
+            HintsBar {
+                id: hints
+                k: 1.25
+                hints: [{k: "A", l: settingsPage.focusInRows ? qsTr("Changer") : qsTr("Ouvrir"),
+                         act: function() { settingsPage.activateFocused() }},
+                        {k: "LB RB", l: qsTr("Page"), act: function() { settingsPage.switchPage(1) }},
+                        {k: "B", l: qsTr("Retour"), act: function() { settingsPage.back() }}]
             }
         }
     }
