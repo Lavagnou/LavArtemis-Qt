@@ -909,7 +909,7 @@ FocusScope {
         HintsBar {
             k: home.k
             // a dialog open: its hints (prototype: « A Valider · B Annuler » over the dimmed page)
-            hints: home.optionsOpen ? [{k: "A", l: qsTr("Valider"), act: function() { home.pickOptions() }},
+            hints: home.optionsOpen || home.quitOpen ? [{k: "A", l: qsTr("Valider"), act: function() { home.pickOptions() }},
                     {k: "B", l: qsTr("Annuler"), act: function() { home.closeOptions() }}]
                  : home.homeCard ? [{k: "A", l: qsTr("Valider"), act: function() { home.act(home.focusId) }},
                                     {k: "LB RB", l: qsTr("Changer de PC"), act: function() { home.shoulder(1) }}]
@@ -921,8 +921,13 @@ FocusScope {
     }
 
     readonly property bool optionsOpen: optionsMenu.opened
-    function pickOptions() { optionsMenu.pick(optionsMenu.focusIndex) }
-    function closeOptions() { optionsMenu.close() }
+    // « Quitter LavArtemis ? » (main.qml, B / Échap / Start on the home): a dialog over this page too, its hints are
+    // the dialogs' « A Valider · B Annuler »
+    readonly property var quitDialog: typeof quitConfirmationDialog !== "undefined" ? quitConfirmationDialog : null
+    readonly property bool quitOpen: quitDialog !== null && quitDialog.opened
+    function openDialog() { return quitOpen ? quitDialog : optionsMenu }
+    function pickOptions() { var d = openDialog(); d.pick(d.focusIndex) }
+    function closeOptions() { openDialog().close() }
     LavOptions {
         id: optionsMenu
         onPicked: (a) => home.onOption(a)
