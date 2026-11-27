@@ -125,7 +125,8 @@ FocusScope {
     function hover(id) { if (!mouseMoves.recent()) return; Theme.input = "mouse"; focusId = id }
     function move(dx, dy) {
         var i = parseInt(focusId.substring(1)), n = ids.length
-        if (cols === 1) i += dy !== 0 ? dy : dx
+        // Affiche's list: Left / Right do nothing (audit O2); Ludique's dock (one row): Up / Down do nothing (G1)
+        if (cols === 1) { if (dy === 0) return; i += dy }
         else if (dy !== 0) { var j = i + dy * cols; if (j >= 0 && j < n) i = j; else if (dy > 0 && Math.floor(i / cols) < Math.floor((n - 1) / cols)) i = n - 1 }
         else { var c = i % cols + dx; if (c >= 0 && c < cols && i + dx < n) i += dx }
         focusId = "m" + Math.max(0, Math.min(n - 1, i))

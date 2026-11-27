@@ -96,11 +96,27 @@ Popup {
     function move(dx, dy) {
         var n = shown.length
         if (n === 0) return
-        if (cols === 1) { focusIndex = Math.max(0, Math.min(n - 1, focusIndex + (dy !== 0 ? dy : dx))); return }
+        // One column: Left / Right do nothing (audit O2, rule 1: a direction only goes that way)
+        if (cols === 1) {
+            if (dy === 0) return
+            focusIndex = Math.max(0, Math.min(n - 1, focusIndex + dy))
+            reveal()
+            return
+        }
+        // Columns: the row stays within the grid (Up on the first row did go to the first entry, Down on the last to
+        // the last entry: audit O1); a shorter last row gives its last entry
+        var rows = Math.ceil(n / cols)
         var r = Math.floor(focusIndex / cols), c = focusIndex % cols
-        if (dy !== 0) r += dy
-        else c = Math.max(0, Math.min(cols - 1, c + dx))
-        focusIndex = Math.max(0, Math.min(n - 1, r * cols + c))
+        if (dy !== 0) {
+            var nr = Math.max(0, Math.min(rows - 1, r + dy))
+            if (nr === r) return
+            r = nr
+            c = Math.min(c, n - 1 - r * cols)
+        } else {
+            c = Math.max(0, Math.min(cols - 1, c + dx))
+            if (r * cols + c >= n) return
+        }
+        focusIndex = r * cols + c
         reveal()
     }
     // The entries scroll when they do not fit (prototype: max-height 440 and overflow-y auto), and the focused

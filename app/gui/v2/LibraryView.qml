@@ -125,7 +125,8 @@ FocusScope {
     function move(dx, dy) {
         if (!list.length) return
         var n = list.length, i = fi
-        if (cols === 1) i += dy !== 0 ? dy : dx
+        // A single column (Affiche's list): Left / Right do nothing (audit L1: a direction only goes that way)
+        if (cols === 1) { if (dy === 0) return; i += dy }
         else if (dy !== 0) { var j = i + dy * cols; if (j >= 0 && j < n) i = j; else if (dy > 0 && Math.floor(i / cols) < Math.floor((n - 1) / cols)) i = n - 1 }
         else { var c = i % cols + dx; if (c >= 0 && c < cols && i + dx < n) i += dx }
         focusId = "lg" + Math.max(0, Math.min(n - 1, i))
