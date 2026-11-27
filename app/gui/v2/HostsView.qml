@@ -355,17 +355,67 @@ FocusScope {
                               entries: [{l: qsTr("OK"), a: "cancel", main: true}]}, null, 0, 0)
     }
 
-    // Arrow keys / d-pad across the grid (cards, then "Ajouter un PC")
-    function moveFocus(item, delta) {
+    // Arrow keys / d-pad across the grid (cards, then "Ajouter un PC"). Down to a shorter row goes to its last card,
+    // as the library and the in-game menu (audit M4); no row above or below: nothing (one row: Up / Down do nothing)
+    function gridItems() {
         var items = []
         for (var i = 0; i < grid.children.length; i++) {
             var c = grid.children[i]
             if (c.visible && c.focusPolicy !== undefined && c.focusPolicy !== Qt.NoFocus) items.push(c)
         }
+        return items
+    }
+    function moveFocus(item, delta) {
+        var items = gridItems()
         var at = items.indexOf(item)
         var next = at + delta
-        if (at < 0 || next < 0 || next >= items.length) return
+        if (at < 0 || next < 0) return
+        if (next >= items.length) {
+            // a row below, shorter than this one: its last item
+            if (delta >= cols && Math.floor(at / cols) < Math.floor((items.length - 1) / cols)) next = items.length - 1
+            else return
+        }
         items[next].forceActiveFocus()
+    }
+
+    // Entrée / A held 500 ms on a PC = its options, released before = open it (audit M1, as the home and Android):
+    // by the time really held, the release can come before a timer already due
+    property real holdSince: 0
+    property int holdIndex: -1
+    property Item holdCard: null
+    Timer {
+        id: holdTimer
+        interval: 500
+        onTriggered: if (hostsPage.holdCard) hostsPage.openHostMenu(hostsPage.holdCard, hostsPage.holdIndex,
+                                                                    hostsPage.holdCard.width / 2, hostsPage.holdCard.height / 2)
+    }
+    function holdPressed(card, index, event) {
+        event.accepted = true
+        if (event.isAutoRepeat) return
+        holdCard = card
+        holdIndex = index
+        holdSince = Date.now()
+        holdTimer.restart()
+    }
+    function holdReleased(event) {
+        event.accepted = true
+        if (event.isAutoRepeat || !holdTimer.running) return
+        holdTimer.stop()
+        if (Date.now() - holdSince >= holdTimer.interval) openHostMenu(holdCard, holdIndex, holdCard.width / 2, holdCard.height / 2)
+        else activate(holdIndex)
+    }
+
+    // The hints bar's A and Y: what Entrée and Menu do on the focused card
+    function actFocused(options) {
+        var items = gridItems()
+        for (var i = 0; i < items.length; i++) {
+            var it = items[i]
+            if (!it.activeFocus) continue
+            if (it.index === undefined) return it.clicked()
+            if (options) openHostMenu(it, it.index, it.width / 2, it.height / 2)
+            else activate(it.index)
+            return
+        }
     }
 
     StackView.onActivated: {
@@ -393,7 +443,8 @@ FocusScope {
 
         Flickable {
             anchors.fill: parent
-            contentHeight: column.implicitHeight + 60
+            // room under the help text for the hints bar
+            contentHeight: column.implicitHeight + 60 + (hints.visible ? hints.height + 16 : 0)
             boundsBehavior: Flickable.StopAtBounds
             clip: true
             ScrollBar.vertical: ScrollBar {}
@@ -435,6 +486,8 @@ FocusScope {
                         model: hostsPage.computerModel
                         delegate: AbstractButton {
                             id: card
+                            // the test channel's state.focus names it
+                            objectName: "host:" + name
                             required property int index
                             required property string name
                             required property bool online
@@ -469,8 +522,12 @@ FocusScope {
                                                            .filter(function(t) { return t.length > 0 }).join(" · ")
 
                             onClicked: hostsPage.activate(index)
-                            Keys.onReturnPressed: hostsPage.activate(index)
-                            Keys.onEnterPressed: hostsPage.activate(index)
+                            Keys.onPressed: (event) => {
+                                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) hostsPage.holdPressed(card, index, event)
+                            }
+                            Keys.onReleased: (event) => {
+                                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) hostsPage.holdReleased(event)
+                            }
                             Keys.onMenuPressed: hostsPage.openHostMenu(card, index, width / 2, height / 2)
                             Keys.onLeftPressed: hostsPage.moveFocus(card, -1)
                             Keys.onRightPressed: hostsPage.moveFocus(card, 1)
@@ -666,6 +723,7 @@ FocusScope {
                     // "Ajouter un PC": dashed card
                     AbstractButton {
                         id: addCard
+                        objectName: "host:add"
                         width: grid.cardWidth
                         height: 500
                         hoverEnabled: true
@@ -673,6 +731,8 @@ FocusScope {
                         onClicked: hostsPage.openAddMenu(addCard, width / 2, height / 2)
                         Keys.onReturnPressed: clicked()
                         Keys.onEnterPressed: clicked()
+                        // Y / Menu: the add menu too (audit M6, as Android)
+                        Keys.onMenuPressed: clicked()
                         Keys.onLeftPressed: hostsPage.moveFocus(addCard, -1)
                         Keys.onUpPressed: hostsPage.moveFocus(addCard, -hostsPage.cols)
                         // Prototype: mouse hover lifts the card (shadow + thin outline), gamepad/keyboard focus scales it;
@@ -765,15 +825,30 @@ FocusScope {
                 }
             }
         }
+
+        // The prototype's bar (gamepad and keyboard only): « A Ouvrir · Y Options · B Retour » (audit M2, Android)
+        HintsBar {
+            id: hints
+            k: 1.25
+            hints: [{k: "A", l: qsTr("Ouvrir"), act: function() { hostsPage.actFocused(false) }},
+                    {k: "Y", l: qsTr("Options"), act: function() { hostsPage.actFocused(true) }},
+                    {k: "B", l: qsTr("Retour"), act: function() { stackView.pop() }}]
+        }
     }
 
     Component.onCompleted: {
-        // Focus the first card (or "Ajouter un PC" when there is none)
+        // Focus the card of the PC the home shows (audit M5, the prototype's hostPos), else the first card (or
+        // "Ajouter un PC" when there is none)
         Qt.callLater(function() {
-            for (var i = 0; i < grid.children.length; i++) {
-                var c = grid.children[i]
-                if (c.visible && c.focusPolicy === Qt.StrongFocus) { c.forceActiveFocus(); return }
+            var items = gridItems()
+            var shown = home && home.host ? home.host.uuid : ""
+            for (var i = 0; i < items.length; i++) {
+                if (shown !== "" && items[i].index !== undefined && role(items[i].index, "uuid") === shown) {
+                    items[i].forceActiveFocus()
+                    return
+                }
             }
+            if (items.length > 0) items[0].forceActiveFocus()
         })
     }
 
