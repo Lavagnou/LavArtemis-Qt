@@ -30,6 +30,7 @@ LavToast 1.0 LavToast.qml
 HintsBar 1.0 HintsBar.qml
 LavOptions 1.0 LavOptions.qml
 HomeTile 1.0 HomeTile.qml
+FitTitle 1.0 FitTitle.qml
 HeaderButton 1.0 HeaderButton.qml
 HomeHeaderButtons 1.0 HomeHeaderButtons.qml
 ThemeLogo 1.0 ThemeLogo.qml

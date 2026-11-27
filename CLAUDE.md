@@ -1169,11 +1169,34 @@ LB / RB = PC suivant (page, filtre). Scénario 20 du banc.
   « Quitter LavArtemis » (focus) puis « Annuler » ; B, Y et « Annuler » le ferment. Il remplace le « Are you sure you
   want to quit? » Oui / Non hérité (`NavigableMessageDialog`). ⚠️ Son ouverture s'appelle `ask()` : redéfinir `open()`
   sur un `LavOptions` boucle (`showDialog()` appelle `open()`).
-- **Accueil dans une fenêtre basse** : les mises en page sont posées sur la scène du prototype (900 de haut × k), la
-  fenêtre minimale de 1000 × 600 n'en laisse que 750 (`Stage`, `minScale` 0,8). Ludique (`HomeLudique.deficit`) referme
-  les espaces puis réduit les cartes de 20 au plus ; Affiche (`HomeAffiche.deficit`) réduit la Scène et les cartes de 16,
-  puis les jaquettes de 60 : sinon la `Stage`, qui coupe, rognait le bas des récents et leur anneau (Ludique au repos,
-  Affiche avec une session). Braise tenait déjà. Scénario 20 (`_small_window_rings`, au repos et avec une session).
+- **Accueil dans une fenêtre basse : se resserrer, puis réduire, jamais superposer.** Les mises en page sont posées sur
+  la scène du prototype (1280 × 720 px du prototype, × k). Au-delà de 1280 px de large seule la **proportion** compte :
+  la scène fait 1280 × H / L px de haut. Une fenêtre **agrandie** sur un écran 16:9, barre des tâches et barre de titre
+  ôtées, est donc **plus basse que la scène** : 1280 × 657 à 150 %, 1536 × 790 à 125 % (≈ 660 px du prototype) ; la
+  fenêtre minimale de 1000 × 600 en laisse 600. Chaque thème calcule ce qui manque (`deficit`, px du prototype) et le
+  prend dans un ordre fixe, d'abord les espaces, puis les cartes, puis les jaquettes (à leur 2:3, la tuile « Tout voir »
+  avec elles) ; à 720 le manque est nul, la page est celle du prototype.
+  - **Braise** (`HomeBraise.deficit`) : la Scène (ou le titre du jeu focalisé) pend du haut, le bloc du bas du bas ; 6 px
+    gardés entre les deux. Ils se rencontraient : les cartes recouvraient « Reprendre », « Quitter » et la ligne d'aide
+    (fenêtre agrandie de l'utilisateur, 2026-11-27). Espaces 8 + 4 + 6 par espacement + 6, cartes 170 → 140 (leur titre
+    ne touche jamais la pastille « En cours »), jaquettes 180 → 96. Le titre du jeu focalisé est compté même sans focus
+    sur une jaquette : la page ne saute pas quand une le prend.
+  - **Affiche** / **Ludique** : les récents gardent l'écart du prototype au-dessus de la **barre d'aide** (8 / 28 px ; elle
+    recouvrait les jaquettes et « Tout voir » sous 720). Affiche : bande de la Scène 16, rangée de section 10, cartes 26,
+    jaquettes 198 → 108 ; Ludique : espaces (celui au-dessus de la barre jusqu'à 14, l'anneau passe encore), cartes 20,
+    jaquettes 186 → 120.
+  - **Titre long** (Scène, titre du jeu focalisé de Braise) : `FitTitle`, plus petit pour tenir sur une ligne (jusqu'à
+    26 px Braise, 24 Affiche, 17 Ludique), puis une 2ᵉ ligne (la bande d'Affiche grandit, la capsule de Ludique la
+    contient), élidé seulement au-delà. ⚠️ **Pas `fontSizeMode: Text.HorizontalFit`** avec un `wrapMode` : Qt dessine une
+    petite ligne mais garde la hauteur du texte non réduit (deux grandes lignes), et Braise, qui se cale sur cette
+    hauteur, laissait un trou sous le titre puis manquait de place. `FitTitle` mesure la ligne à la taille pleine
+    (`probe`) et calcule la taille. Ludique : largeur du titre = `naturalWidth` (sinon « via » partait au bout de la capsule).
+  - ⚠️ Une propriété QML nommée `top` sur un `Item` ne charge pas (« Impossible de surcharger la propriété FINAL ») : tout
+    l'accueil du thème manque. Le scénario 21 le voit (page jamais affichée).
+  - Un élément ajouté à l'accueil entre dans le calcul de son thème. **Scénario 21** du banc (`test_21_home_sizes.py`) :
+    15 tailles × 3 thèmes, au repos, avec une session et avec un titre long ; aucun bloc sur un autre (éléments à `fid`,
+    textes hors d'eux, barre d'aide), aucun texte ni élément coupé, aucun anneau coupé (chaque élément de la grille).
+    Scénario 20 (`_small_window_rings`) garde les anneaux des récents à 1000 × 600.
 
 ### Portage du prototype V8 (branche `port-v8`, nuit du 2026-11-26, pas encore validé)
 

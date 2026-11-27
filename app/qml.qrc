@@ -26,6 +26,7 @@
         <file>gui/v2/HintsBar.qml</file>
         <file>gui/v2/LavOptions.qml</file>
         <file>gui/v2/HomeTile.qml</file>
+        <file>gui/v2/FitTitle.qml</file>
         <file>gui/v2/HeaderButton.qml</file>
         <file>gui/v2/HomeHeaderButtons.qml</file>
         <file>gui/v2/ThemeLogo.qml</file>

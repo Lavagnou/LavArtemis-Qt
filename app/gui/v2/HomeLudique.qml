@@ -18,17 +18,23 @@ Item {
     readonly property color capsuleInk: dark ? "#221C3D" : "#FFFFFF"
     readonly property color capsuleSoft: dark ? "#5A527A" : "#D9D2F5"
     readonly property color lime: dark ? "#3F5A00" : "#C6F432"
-    // A window lower than the prototype's scene (1000 x 600 is a stage 750 px high, the scene 900): the gaps close
-    // up, the cards last (up to 20 px: their « En cours » pill reaches the title), so that the recents and their
-    // focus ring (4 + 5 px, x 1.04) stay inside the Stage, which clips (user's rule: a ring is never cut; the
-    // recents' rings were cut at the bottom)
-    readonly property real deficit: Math.max(0, ((home.stageOn ? 442 : 404) + 186 + 18) * k - height) / k
+    // A window lower than the prototype's scene (1280 x 720; 1000 x 600, or a maximised window on a 16:9 screen, is
+    // 600 to 660 px of it): the recents keep 28 px above the hints bar (44 px, 20 from the bottom: what the prototype
+    // leaves at 720), else the bar covered the library tile (scenario 21). The gaps close up (the one above the bar
+    // down to 14: the recents' ring, 4 + 5 px x 1.04, still clears it), then the cards (up to 20 px: their « En
+    // cours » pill reaches the title), then the covers (186 -> 120, at their 2:3), so that the recents and their
+    // focus ring stay inside the Stage, which clips, and out from under the bar
+    readonly property real deficit: Math.max(0, ((home.stageOn ? 442 : 404) + 186 + 28 + 64) * k - height) / k
     function take(before, slack) { return Math.min(Math.max(0, deficit - before), slack) }
     readonly property real upBar: home.stageOn ? take(0, 8) : 0
     readonly property real upApps: upBar + take(upBar, home.stageOn ? 6 : 30)
     readonly property real gapLab: take(upApps, 12)
     readonly property real gapRec: take(upApps + gapLab, 12)
-    readonly property real cardCut: take(upApps + gapLab + gapRec, 20)
+    readonly property real gapBar: take(upApps + gapLab + gapRec, 14)
+    readonly property real cardCut: take(upApps + gapLab + gapRec + gapBar, 20)
+    readonly property real coverCut: take(upApps + gapLab + gapRec + gapBar + cardCut, 66)
+    readonly property real coverH: (186 - coverCut) * k
+    readonly property real coverW: coverH * 2 / 3
     readonly property real upLab: upApps + cardCut + gapLab
     readonly property real upRec: upLab + gapRec
     readonly property real cardH: (204 - cardCut) * k
@@ -148,14 +154,17 @@ Item {
                 LiveDot { k: lay.k; color: lay.lime; anchors.verticalCenter: parent.verticalCenter }
                 Text { text: qsTr("En cours · %1").arg(lay.home.stageTime); color: lay.lime; font.family: "Bricolage Grotesque"; font.weight: Font.ExtraBold; font.pixelSize: 13 * lay.k }
             }
-            Text {
+            // A long title gets smaller (down to 17 px) to stay on one line, then takes a second one inside the
+            // capsule; elided only past two lines
+            FitTitle {
                 anchors.verticalCenter: parent.verticalCenter
-                width: Math.min(implicitWidth, parent.width - liveRow.width - viaText.width - 32 * lay.k)
-                elide: Text.ElideRight
+                width: Math.min(naturalWidth, parent.width - liveRow.width - viaText.width - 32 * lay.k)
                 text: lay.home.stageTitle
                 color: lay.capsuleInk
-                font.family: "Bricolage Grotesque"; font.weight: Font.ExtraBold; font.pixelSize: 24 * lay.k
-                font.letterSpacing: -0.02 * 24 * lay.k
+                maxSize: 24 * lay.k
+                minSize: 17 * lay.k
+                spacingEm: -0.02
+                font.family: "Bricolage Grotesque"; font.weight: Font.ExtraBold
             }
             Text {
                 id: viaText
@@ -391,8 +400,8 @@ Item {
                 fid: "r" + index
                 k: lay.k
                 radius: 24 * lay.k
-                width: 124 * lay.k
-                height: 186 * lay.k
+                width: lay.coverW
+                height: lay.coverH
                 dimmed: lay.home.sessionRunning && !lay.home.isLive(modelData)
                 glow: lay.home.isLive(modelData)
                 moreSize: 32; moreRight: 8; moreTop: 8; moreDots: 18
@@ -409,8 +418,8 @@ Item {
             k: lay.k
             holdable: false
             radius: 24 * lay.k
-            width: 124 * lay.k
-            height: 186 * lay.k
+            width: lay.coverW
+            height: lay.coverH
             dimmed: lay.home.sessionRunning
             Rectangle { anchors.fill: parent; radius: 24 * lay.k; color: "transparent"; border.width: 3 * lay.k; border.color: lay.fgc }
             Text { x: 16 * lay.k; y: 16 * lay.k; text: lay.home.libTotal; color: lay.fgc; opacity: 0.75; font.family: "Bricolage Grotesque"; font.weight: Font.ExtraBold; font.pixelSize: 13 * lay.k }
@@ -422,7 +431,7 @@ Item {
                 wrapMode: Text.WordWrap
                 text: qsTr("Tout voir →")
                 color: lay.fgc
-                font.family: "Bricolage Grotesque"; font.weight: Font.ExtraBold; font.pixelSize: 22 * lay.k
+                font.family: "Bricolage Grotesque"; font.weight: Font.ExtraBold; font.pixelSize: 22 * lay.coverH / 186
                 lineHeight: 1.05
             }
         }
@@ -433,6 +442,6 @@ Item {
         y: lay.labTop
         k: lay.k
         width: parent.width - 96 * lay.k
-        height: 226 * lay.k
+        height: (226 - lay.coverCut) * lay.k
     }
 }

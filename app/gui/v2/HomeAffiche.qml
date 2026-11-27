@@ -94,15 +94,22 @@ Item {
         MouseArea { anchors.fill: parent; enabled: sb.opacity > 0; cursorShape: Qt.PointingHandCursor; onClicked: sb.clicked() }
     }
 
-    // A window lower than the prototype's scene (1000 x 600 is a stage 750 px high, the scene 900; with the Scène the
-    // column is 663 px of the prototype): the Scène and the cards lose up to 16 px each, then the covers up to 60, so
-    // that the recents and their focus ring stay inside the Stage, which clips (user's rule: a ring is never cut)
-    readonly property real deficit: Math.max(0, (60 + (home.stageOn ? 90 : 0) + 270 + 26 + 14 + 198) * k
+    // A window lower than the prototype's scene (1280 x 720; 1000 x 600, or a maximised window on a 16:9 screen, is
+    // 600 to 660 px of it): the column (header, Scène, cards, section row, covers) keeps 8 px above the hints bar
+    // (34 px, 16 from the bottom: what the prototype leaves at 720), else the bar covered the recents (scenario 21).
+    // Taken in this order: the Scène's band (16, never closer than 8 px to its text), the section row's gaps (10),
+    // the cards (26: their title on two lines still clears the label and « Lancer »), then the covers (198 -> 108,
+    // at their 2:3, the library tile with them), so that the recents and their ring stay inside the Stage too.
+    readonly property real stageText: stageCol.height / k
+    readonly property real stageNatural: Math.max(90, stageText + 16)
+    readonly property real deficit: Math.max(0, (60 + (home.stageOn ? stageNatural : 0) + 270 + 26 + 198 + 8 + 50) * k
                                                 + sectionText.implicitHeight - height) / k
     function take(before, slack) { return Math.min(Math.max(0, deficit - before), slack) }
-    readonly property real cutStage: home.stageOn ? take(0, 16) : 0
-    readonly property real cutCards: take(cutStage, 16)
-    readonly property real coverH: (198 - take(cutStage + cutCards, 60)) * k
+    readonly property real cutStage: home.stageOn ? take(0, Math.min(16, stageNatural - stageText - 8)) : 0
+    readonly property real cutSection: take(cutStage, 10)
+    readonly property real cutCards: take(cutStage + cutSection, 26)
+    readonly property real coverH: (198 - take(cutStage + cutSection + cutCards, 90)) * k
+    readonly property real coverScale: coverH / (198 * k)
 
     Column {
         y: header.height
@@ -112,9 +119,10 @@ Item {
         Rectangle {
             visible: lay.home.stageOn
             width: parent.width
-            height: (90 - lay.cutStage) * lay.k
+            height: (lay.stageNatural - lay.cutStage) * lay.k
             color: lay.ink
             Column {
+                id: stageCol
                 x: 32 * lay.k
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width - 64 * lay.k - stageButtons.width - 24 * lay.k
@@ -130,15 +138,17 @@ Item {
                         font.pixelSize: 13 * lay.k
                     }
                 }
-                Text {
+                // A long title gets smaller (down to 24 px) to stay on one line, then takes a second one (the band
+                // grows with it); elided only past two lines
+                FitTitle {
                     width: parent.width
-                    elide: Text.ElideRight
                     text: lay.home.stageTitle
                     color: lay.paper
+                    maxSize: 40 * lay.k
+                    minSize: 24 * lay.k
+                    spacingEm: -0.045
                     font.family: "Archivo"
                     font.weight: Font.Black
-                    font.pixelSize: 40 * lay.k
-                    font.letterSpacing: -0.045 * 40 * lay.k
                     lineHeight: 0.95
                 }
             }
@@ -321,10 +331,11 @@ Item {
         Item {
             visible: lay.home.homeCard === null && !lay.home.noGames
             width: parent.width
-            height: (14 + 12) * lay.k + sectionText.implicitHeight
+            height: (14 + 12 - lay.cutSection) * lay.k + sectionText.implicitHeight
+            readonly property real rowTop: (14 - Math.min(6, lay.cutSection)) * lay.k
             Row {
                 x: 32 * lay.k
-                y: 14 * lay.k
+                y: parent.rowTop
                 spacing: 18 * lay.k
                 Text {
                     id: sectionText
@@ -341,7 +352,7 @@ Item {
             Text {
                 anchors.right: parent.right
                 anchors.rightMargin: 32 * lay.k
-                y: 14 * lay.k + (sectionText.implicitHeight - implicitHeight)
+                y: parent.rowTop + (sectionText.implicitHeight - implicitHeight)
                 text: qsTr("Tout voir →")
                 color: lay.muted
                 font.family: "Archivo"; font.weight: Font.Bold; font.pixelSize: 14 * lay.k
@@ -364,7 +375,7 @@ Item {
                     fid: "r" + index
                     k: lay.k
                     outlineOnly: true
-                    width: 132 * lay.k
+                    width: 132 * lay.k * lay.coverScale
                     height: lay.coverH
                     dimmed: lay.home.sessionRunning && !lay.home.isLive(modelData)
                     glow: lay.home.isLive(modelData)
@@ -380,7 +391,7 @@ Item {
                 fid: "lib"
                 k: lay.k
                 holdable: false
-                width: 200 * lay.k
+                width: 200 * lay.k * lay.coverScale
                 height: lay.coverH
                 dimmed: lay.home.sessionRunning
                 Rectangle {
@@ -403,8 +414,8 @@ Item {
                     wrapMode: Text.WordWrap
                     text: qsTr("Tout voir →")
                     color: libTile.ringFill ? Theme.ringFillFg : lay.ink
-                    font.family: "Archivo"; font.weight: Font.Black; font.pixelSize: 34 * lay.k
-                    font.letterSpacing: -0.03 * 34 * lay.k
+                    font.family: "Archivo"; font.weight: Font.Black; font.pixelSize: 34 * lay.k * lay.coverScale
+                    font.letterSpacing: -0.03 * 34 * lay.k * lay.coverScale
                     lineHeight: 0.95
                 }
             }
@@ -415,7 +426,7 @@ Item {
             x: 32 * lay.k
             k: lay.k
             width: parent.width - 64 * lay.k
-            height: 198 * lay.k
+            height: lay.coverH
         }
     }
 

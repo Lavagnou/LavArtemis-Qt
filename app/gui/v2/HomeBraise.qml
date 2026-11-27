@@ -20,6 +20,35 @@ Item {
     readonly property color chipBorder: dark ? "#5A524B" : "#B8AA9B"
     function veil(a) { return dark ? Qt.rgba(14/255, 13/255, 12/255, a) : Qt.rgba(246/255, 241/255, 234/255, a) }
 
+    // A window lower than the prototype's scene (1280 x 720): the Scène (or the hero title) hangs from the top, the
+    // bottom block from the bottom, and they met -- a maximised window on a 16:9 screen is 1280 x 657 at 150 %, the
+    // cards then covered « Reprendre », « Quitter » and the hint line (user's report, 2026-11-27; 1536 x 790 at 125 %
+    // too). What is missing (`deficit`, prototype px, 6 px kept between the two as at 720) is taken in this order:
+    // the gaps (the Scène or the hero title moves up, the Scène's spacer, the bottom block's spacings, the caption's
+    // top), then the cards (170 -> 140: their title never reaches the « En cours » pill), then the covers (180 -> 96,
+    // at their 2:3: room for a title on two lines in a 1000 x 600 window). The hero title is counted even while no
+    // cover has the focus: the page does not jump when one gets it. Scenario 21 of the testbench sweeps the sizes.
+    readonly property real naturalTop: home.stageOn
+        ? 84 * k + stageLine.height + 6 * k + stageTitleText.height + (6 + 4 + 6 + 42) * k
+        : 104 * k + heroSubText.height + 6 * k + heroNameText.height
+    readonly property bool hasHostLine: hostText.text !== ""
+    readonly property int spacings: (hasHostLine ? 1 : 0) + 1 + (home.noGames ? 0 : 1)
+    readonly property real naturalBottom: (hasHostLine ? hostText.height + 12 * k : 0) + (170 + 12) * k
+        + (home.noGames ? 180 * k : 10 * k + caption.height + (12 + 180) * k)
+    readonly property real deficit: home.homeCard !== null ? 0
+        : Math.max(0, naturalTop + 6 * k + naturalBottom + 64 * k - height) / k
+    function take(before, slack) { return Math.min(Math.max(0, deficit - before), slack) }
+    readonly property real upTop: take(0, home.stageOn ? 8 : 12)
+    readonly property real cutSpacer: home.stageOn ? take(upTop, 4) : 0
+    readonly property real cutSpacings: take(upTop + cutSpacer, 6 * spacings)
+    readonly property real cutCaption: home.noGames ? 0 : take(upTop + cutSpacer + cutSpacings, 6)
+    readonly property real gapsCut: upTop + cutSpacer + cutSpacings + cutCaption
+    readonly property real cardCut: take(gapsCut, 30)
+    readonly property real coverCut: take(gapsCut + cardCut, 84)
+    readonly property real cardH: (170 - cardCut) * k
+    readonly property real coverH: (180 - coverCut) * k
+    readonly property real coverW: coverH * 2 / 3
+
     // ---- hero ---------------------------------------------------------------------------------
     Item {
         anchors.fill: parent
@@ -158,25 +187,29 @@ Item {
     Column {
         visible: lay.home.focusedRecent !== null && !lay.home.stageOn
         x: 40 * lay.k
-        y: 104 * lay.k
+        y: (104 - lay.upTop) * lay.k
         width: 700 * lay.k
         spacing: 6 * lay.k
         Text {
+            id: heroSubText
             text: qsTr("Bibliothèque Playnite · %1").arg(lay.home.focusedRecent ? lay.home.hoursText(lay.home.focusedRecent) : "")
             color: lay.text2
             font.family: "Inter"
             font.weight: Font.DemiBold
             font.pixelSize: 14 * lay.k
         }
-        Text {
+        // A long name gets smaller (down to 26 px) to stay on one line, then takes a second one (the page then makes
+        // room for it); no cover focused: one line (« Ag ») is counted, so a usual name never moves the page
+        FitTitle {
+            id: heroNameText
             width: parent.width
-            text: lay.home.focusedRecent ? lay.home.focusedRecent.name : ""
+            text: lay.home.focusedRecent ? lay.home.focusedRecent.name : "Ag"
             color: lay.fgc
-            elide: Text.ElideRight
+            maxSize: 46 * lay.k
+            minSize: 26 * lay.k
+            spacingEm: -0.02
             font.family: "Space Grotesk"
             font.weight: Font.Bold
-            font.pixelSize: 46 * lay.k
-            font.letterSpacing: -0.02 * 46 * lay.k
             lineHeight: 1.05
         }
     }
@@ -185,10 +218,11 @@ Item {
     Column {
         visible: lay.home.stageOn
         x: 40 * lay.k
-        y: 84 * lay.k
+        y: (84 - lay.upTop) * lay.k
         width: 760 * lay.k
         spacing: 6 * lay.k
         Row {
+            id: stageLine
             spacing: 8 * lay.k
             LiveDot { k: lay.k; color: lay.accentText; anchors.verticalCenter: parent.verticalCenter }
             Text {
@@ -200,18 +234,20 @@ Item {
                 font.letterSpacing: 0.06 * 13 * lay.k
             }
         }
-        Text {
+        // As the hero's name: smaller down to 26 px to stay on one line, then a second line (the prototype wraps)
+        FitTitle {
+            id: stageTitleText
             width: parent.width
             text: lay.home.stageTitle
             color: lay.fgc
-            elide: Text.ElideRight
+            maxSize: 42 * lay.k
+            minSize: 26 * lay.k
+            spacingEm: -0.02
             font.family: "Space Grotesk"
             font.weight: Font.Bold
-            font.pixelSize: 42 * lay.k
-            font.letterSpacing: -0.02 * 42 * lay.k
             lineHeight: 1.02
         }
-        Item { width: 1; height: 4 * lay.k }
+        Item { width: 1; height: (4 - lay.cutSpacer) * lay.k }
         Row {
             spacing: 14 * lay.k
             HomeTile {
@@ -281,9 +317,10 @@ Item {
         width: parent.width - 80 * lay.k
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 64 * lay.k
-        spacing: 12 * lay.k
+        spacing: (12 - lay.cutSpacings / lay.spacings) * lay.k
 
         Text {
+            id: hostText
             visible: text !== ""
             text: lay.home.homeCard && lay.home.homeCard.kind === "firstrun" ? "" : lay.home.hostLine
             color: lay.text2
@@ -329,7 +366,7 @@ Item {
         Row {
             visible: lay.home.homeCard === null
             width: parent.width
-            height: 170 * lay.k
+            height: lay.cardH
             spacing: 16 * lay.k
             Repeater {
                 model: lay.home.cards
@@ -341,7 +378,7 @@ Item {
                     k: lay.k
                     radius: 22 * lay.k
                     width: (parent.width - 16 * lay.k) / 2
-                    height: 170 * lay.k
+                    height: lay.cardH
                     visible: modelData.present
                     dimmed: lay.home.sessionRunning && !modelData.running
                     glow: modelData.running
@@ -458,17 +495,17 @@ Item {
         Item {
             visible: lay.home.homeCard === null && !lay.home.noGames
             width: parent.width
-            height: 10 * lay.k + caption.height
+            height: (10 - lay.cutCaption) * lay.k + caption.height
             Row {
                 id: caption
-                y: 10 * lay.k
+                y: (10 - lay.cutCaption) * lay.k
                 spacing: 14 * lay.k
                 Text { text: qsTr("Bibliothèque Playnite · récents"); color: lay.text2; font.family: "Inter"; font.weight: Font.DemiBold; font.pixelSize: 14 * lay.k }
                 Text { text: lay.home.heroTitle; color: Theme.muted; font.family: "Inter"; font.weight: Font.Medium; font.pixelSize: 14 * lay.k }
             }
             Text {
                 anchors.right: parent.right
-                y: 10 * lay.k
+                y: (10 - lay.cutCaption) * lay.k
                 text: qsTr("Tout voir →")
                 color: Theme.muted
                 font.family: "Inter"
@@ -479,7 +516,7 @@ Item {
         }
         Row {
             visible: lay.home.homeCard === null && !lay.home.noGames
-            height: 180 * lay.k
+            height: lay.coverH
             spacing: 14 * lay.k
             Repeater {
                 model: lay.home.recents
@@ -491,8 +528,8 @@ Item {
                     fid: "r" + index
                     k: lay.k
                     radius: 14 * lay.k
-                    width: 120 * lay.k
-                    height: 180 * lay.k
+                    width: lay.coverW
+                    height: lay.coverH
                     dimmed: lay.home.sessionRunning && !lay.home.isLive(modelData)
                     glow: lay.home.isLive(modelData)
                     moreSize: 30
@@ -510,8 +547,8 @@ Item {
                 k: lay.k
                 holdable: false
                 radius: 14 * lay.k
-                width: 120 * lay.k
-                height: 180 * lay.k
+                width: lay.coverW
+                height: lay.coverH
                 dimmed: lay.home.sessionRunning
                 DashedRect {
                     anchors.fill: parent
@@ -531,11 +568,11 @@ Item {
                     color: lay.fgc
                     font.family: "Space Grotesk"
                     font.weight: Font.Bold
-                    font.pixelSize: 22 * lay.k
+                    font.pixelSize: 22 * lay.coverH / 180
                     lineHeight: 1.05
                 }
             }
         }
-        NoGamesCard { visible: lay.home.homeCard === null && lay.home.noGames; k: lay.k; width: parent.width; height: 180 * lay.k; topMargin: 10 * lay.k }
+        NoGamesCard { visible: lay.home.homeCard === null && lay.home.noGames; k: lay.k; width: parent.width; height: lay.coverH; topMargin: 10 * lay.k }
     }
 }
