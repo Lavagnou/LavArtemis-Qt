@@ -14,6 +14,7 @@
 #include "streaming/input/testinput.h"
 #include "streaming/panzoom.h"
 #include "streaming/session.h"
+#include "gui/sdlgamepadkeynavigation.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -215,6 +216,15 @@ TestControl::TestControl(QQmlApplicationEngine* engine, QObject* parent)
     m_PadTimer->setInterval(500);
     connect(m_PadTimer, &QTimer::timeout, this, &TestControl::checkPadSession);
     connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, this, &TestControl::shutdown);
+
+    // The keys of the virtual pad and of the arrow keys' repeat (SdlGamepadKeyNavigation): no window ever has the OS
+    // focus here, they go where the "key" command sends them (the in-game menu when it is open, else the main window)
+    SdlGamepadKeyNavigation::setTestKeySink([this](QEvent::Type type, int key, Qt::KeyboardModifiers modifiers) {
+        QQuickWindow* window = UiProbe::defaultInputWindow(UiProbe::windows(mainWindow()));
+        if (window != nullptr) {
+            UiProbe::key(window, key, modifiers, type == QEvent::KeyPress ? UiProbe::KeyState::Down : UiProbe::KeyState::Up);
+        }
+    });
 }
 
 TestControl::~TestControl()
@@ -237,6 +247,7 @@ bool TestControl::start()
 
 void TestControl::shutdown()
 {
+    SdlGamepadKeyNavigation::setTestKeySink(nullptr);
     detachPad();
     detachJoystick();
     m_Pending.clear();
@@ -724,30 +735,36 @@ bool TestControl::cmdMouse(const QJsonObject& args, QJsonObject& result, QString
 
 bool TestControl::cmdGamepad(const QJsonObject& args, QJsonObject& result, QString& error)
 {
+    // "pad": 1 (default) or 2, a second virtual pad of the same name
+    const int slot = args.value("pad").toInt(1) - 1;
+    if (slot < 0 || slot > 1) {
+        error = QStringLiteral("pad: 1 (default) or 2");
+        return false;
+    }
     if (args.value("detach").toBool(false)) {
-        result["detached"] = m_Pad != nullptr;
-        detachPad();
+        result["detached"] = m_Pad[slot] != nullptr;
+        detachPad(slot);
         return true;
     }
 
     if (args.value("attach").toBool(false)) {
-        const bool wasAttached = m_Pad != nullptr;
-        if (!attachPad(error)) {
+        const bool wasAttached = m_Pad[slot] != nullptr;
+        if (!attachPad(slot, error)) {
             return false;
         }
         result["pad"] = kTestGamepadName;
-        result["instance"] = m_PadInstance;
+        result["instance"] = m_PadInstance[slot];
         result["attached"] = !wasAttached;
         return true;
     }
     // A press sent before the client has opened the pad would be lost: attaching is its own step
-    if (m_Pad == nullptr) {
+    if (m_Pad[slot] == nullptr) {
         error = QStringLiteral("no pad: send {\"cmd\":\"gamepad\",\"attach\":true} first, then give the client "
                                "about 0.5 s to open it");
         return false;
     }
     result["pad"] = kTestGamepadName;
-    result["instance"] = m_PadInstance;
+    result["instance"] = m_PadInstance[slot];
 
     if (args.contains("button")) {
         const QString name = args.value("button").toString();
@@ -760,7 +777,7 @@ bool TestControl::cmdGamepad(const QJsonObject& args, QJsonObject& result, QStri
         }
         const QJsonValue value = args.value("value");
         const bool pressed = value.isBool() ? value.toBool() : value.toDouble(0) != 0;
-        if (SDL_JoystickSetVirtualButton(m_Pad, button, pressed ? SDL_PRESSED : SDL_RELEASED) != 0) {
+        if (SDL_JoystickSetVirtualButton(m_Pad[slot], button, pressed ? SDL_PRESSED : SDL_RELEASED) != 0) {
             error = QStringLiteral("SDL_JoystickSetVirtualButton failed: %1").arg(SDL_GetError());
             return false;
         }
@@ -776,7 +793,7 @@ bool TestControl::cmdGamepad(const QJsonObject& args, QJsonObject& result, QStri
             return false;
         }
         const int value = qBound(-32768, args.value("value").toInt(0), 32767);
-        if (SDL_JoystickSetVirtualAxis(m_Pad, axis, static_cast<Sint16>(value)) != 0) {
+        if (SDL_JoystickSetVirtualAxis(m_Pad[slot], axis, static_cast<Sint16>(value)) != 0) {
             error = QStringLiteral("SDL_JoystickSetVirtualAxis failed: %1").arg(SDL_GetError());
             return false;
         }
@@ -956,7 +973,51 @@ bool TestControl::cmdState(const QJsonObject&, QJsonObject& result, QString& err
     result["pageTitle"] = pageTitle;
     result["pageBusy"] = pageBusy;
     result["quickMenu"] = quickMenuVisible();
-    result["pad"] = m_Pad != nullptr;
+    result["pad"] = m_Pad[0] != nullptr;
+    result["pad2"] = m_Pad[1] != nullptr;
+
+    // Where the keys go now (the window the "key" command and the pad use): the item, and the objectNames on its
+    // way up (the Réglages columns are "settingsNav" / "settingsRows")
+    if (QQuickWindow* input = UiProbe::defaultInputWindow(UiProbe::windows(mainWindow()))) {
+        QQuickItem* target = UiProbe::keyTarget(input);
+        QJsonArray path;
+        for (QQuickItem* it = target; it != nullptr; it = it->parentItem()) {
+            if (!it->objectName().isEmpty()) {
+                path.append(it->objectName());
+            }
+        }
+        result["focus"] = QJsonObject{
+            {"type", UiProbe::typeName(target)},
+            {"objectName", target != nullptr ? target->objectName() : QString()},
+            {"path", path},
+        };
+    }
+    // The page's own focus grid and state (the redesigned pages keep their focus in properties)
+    QJsonObject pageState;
+    if (QQuickItem* page = UiProbe::currentPageItem(mainWindow())) {
+        for (const char* name : {"focusId", "currentPage", "focusInRows", "filter", "focusIndex"}) {
+            const QVariant value = page->property(name);
+            if (value.isValid()) {
+                pageState[QLatin1String(name)] = QJsonValue::fromVariant(value);
+            }
+        }
+    }
+    result["pageState"] = pageState;
+    // The in-game menu's focus grid (its root item's focusId: « m0 »…), while it is open
+    for (QQuickWindow* window : UiProbe::windows(mainWindow())) {
+        if (window->type() != Qt::Tool || window->contentItem() == nullptr) {
+            continue;
+        }
+        QList<QQuickItem*> queue{window->contentItem()};
+        for (int i = 0; i < queue.size() && i < 64; i++) {
+            const QVariant id = queue[i]->property("focusId");
+            if (id.isValid()) {
+                result["menuFocusId"] = id.toString();
+                break;
+            }
+            queue.append(queue[i]->childItems());
+        }
+    }
 
     QJsonArray computers;
     {
@@ -1559,14 +1620,10 @@ bool TestControl::pushWheel(SDL_Window* window, double dx, double dy, QString& e
     return pushEvent(event, error);
 }
 
-bool TestControl::attachPad(QString& error)
+bool TestControl::attachPad(int slot, QString& error)
 {
-    if (m_Pad != nullptr) {
+    if (m_Pad[slot] != nullptr) {
         return true;
-    }
-    if (streamWindow() == nullptr) {
-        error = QStringLiteral("gamepad: no stream (the pad lives for one stream)");
-        return false;
     }
 
     // Our own reference: the pad must outlive the session's input handler, which quits the
@@ -1592,44 +1649,53 @@ bool TestControl::attachPad(QString& error)
         SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
         return false;
     }
-    m_Pad = SDL_JoystickOpen(index);
-    if (m_Pad == nullptr) {
+    m_Pad[slot] = SDL_JoystickOpen(index);
+    if (m_Pad[slot] == nullptr) {
         error = QStringLiteral("SDL_JoystickOpen failed: %1").arg(SDL_GetError());
         SDL_JoystickDetachVirtual(index);
         SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
         return false;
     }
-    m_PadInstance = SDL_JoystickInstanceID(m_Pad);
-    m_PadSession = Session::get();
+    m_PadInstance[slot] = SDL_JoystickInstanceID(m_Pad[slot]);
+    // Attached during a stream: it lives for that stream. Attached outside one: it drives the UI
+    // (SdlGamepadKeyNavigation opens it) until "detach" or "quit", streams included
+    m_PadSession[slot] = streamWindow() != nullptr ? Session::get() : nullptr;
     m_PadTimer->start();
-    qInfo() << "Test build: virtual gamepad attached, instance" << m_PadInstance;
+    qInfo() << "Test build: virtual gamepad attached, instance" << m_PadInstance[slot];
     return true;
 }
 
 void TestControl::detachPad()
 {
-    if (m_Pad == nullptr) {
+    detachPad(0);
+    detachPad(1);
+}
+
+void TestControl::detachPad(int slot)
+{
+    if (m_Pad[slot] == nullptr) {
         return;
     }
-    m_PadTimer->stop();
-    SDL_JoystickClose(m_Pad);
-    m_Pad = nullptr;
+    SDL_JoystickClose(m_Pad[slot]);
+    m_Pad[slot] = nullptr;
     for (int i = 0; i < SDL_NumJoysticks(); i++) {
-        if (SDL_JoystickGetDeviceInstanceID(i) == m_PadInstance) {
+        if (SDL_JoystickGetDeviceInstanceID(i) == m_PadInstance[slot]) {
             SDL_JoystickDetachVirtual(i);
             break;
         }
     }
     SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
-    m_PadInstance = -1;
-    m_PadSession = nullptr;
+    m_PadInstance[slot] = -1;
+    m_PadSession[slot] = nullptr;
     qInfo() << "Test build: virtual gamepad detached";
 }
 
 void TestControl::checkPadSession()
 {
-    // The pad lives for one stream
-    if (Session::get() != m_PadSession || streamWindow() == nullptr) {
-        detachPad();
+    // A pad attached during a stream lives for that stream (one attached outside a stream stays)
+    for (int slot = 0; slot < 2; slot++) {
+        if (m_PadSession[slot] != nullptr && (Session::get() != m_PadSession[slot] || streamWindow() == nullptr)) {
+            detachPad(slot);
+        }
     }
 }

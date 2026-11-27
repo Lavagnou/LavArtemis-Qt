@@ -496,6 +496,15 @@ QQuickItem* findStackView(QQuickItem* item)
 
 }
 
+QQuickItem* currentPageItem(QQuickWindow* window)
+{
+    if (window == nullptr || window->contentItem() == nullptr) {
+        return nullptr;
+    }
+    QQuickItem* stack = findStackView(window->contentItem());
+    return stack != nullptr ? qvariant_cast<QQuickItem*>(stack->property("currentItem")) : nullptr;
+}
+
 QString currentPage(QQuickWindow* window, QString* title, bool* busy)
 {
     if (window == nullptr || window->contentItem() == nullptr) {

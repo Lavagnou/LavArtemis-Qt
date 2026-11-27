@@ -99,6 +99,8 @@ void wheel(QQuickWindow* window, const QPointF& pos, const QPoint& angleDelta);
 // title (optional) gets its objectName, which the pages use as their title; busy (optional)
 // whether the StackView is still animating a push/pop (the old page may still be on screen).
 QString currentPage(QQuickWindow* window, QString* title = nullptr, bool* busy = nullptr);
+// The item of that page (null without a StackView or a page)
+QQuickItem* currentPageItem(QQuickWindow* window);
 
 // Every focus ring on screen (a visible FocusRing item: v2/FocusRing.qml), its drawn box in scene
 // coordinates (the ring's rectangles reach past the item; the item's scale counts), and what cuts it:

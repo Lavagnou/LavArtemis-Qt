@@ -88,8 +88,11 @@ private:
     bool pushWheel(SDL_Window* window, double dx, double dy, QString& error);
     void syncMouseWindow(SDL_Window* window);
 
-    // The virtual gamepad ("LavArtemis Test Pad"), attached during a stream
-    bool attachPad(QString& error);
+    // The virtual gamepad ("LavArtemis Test Pad"): attached during a stream, it lives for that stream; attached
+    // outside one, it drives the UI (SdlGamepadKeyNavigation) until "detach" or "quit"
+    // Two of them (`"pad": 2`): a pad at rest must never restart the repeat of the one held (audit V4)
+    bool attachPad(int slot, QString& error);
+    void detachPad(int slot);
     void detachPad();
     void checkPadSession();
     void detachJoystick();
@@ -118,9 +121,9 @@ private:
     int m_MouseY = -1;
     unsigned int m_MouseButtons = 0;
 
-    _SDL_Joystick* m_Pad = nullptr;
-    int m_PadInstance = -1;
-    Session* m_PadSession = nullptr;
+    _SDL_Joystick* m_Pad[2] = {nullptr, nullptr};
+    int m_PadInstance[2] = {-1, -1};
+    Session* m_PadSession[2] = {nullptr, nullptr};
     // The generic joystick of "joystick": no mapping of its own, lives until detached or quit
     _SDL_Joystick* m_Joystick = nullptr;
     int m_JoystickInstance = -1;
