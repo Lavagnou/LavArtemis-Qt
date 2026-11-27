@@ -1175,6 +1175,9 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
     souris », Ctrl+Alt+Maj+M : `SdlInputHandler::toggleMouseMode()` / `isAbsoluteMouseMode()`, Bureau = souris du
     bureau à distance ; un toast dit le nouvel état). **Une icône devant chaque entrée** (`LavOptions`, champ `icon`
     d'une entrée) : trait de l'accent en Braise, pastille ronde en Ludique, rien en Affiche ni dans le popover.
+    **Sur deux colonnes** (`kind: "more"` → `LavOptions.cols`, le `ctxCols()` du prototype v111 : 2 colonnes au-delà
+    de 8 entrées, 3 au-delà de 14, et Plus dès 7, « Annuler » compris) : sur une colonne, ses 8 lignes dépassaient
+    une fenêtre de stream de 1024 × 576 (anneau de la dernière coupé par le bas, scénario 19).
   - **Retirées du menu** : Envoyer des touches (et « Mes macros… »), Masquer le curseur local, Verrouiller le
     pointeur, Coller du texte ; leurs raccourcis Ctrl+Alt+Maj restent (Envoyer des touches n'en a pas). Pas
     d'« Ouvrir le clavier » sur PC (Android l'a).
@@ -1214,6 +1217,17 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
   appairage (code en grand), renommer, oublier, erreurs : **`LavOptions`** (popover à la souris, centré sinon).
   `LavOptions.extra` montre l'élément de l'appelant (caché sinon) et donne les touches à son `focusTarget`.
   « Annuler » de l'appairage ferme seulement le dialogue (l'appairage continue, comme « C'est fait »).
+- ⚠️ **Un dialogue `LavOptions` ne dépasse jamais la fenêtre, quelle que soit sa taille.** Largeur bornée à la zone
+  moins `edge` (16 px × k) de chaque côté ; les entrées sont dans un `Flickable` (`LavOptionsList`) haut au plus de
+  440 × k (le `max-height` du prototype) **et** de ce que la fenêtre laisse sous la tête (`listMaxH`, lue sur
+  `topPart` : tout ce qui est au-dessus des entrées, pour ne pas faire de boucle de liaison) ; au-delà, la liste
+  défile. Sa boîte déborde de la place des entrées de la marge latérale du dialogue et de `ringRoom` (11 px × k,
+  moins que l'espacement au-dessus) en haut et en bas, et les entrées sont décalées d'autant : sans défilement,
+  rien ne bouge et un anneau tient dans la boîte. **Bouger le focus au clavier / à la manette fait défiler juste
+  assez** (`reveal()`, appelé par `move()` et à l'ouverture) pour montrer l'entrée entière avec son anneau ; pas au
+  survol (la molette ferait bouger la liste sous un pointeur immobile, et le survol la ramènerait). Scénario 19
+  (dialogues de la fenêtre principale réduite à 1024 × 576 par la commande `resize` du canal, Plus, presse-papiers
+  et 16 commandes du PC dans la fenêtre du stream).
 - **Touches des dialogues `LavOptions`** (accueil, bibliothèque, détails, Mes PC, menu en jeu, mapper, mise à jour) :
   - ⚠️ **Le gestionnaire `Keys` est sur le `contentItem` (`focus: true`), pas sur le `Popup`.** Un `Popup` n'est pas
     un `Item` : `Keys` posé dessus était ignoré (« Could not attach Keys property » dans le journal), et les

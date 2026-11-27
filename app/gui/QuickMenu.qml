@@ -228,7 +228,8 @@ FocusScope {
         openDialog({title: qsTr("Commandes du PC hôte"), note: qsTr("Accéder aux commandes de contrôle du PC hôte"), entries: e})
     }
     // « Plus »: the workshop's order, an icon before each entry (LavOptions: Braise accent, Ludique chip,
-    // none in Affiche), a value after « · » as Android's StreamMenu.withValue()
+    // none in Affiche), a value after « · » as Android's StreamMenu.withValue(); two columns (kind "more": past 6
+    // entries, as the prototype's ctxCols)
     function openMore() {
         var e = [{l: qsTr("Plein écran / fenêtre") + " · " + (quickMenuManager.streamFullScreen() ? qsTr("Plein écran") : qsTr("Fenêtre")), a: "do:fullscreen", icon: icons.fullscreen},
                  {l: qsTr("Presse-papiers"), a: "do:clip", icon: icons.clip},
@@ -238,7 +239,7 @@ FocusScope {
                  {l: qsTr("Capturer le clavier"), a: "do:capture", icon: icons.capture},
                  {l: qsTr("Comportement de la souris") + " · " + (quickMenuManager.desktopMouseMode() ? qsTr("Bureau") : qsTr("Jeu")), a: "do:mouseMode", icon: icons.mouseMode},
                  cancelEntry]
-        openDialog({title: qsTr("Plus"), note: playingTitle + (via.length ? sep + via : ""), entries: e})
+        openDialog({title: qsTr("Plus"), kind: "more", note: playingTitle + (via.length ? sep + via : ""), entries: e})
     }
     function openQuitSession() {
         openDialog({title: qsTr("Quitter %1 ?").arg(quitsGame ? quickMenuManager.appTitle : playingTitle), warn: true,

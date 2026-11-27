@@ -32,6 +32,8 @@ Popup {
     // Extra content under the note (a text field, a PIN): an Item, owned by the caller
     property Item extra: null
     property int focusIndex: 0
+    // What the dialog is, when it changes its layout: "more" (« Plus » of the in-game menu)
+    property string kind: ""
 
     signal picked(string action)
 
@@ -55,13 +57,19 @@ Popup {
             extra.visible = true
         }
     }
-    onOpened: if (extra && extra.focusTarget) extra.focusTarget.forceActiveFocus()
+    onOpened: {
+        if (extra && extra.focusTarget) extra.focusTarget.forceActiveFocus()
+        reveal()
+    }
     // Named for the test channel (testbench helpers.popup_texts): the popup's own item
     Component.onCompleted: if (background && background.parent) background.parent.objectName = "LavOptions"
 
     readonly property real k: 1.25 * Theme.stageScale
     readonly property var shown: popover ? entries.filter(function(e) { return e.a !== "cancel" }) : entries
-    readonly property int cols: popover ? 1 : (shown.length > 14 ? 3 : (shown.length > 8 ? 2 : 1))
+    // Prototype ctxCols(): 2 columns past 8 entries, 3 past 14; « Plus » goes to two past 6 (one column of 8 rows
+    // was taller than a 1024 x 576 stream window). Counted with « Annuler », as the prototype
+    readonly property int cols: popover ? 1 : (shown.length > 14 ? 3
+                                               : (shown.length > 8 || (kind === "more" && shown.length > 6)) ? 2 : 1)
 
     function showDialog(cfg) { apply(cfg); popover = false; open() }
     function showPopover(cfg, x, y) { apply(cfg); popover = true; atX = x; atY = y; open() }
@@ -76,6 +84,8 @@ Popup {
         entries = cfg.entries || []
         extra = cfg.extra || null
         focusIndex = cfg.focusIndex || 0
+        kind = cfg.kind || ""
+        list.contentY = 0
     }
     function pick(i) {
         var e = shown[i]
@@ -91,6 +101,17 @@ Popup {
         if (dy !== 0) r += dy
         else c = Math.max(0, Math.min(cols - 1, c + dx))
         focusIndex = Math.max(0, Math.min(n - 1, r * cols + c))
+        reveal()
+    }
+    // The entries scroll when they do not fit (prototype: max-height 440 and overflow-y auto), and the focused
+    // one is always shown whole, its ring with it (never cut, user's rule): moving the focus scrolls just enough.
+    // Not on a hover: the wheel scrolls the list under a still pointer, and would fight it
+    function reveal() { Qt.callLater(revealNow) }
+    function revealNow() {
+        var it = entryRepeater.itemAt(focusIndex)
+        if (!it || list.contentHeight <= list.height) { list.contentY = 0; return }
+        var y = Math.min(it.y, Math.max(list.contentY, it.y + it.height + 2 * ringRoom - list.height))
+        list.contentY = Math.max(0, Math.min(list.contentHeight - list.height, y))
     }
 
     parent: Overlay.overlay
@@ -100,12 +121,23 @@ Popup {
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
     padding: 0
 
-    readonly property real boxW: popover ? 300 * k
-                                         : ((Theme.affiche ? 580 : (Theme.ludique ? 560 : 520)) + (cols - 1) * 250) * k
     // The area it is centred in: the overlay. The in-game menu says its own size: on the `offscreen` platform
     // (captures) the overlay of its window stays 0 x 0, and the dialog came out centred on the window's corner
     property real areaWidth: parent ? parent.width : 0
     property real areaHeight: parent ? parent.height : 0
+    // Room kept between a centred dialog and the window's edges: it never goes past them, whatever the window's
+    // size (a 3-column Affiche dialog is 1080 wide at k = 1, a stream window may be 1024)
+    readonly property real edge: 16 * k
+    readonly property real boxW: popover ? 300 * k
+                                         : Math.min(((Theme.affiche ? 580 : (Theme.ludique ? 560 : 520)) + (cols - 1) * 250) * k,
+                                                    Math.max(300 * k, areaWidth - 2 * edge))
+    // Around the focused entry, inside the scrolling list: its ring (Ludique 4 + 5 px, Braise 3 + 3, Affiche's
+    // ring2 8 px away) and the 1.04 growth. Less than the spacing above the list: the list's box reaches that far
+    // out without covering the note
+    readonly property real ringRoom: 11 * k
+    // The tallest the entries may be: the prototype's 440, less if the window is lower than the dialog
+    readonly property real listMaxH: Math.max(60 * k, Math.min(popover ? 100000 : 440 * k,
+        areaHeight - 2 * edge - topPart.height - content.spacing - content.topPadding - content.bottomPadding))
     width: boxW
     x: popover ? Math.max(8 * k, (atX + 4 * k + 310 * k > areaWidth - 8 * k) ? atX - 314 * k : atX + 4 * k)
                : (areaWidth - width) / 2
@@ -166,6 +198,12 @@ Popup {
         rightPadding: leftPadding
         spacing: opts.popover ? 3 * opts.k : (Theme.affiche ? 14 : 12) * opts.k
         readonly property real innerW: opts.width - leftPadding - rightPadding
+
+        // Everything above the entries (its height bounds theirs: listMaxH)
+        Column {
+        id: topPart
+        width: content.innerW
+        spacing: content.spacing
 
         // ---- head: cover, kind line, title (laid out by hand: anchors inside a Row are ignored)
         Item {
@@ -301,8 +339,33 @@ Popup {
             height: 3 * opts.k
             color: Theme.fg
         }
+        }
+
+        // The entries, in a list that scrolls when they do not fit (listMaxH). Its box reaches out of the list's
+        // place by the dialog's side padding and by ringRoom above and below, and the entries sit that far in:
+        // where nothing scrolls, they are where they were and a ring is not cut by the box
+        Item {
+            id: listPlace
+            width: content.innerW
+            height: Math.min(grid.height, opts.listMaxH)
+        Flickable {
+            id: list
+            objectName: "LavOptionsList"
+            x: -content.leftPadding
+            y: -opts.ringRoom
+            width: opts.width
+            height: listPlace.height + 2 * opts.ringRoom
+            clip: true
+            contentWidth: width
+            contentHeight: grid.height + 2 * opts.ringRoom
+            interactive: contentHeight > height + 0.5
+            boundsBehavior: Flickable.StopAtBounds
+            onHeightChanged: opts.reveal()
+            ScrollBar.vertical: ScrollBar { policy: list.interactive ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff }
         Grid {
             id: grid
+            x: content.leftPadding
+            y: opts.ringRoom
             columns: opts.cols
             width: content.innerW
             columnSpacing: (Theme.affiche && !opts.popover ? 18 : 12) * opts.k
@@ -310,6 +373,7 @@ Popup {
             readonly property real cellW: (width - (opts.cols - 1) * columnSpacing) / opts.cols
 
             Repeater {
+                id: entryRepeater
                 model: opts.shown
                 delegate: Rectangle {
                     id: entry
@@ -412,6 +476,8 @@ Popup {
                     TapHandler { onTapped: opts.pick(entry.index) }
                 }
             }
+        }
+        }
         }
     }
 }
