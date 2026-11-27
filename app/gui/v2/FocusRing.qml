@@ -36,11 +36,16 @@ Item {
             roomL = roomT = roomR = roomB = out2
             return
         }
+        // window px -> the item's own units: the pages are scaled by their Stage (0.8 to 2), and a room measured in
+        // window px but drawn in item units reached past the window when the Stage grows (scenario 21)
         var p = parent.mapToItem(null, 0, 0)
-        roomL = Math.min(out2, Math.max(0, p.x))
-        roomT = Math.min(out2, Math.max(0, p.y))
-        roomR = Math.min(out2, Math.max(0, win.width - p.x - parent.width))
-        roomB = Math.min(out2, Math.max(0, win.height - p.y - parent.height))
+        var q = parent.mapToItem(null, parent.width, parent.height)
+        var sx = parent.width > 0 ? (q.x - p.x) / parent.width : 1
+        var sy = parent.height > 0 ? (q.y - p.y) / parent.height : 1
+        roomL = Math.min(out2, Math.max(0, Math.floor(p.x) / sx))
+        roomT = Math.min(out2, Math.max(0, Math.floor(p.y) / sy))
+        roomR = Math.min(out2, Math.max(0, Math.floor(win.width - q.x) / sx))
+        roomB = Math.min(out2, Math.max(0, Math.floor(win.height - q.y) / sy))
     }
     onActiveChanged: fitInWindow()
     onWidthChanged: fitInWindow()
