@@ -486,15 +486,43 @@ FocusScope {
     onGridChanged: ensureFocus()
     onStageOnChanged: if (stageOn && (focusId === "a1" || focusId === "a0")) focusId = "resume"
 
+    // The item drawn for a grid id (HomeTile / HeaderButton `fid`), in whatever layout the theme uses
+    function itemOf(id, root) {
+        var kids = (root || home).children
+        for (var i = 0; i < kids.length; i++) {
+            var k = kids[i]
+            if (k.fid === id && k.visible) return k
+            var inner = itemOf(id, k)
+            if (inner) return inner
+        }
+        return null
+    }
+    function centreX(id) {
+        var it = itemOf(id)
+        return it ? it.mapToItem(home, it.width / 2, 0).x : NaN
+    }
+    // A direction only goes to what is visually that way (audit rule 1): one row only, Up / Down do nothing; a
+    // single column, Left / Right do nothing; changing rows goes to the item whose horizontal centre is the closest
+    // (measured: two cards above seven covers -- audit A2), not to the same column index
     function move(dx, dy) {
         var g = grid
-        if (dx && g.every(function(row) { return row.length === 1 })) { dy = dx; dx = 0 }
-        if (dy && g.length === 1) { dx = dy; dy = 0 }
         var r = -1
         for (var i = 0; i < g.length; i++) if (g[i].indexOf(focusId) >= 0) { r = i; break }
         if (r < 0) { focusId = g[0][0]; return }
         var c = g[r].indexOf(focusId)
-        if (dy) { r = Math.max(0, Math.min(g.length - 1, r + dy)); c = Math.min(c, g[r].length - 1) }
+        if (dy) {
+            var nr = Math.max(0, Math.min(g.length - 1, r + dy))
+            if (nr === r) return
+            var cx = centreX(focusId), best = -1, bestD = Infinity
+            if (!isNaN(cx)) {
+                for (var j = 0; j < g[nr].length; j++) {
+                    var x = centreX(g[nr][j])
+                    if (!isNaN(x) && Math.abs(x - cx) < bestD) { bestD = Math.abs(x - cx); best = j }
+                }
+            }
+            r = nr
+            c = best >= 0 ? best : Math.min(c, g[r].length - 1)
+        }
         else c = Math.max(0, Math.min(g[r].length - 1, c + dx))
         focusId = g[r][c]
     }
@@ -522,6 +550,11 @@ FocusScope {
         if (/^r\d$/.test(id)) {
             var g = recents[parseInt(id.substring(1))]
             return g ? gameTarget(g) : null
+        }
+        // Y on « Reprendre » = the options of what runs (audit A5, as Android's HomeScreen.appFor)
+        if (id === "resume" && stageOn) {
+            if (runningGame && runningGame.appid) return gameTarget(runningGame)
+            return runningKind === "desktop" ? targetOf("a0") : (runningKind === "playnite" ? targetOf("a1") : null)
         }
         return null
     }
@@ -820,9 +853,16 @@ FocusScope {
     }
     function holdable(id) { return targetOf(id) !== null }
     Keys.onPressed: (event) => {
+        // The first direction after the mouse or touch shows the ring on Reprendre (else Playnite) without moving:
+        // the mouse had moved the focus where nobody saw it (audit A4, as Android)
+        var fresh = Theme.input === "mouse" || Theme.input === "touch"
         Theme.input = "keys" // a gamepad key is followed by gamepadInput(), which sets "pad"
         var key = event.key
-        if (key === Qt.Key_Left) { move(-1, 0); event.accepted = true }
+        if (fresh && (key === Qt.Key_Left || key === Qt.Key_Right || key === Qt.Key_Up || key === Qt.Key_Down)) {
+            focusId = defaultFocus()
+            event.accepted = true
+        }
+        else if (key === Qt.Key_Left) { move(-1, 0); event.accepted = true }
         else if (key === Qt.Key_Right) { move(1, 0); event.accepted = true }
         else if (key === Qt.Key_Up) { move(0, -1); event.accepted = true }
         else if (key === Qt.Key_Down) { move(0, 1); event.accepted = true }

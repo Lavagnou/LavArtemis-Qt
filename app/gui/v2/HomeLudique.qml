@@ -18,9 +18,23 @@ Item {
     readonly property color capsuleInk: dark ? "#221C3D" : "#FFFFFF"
     readonly property color capsuleSoft: dark ? "#5A527A" : "#D9D2F5"
     readonly property color lime: dark ? "#3F5A00" : "#C6F432"
-    readonly property real appsTop: (home.stageOn ? 180 : 128) * k
-    readonly property real labTop: (home.stageOn ? 402 : 362) * k
-    readonly property real recTop: (home.stageOn ? 442 : 404) * k
+    // A window lower than the prototype's scene (1000 x 600 is a stage 750 px high, the scene 900): the gaps close
+    // up, the cards last (up to 20 px: their « En cours » pill reaches the title), so that the recents and their
+    // focus ring (4 + 5 px, x 1.04) stay inside the Stage, which clips (user's rule: a ring is never cut; the
+    // recents' rings were cut at the bottom)
+    readonly property real deficit: Math.max(0, ((home.stageOn ? 442 : 404) + 186 + 18) * k - height) / k
+    function take(before, slack) { return Math.min(Math.max(0, deficit - before), slack) }
+    readonly property real upBar: home.stageOn ? take(0, 8) : 0
+    readonly property real upApps: upBar + take(upBar, home.stageOn ? 6 : 30)
+    readonly property real gapLab: take(upApps, 12)
+    readonly property real gapRec: take(upApps + gapLab, 12)
+    readonly property real cardCut: take(upApps + gapLab + gapRec, 20)
+    readonly property real upLab: upApps + cardCut + gapLab
+    readonly property real upRec: upLab + gapRec
+    readonly property real cardH: (204 - cardCut) * k
+    readonly property real appsTop: ((home.stageOn ? 180 : 128) - upApps) * k
+    readonly property real labTop: ((home.stageOn ? 402 : 362) - upLab) * k
+    readonly property real recTop: ((home.stageOn ? 442 : 404) - upRec) * k
 
     // ---- header ------------------------------------------------------------------------------------
     Item {
@@ -117,7 +131,7 @@ Item {
     Rectangle {
         visible: lay.home.stageOn
         x: 48 * lay.k
-        y: 100 * lay.k
+        y: (100 - lay.upBar) * lay.k
         width: parent.width - 96 * lay.k
         height: 64 * lay.k
         radius: height / 2
@@ -235,7 +249,7 @@ Item {
         x: 48 * lay.k
         y: lay.appsTop
         width: parent.width - 96 * lay.k
-        height: 204 * lay.k
+        height: lay.cardH
         spacing: 18 * lay.k
         Repeater {
             model: lay.home.cards
@@ -247,7 +261,7 @@ Item {
                 k: lay.k
                 radius: 36 * lay.k
                 width: (parent.width - 18 * lay.k) / 2
-                height: 204 * lay.k
+                height: lay.cardH
                 visible: modelData.present
                 dimmed: lay.home.sessionRunning && !modelData.running
                 glow: modelData.running

@@ -94,6 +94,16 @@ Item {
         MouseArea { anchors.fill: parent; enabled: sb.opacity > 0; cursorShape: Qt.PointingHandCursor; onClicked: sb.clicked() }
     }
 
+    // A window lower than the prototype's scene (1000 x 600 is a stage 750 px high, the scene 900; with the Scène the
+    // column is 663 px of the prototype): the Scène and the cards lose up to 16 px each, then the covers up to 60, so
+    // that the recents and their focus ring stay inside the Stage, which clips (user's rule: a ring is never cut)
+    readonly property real deficit: Math.max(0, (60 + (home.stageOn ? 90 : 0) + 270 + 26 + 14 + 198) * k
+                                                + sectionText.implicitHeight - height) / k
+    function take(before, slack) { return Math.min(Math.max(0, deficit - before), slack) }
+    readonly property real cutStage: home.stageOn ? take(0, 16) : 0
+    readonly property real cutCards: take(cutStage, 16)
+    readonly property real coverH: (198 - take(cutStage + cutCards, 60)) * k
+
     Column {
         y: header.height
         width: parent.width
@@ -102,7 +112,7 @@ Item {
         Rectangle {
             visible: lay.home.stageOn
             width: parent.width
-            height: 90 * lay.k
+            height: (90 - lay.cutStage) * lay.k
             color: lay.ink
             Column {
                 x: 32 * lay.k
@@ -184,7 +194,7 @@ Item {
         Item {
             visible: lay.home.homeCard === null
             width: parent.width
-            height: 270 * lay.k
+            height: (270 - lay.cutCards) * lay.k
             Row {
                 anchors.fill: parent
                 Repeater {
@@ -355,7 +365,7 @@ Item {
                     k: lay.k
                     outlineOnly: true
                     width: 132 * lay.k
-                    height: 198 * lay.k
+                    height: lay.coverH
                     dimmed: lay.home.sessionRunning && !lay.home.isLive(modelData)
                     glow: lay.home.isLive(modelData)
                     moreSize: 32; moreRight: 0; moreTop: 0; moreRadius: 0; moreDots: 16
@@ -371,7 +381,7 @@ Item {
                 k: lay.k
                 holdable: false
                 width: 200 * lay.k
-                height: 198 * lay.k
+                height: lay.coverH
                 dimmed: lay.home.sessionRunning
                 Rectangle {
                     anchors.fill: parent
