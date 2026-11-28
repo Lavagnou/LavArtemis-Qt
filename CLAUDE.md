@@ -1280,7 +1280,11 @@ Les valeurs sont des px du prototype (scène 1280 × 720) multipliées par `k = 
   menu couvre toute la fenêtre du stream** (`QuickMenuManager::placeQuickView()`, `SizeRootObjectToView`, fond
   transparent) : voile et tuiles dessinés par-dessus l'image. Sous-dialogues = `LavOptions` (presse-papiers,
   commandes, Plus, confirmation). Micro non envoyé : tuile grisée, un toast dit où l'activer. « Quitter {jeu} »
-  d'un jeu Playnite : sous-titre « Retour à Playnite, le stream continue ». Zoom 100 % ↔ 200 %
+  d'un jeu Playnite : sous-titre « Retour à Playnite, le stream continue ». ⚠️ Le nom du jeu
+  (`QuickMenuManager::refreshPlayniteGame`, un `serverinfo` hors du thread GUI, une question à la fois) est **redemandé
+  toutes les 2 s tant que le menu est ouvert** : LavApollo n'envoie pas `PlayniteGameName` tant que le jeu démarre, et un
+  menu ouvert à ce moment-là n'avait jamais « Quitter {jeu} » (FLAKE du scénario 6, 2026-11-28). Quand la tuile arrive
+  ou part, le focus reste sur la même entrée (`shownIds`). Zoom 100 % ↔ 200 %
   (`QuickMenuManager::toggleZoom()`, `PanZoom`). Scénario 17 S2 (ordre des tuiles et de Plus, entrées retirées
   absentes, Zoom, Comportement de la souris).
   - ⚠️ **Dialogues du menu : `LavOptions.areaWidth` / `areaHeight` = la taille du menu.** Ils se centraient sur

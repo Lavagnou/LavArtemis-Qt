@@ -7,6 +7,7 @@
 #include <QQuickView>
 
 class NvComputer;
+class QTimer;
 class NvHTTP;
 #include "backend/servercommandmanager.h"
 class ClipboardManager;
@@ -136,6 +137,10 @@ private:
 
     NvComputer *m_computer = nullptr;
     QString m_playniteGameName;
+    // Asked again every 2 s while the menu is open: LavApollo leaves PlayniteGameName out while the game is still
+    // starting, and a menu opened then never showed « Quitter {jeu} » (2026-11-28 release gate, scenario 6)
+    QTimer *m_playniteTimer = nullptr;
+    bool m_playniteQueryRunning = false;
     QString m_hostName;
     QString m_appTitle;
     QString m_appKind;

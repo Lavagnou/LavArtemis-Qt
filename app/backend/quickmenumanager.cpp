@@ -79,11 +79,20 @@ void QuickMenuManager::setVisible(bool visible)
     
     if (visible) {
         refreshPlayniteGame();
+        if (m_playniteTimer == nullptr) {
+            m_playniteTimer = new QTimer(this);
+            m_playniteTimer->setInterval(2000);
+            connect(m_playniteTimer, &QTimer::timeout, this, &QuickMenuManager::refreshPlayniteGame);
+        }
+        m_playniteTimer->start();
         if (m_serverCommandManager) {
             m_serverCommandManager->refreshCommands();
         }
         createQuickView();
     } else {
+        if (m_playniteTimer) {
+            m_playniteTimer->stop();
+        }
         if (m_quickView) {
             m_quickView->hide();
         }
@@ -99,23 +108,28 @@ void QuickMenuManager::toggle()
 
 void QuickMenuManager::refreshPlayniteGame()
 {
-    if (m_computer == nullptr) {
+    if (m_computer == nullptr || m_playniteQueryRunning) {
         return;
     }
 
-    // Host polling is stopped while streaming: ask the host now, off the UI thread.
+    // Host polling is stopped while streaming: ask the host now, off the UI thread (one question at a time).
+    m_playniteQueryRunning = true;
     const NvHttpTarget target = NvHttpTarget::of(m_computer);
     QPointer<QuickMenuManager> self(this);
     QThreadPool::globalInstance()->start([target, self]() {
         QString name;
+        bool ok = true;
         try {
             NvHTTP http(target);
             name = NvHTTP::getXmlString(http.getServerInfo(NvHTTP::NVLL_NONE, true), "PlayniteGameName");
         } catch (...) {
-            return;
+            ok = false;
         }
-        QMetaObject::invokeMethod(qApp, [self, name]() {
-            if (self && self->m_playniteGameName != name) {
+        QMetaObject::invokeMethod(qApp, [self, name, ok]() {
+            if (self) {
+                self->m_playniteQueryRunning = false;
+            }
+            if (ok && self && self->m_playniteGameName != name) {
                 self->m_playniteGameName = name;
                 emit self->playniteGameChanged();
             }

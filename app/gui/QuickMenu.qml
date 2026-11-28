@@ -45,6 +45,17 @@ FocusScope {
         out.push("mic", "release", "stats", "more")
         return out
     }
+    // « Quitter {jeu} » can come or go while the menu is open (the game name is asked again every 2 s): the focus
+    // stays on the same entry, never on the one that slid under it
+    property var shownIds: []   // no binding: it must still hold the old list in onIdsChanged (set in onCompleted)
+    onIdsChanged: {
+        var i = focusId.charAt(0) === "m" ? parseInt(focusId.substring(1)) : -1
+        if (i >= 0 && i < shownIds.length) {
+            var j = ids.indexOf(shownIds[i])
+            if (j >= 0) focusId = "m" + j
+        }
+        shownIds = ids.slice()
+    }
     // The workshop's ICON (= Android's drawable/v2_ic_m_*)
     readonly property var icons: ({
         resume: "M8 5l11 7-11 7z", clip: "M9 3h6v4H9zM7 5H5v16h14V5h-2",
@@ -276,6 +287,7 @@ FocusScope {
         function onCommandFailed(commandName, error) { quickMenuManager.showToast(qsTr("La commande « %1 » a échoué : %2").arg(commandName).arg(error)) }
     }
     Component.onCompleted: {
+        shownIds = ids.slice()
         forceActiveFocus()
         if (quickMenuManager.serverCommandManager) quickMenuManager.serverCommandManager.refreshCommands()
     }
