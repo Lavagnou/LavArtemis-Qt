@@ -3,6 +3,7 @@
 #include "profilemanager.h"
 #include "utils.h"
 #include "streaming/vrrratepolicy.h"
+#include "streaming/streamutils.h"
 
 #include <QMetaProperty>
 #include <QSettings>
@@ -12,6 +13,7 @@
 #include <QReadWriteLock>
 #include <QVariantMap>
 #include <QtMath>
+#include <QRegularExpression>
 
 #include <QtDebug>
 
@@ -142,6 +144,54 @@ StreamingPreferences* StreamingPreferences::createDetached(QObject* parent)
     return prefs;
 }
 
+// First launch (user's rule of 2026-11-28, same as Android's NativeDisplayDefaults): the stream
+// starts at the native resolution of this PC's main screen, at the highest refresh rate it offers
+// at that size (58-62 Hz counts as 60, as SystemProperties::refreshDisplays). Only a default: a
+// resolution or a frame rate chosen since is stored and wins. 1280x720 at 60 when SDL cannot tell.
+// The test build never reads this PC's screen: LAV_TEST_NATIVE_MODE=<w>x<h>@<fps> fakes one, and
+// without it the screen is 1280x720 at 60 (the defaults the testbench scenarios count on).
+static void nativeDisplayMode(int& width, int& height, int& fps)
+{
+    width = 1280;
+    height = 720;
+    fps = 60;
+#ifdef LAV_TEST_BUILD
+    QRegularExpressionMatch m = QRegularExpression("^(\\d+)x(\\d+)@(\\d+)$")
+            .match(QString::fromLatin1(qgetenv("LAV_TEST_NATIVE_MODE")));
+    if (m.hasMatch() && m.captured(1).toInt() > 0 && m.captured(2).toInt() > 0 && m.captured(3).toInt() > 0) {
+        width = m.captured(1).toInt();
+        height = m.captured(2).toInt();
+        fps = m.captured(3).toInt();
+    }
+#else
+    if (!SDL_WasInit(SDL_INIT_VIDEO)) {
+        return;
+    }
+    SDL_DisplayMode desktopMode;
+    SDL_Rect safeArea;
+    if (!StreamUtils::getNativeDesktopMode(0, &desktopMode, &safeArea)
+            || desktopMode.w <= 0 || desktopMode.h <= 0 || desktopMode.w > 8192 || desktopMode.h > 8192) {
+        return;
+    }
+    int best = desktopMode.refresh_rate;
+    for (int i = 0; i < SDL_GetNumDisplayModes(0); i++) {
+        SDL_DisplayMode mode;
+        if (SDL_GetDisplayMode(0, i, &mode) == 0 && mode.w == desktopMode.w && mode.h == desktopMode.h
+                && mode.refresh_rate > best) {
+            best = mode.refresh_rate;
+        }
+    }
+    if (best >= 58 && best <= 62) {
+        best = 60;
+    }
+    width = desktopMode.w;
+    height = desktopMode.h;
+    if (best > 0) {
+        fps = best;
+    }
+#endif
+}
+
 void StreamingPreferences::reload()
 {
     ProfileManager* prefs = ProfileManager::instance();
@@ -162,9 +212,11 @@ void StreamingPreferences::reload()
     }
 #endif
 
-    width = prefs->value(SER_WIDTH, 1280).toInt();
-    height = prefs->value(SER_HEIGHT, 720).toInt();
-    fps = prefs->value(SER_FPS, 60).toInt();
+    int nativeWidth, nativeHeight, nativeFps;
+    nativeDisplayMode(nativeWidth, nativeHeight, nativeFps);
+    width = prefs->value(SER_WIDTH, nativeWidth).toInt();
+    height = prefs->value(SER_HEIGHT, nativeHeight).toInt();
+    fps = prefs->value(SER_FPS, nativeFps).toInt();
     enableYUV444 = prefs->value(SER_YUV444, false).toBool();
     bitrateKbps = prefs->value(SER_BITRATE, getDefaultBitrate(width, height, fps, enableYUV444)).toInt();
     autoAdjustBitrate = prefs->value(SER_AUTOADJUSTBITRATE, true).toBool();

@@ -1007,7 +1007,11 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
   (bascule en tête de la liste des pages, propre à la machine) ; une page sans ligne visible disparaîtrait
   (aucune aujourd'hui : Manettes a des lignes normales, « Configurer une manette » en tête). Briques : `SettingRow` (+ `SettingToggle`, `SettingChoice` segmenté ou
   `LavDropdown`, `SettingSlider`, `SettingAction`), popups `LavPopup` / `LavDialog`,
-  `PyroWaveCalibration` (SDR seulement). Les réglages retirés par le tri sont **forcés à leur valeur
+  `PyroWaveCalibration` (SDR seulement). **Premier lancement = l'écran natif** (règle de l'utilisateur, 2026-11-28,
+  comme Android `NativeDisplayDefaults`) : sans largeur / hauteur / images/s enregistrées, `StreamingPreferences::reload()`
+  prend le mode de bureau de l'écran principal SDL et sa plus haute fréquence à cette taille (`nativeDisplayMode()`,
+  58-62 Hz = 60 ; 1280 × 720 à 60 si SDL ne sait pas) ; le débit recommandé suit. Le build de test ne lit jamais l'écran
+  de ce PC : `LAV_TEST_NATIVE_MODE=<l>x<h>@<i/s>` en simule un, sinon 1280 × 720 à 60 (scénario 22 du banc). Les réglages retirés par le tri sont **forcés à leur valeur
   par défaut** dans `StreamingPreferences::reload()` (HDR, mise à l'échelle, boutons de souris inversés,
   défilement inversé, choix de rendu ; optimisations de jeu toujours actives) : plus rien ne pourrait
   les remettre à zéro. La taille de paquet (`--packet-size`) n'est plus enregistrée non plus : elle
@@ -1093,8 +1097,8 @@ mapper de manettes et le benchmark (contrôles Material aux couleurs du thème, 
 - **Débit vidéo, celui d'Android** (`SettingsCatalog` / `seekbar_bitrate_kbps` côté Android) : curseur de
   0,5 à 800 Mbit/s, **3 Gbit/s quand le codec est PyroWave** (`bitrateMax` ; Android :
   `SettingsCatalog.BITRATE_MAX_KBPS` / `BITRATE_MAX_PYROWAVE_KBPS`, `SettingDef.maxFrom`), piste cubique (`SettingSlider.curve: 3` : position =
-  fraction^(1/3), pas de 500 kbit/s, flèches à 1 Mbit/s ×5 puis ×20 comme Android), et « Saisir un débit » (expert)
-  pour toute valeur au-delà. « Débloquer la limite de débit » (`unlockBitrate`, 500 Mbit/s) est **retiré** :
+  fraction^(1/3), pas de 500 kbit/s, flèches à 1 Mbit/s ×5 puis ×20 comme Android) ; « Saisir un débit » est
+  **retiré** des deux clients (2026-11-28). « Débloquer la limite de débit » (`unlockBitrate`, 500 Mbit/s) est **retiré** :
   rien ne borne plus la valeur enregistrée, une valeur saisie, calibrée (PyroWave) ou débloquée auparavant
   reste telle quelle, le curseur se pose alors en bout de piste. PyroWave garde son débit par défaut et son
   calibrage (propres au PC). Le benchmark plafonne à 800 Mbit/s comme Android.

@@ -342,8 +342,8 @@ FocusScope {
     }
     readonly property int defaultKbps: defaultBitrate()
     // Android's row (SettingsCatalog KEY_BITRATE): 0,5 to 800 Mbit/s (3 Gbit/s with PyroWave) on a
-    // cubic track, and « Saisir un débit » for any value past it. A value typed or calibrated above
-    // the track is kept: the knob sits at the end.
+    // cubic track (« Saisir un débit » is removed, 2026-11-28). A value calibrated, or typed by an
+    // earlier version, above the track is kept: the knob sits at the end.
     readonly property int bitrateMin: 500
     // PyroWave needs hundreds of Mbit/s: its track goes much higher (same two values as Android)
     readonly property int bitrateMax: pyroWave ? 3000000 : 800000
@@ -1096,16 +1096,6 @@ FocusScope {
                                 StreamingPreferences.autoAdjustBitrate = true
                                 settingsPage.persist()
                             }
-                        }
-
-                        // Android's « Saisir un débit » (edit_diy_bitrate): any value, past the track's end
-                        SettingAction {
-                            label: qsTr("Saisir un débit")
-                            appWide: true
-                            expert: true
-                            description: qsTr("Une valeur précise, même au-delà du curseur.")
-                            buttonText: qsTr("Saisir…")
-                            onTriggered: customBitrateDialog.open()
                         }
 
                         SettingChoice {
@@ -2041,38 +2031,6 @@ FocusScope {
                 if (changed) settingsPage.applyDefaultBitrateIfAuto()
                 settingsPage.persist()
             }
-        }
-    }
-
-    // « Saisir un débit », Android's texts (SettingsActivity.askBitrate)
-    LavDialog {
-        id: customBitrateDialog
-        title: qsTr("Saisir un débit")
-        text: qsTr("En Mbit/s, avec des décimales si besoin.")
-        acceptText: qsTr("Appliquer")
-        initialFocus: bitrateField.input
-        function kbps() {
-            var m = parseFloat(bitrateField.text.replace(",", "."))
-            return isNaN(m) ? 0 : Math.round(m * 1000)
-        }
-        acceptEnabled: kbps() > 0
-        fields: [
-            LavTextField {
-                id: bitrateField
-                width: 220
-                maximumLength: 7
-                placeholderText: "40"
-                validator: RegularExpressionValidator { regularExpression: /^[0-9]{0,4}([.,][0-9]{0,1})?$/ }
-                onAccepted: customBitrateDialog.accept()
-            }
-        ]
-        onAboutToShow: bitrateField.text = settingsPage.mbps(StreamingPreferences.bitrateKbps)
-        onAccepted: {
-            var v = kbps()
-            if (v <= 0) return
-            StreamingPreferences.bitrateKbps = v
-            StreamingPreferences.autoAdjustBitrate = false
-            settingsPage.persist()
         }
     }
 
